@@ -1,0 +1,44 @@
+/* 인쇄 / PDF 출력 - A4 한 장에 계약서만 출력 */
+@page {
+  size: A4 landscape;
+  margin: 8mm;
+}
+
+@media print {
+  html, body { background: #fff !important; }
+  .no-print { display: none !important; }
+
+  #app { min-height: 0; }
+
+  .contract {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    font-size: 11px;
+  }
+
+  .c-head h1 { font-size: 26px; }
+  .sec { font-size: 14px; padding: 3px; }
+  .grid th, .grid td { padding: 2px 5px; }
+  .note, .terms-list li { font-size: 10px; }
+
+  /* 입력 필드를 일반 텍스트처럼 (배경·테두리 제거) */
+  input.f {
+    border: none !important;
+    background: transparent !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 배경색(섹션 헤더 등) 인쇄되도록 */
+  .sec, .lbl, .sign-label {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 페이지 잘림 방지 */
+  table, tr, td, th { page-break-inside: avoid; }
+}

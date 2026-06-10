@@ -1,0 +1,14 @@
+# 데이터베이스 (계약 데이터) - 백업은 data 폴더를 복사하세요
+/data/*.db
+/data/*.db-shm
+/data/*.db-wal
+
+# 의존성 (현재 외부 의존성 없음)
+node_modules/
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/

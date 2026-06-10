@@ -1,0 +1,14 @@
+{
+  "name": "contract-os",
+  "version": "1.0.0",
+  "description": "세움디자인하우징 전산 계약서 시스템 - 계약서 작성, 금액 자동계산, 인쇄/PDF, 계약 건 저장·관리",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node --no-warnings server.js",
+    "dev": "node --no-warnings --watch server.js"
+  }
+}
