@@ -25,6 +25,18 @@ npm start          # 또는: node --no-warnings server.js
 
 > 포트를 바꾸려면: `PORT=8080 npm start`
 
+## 배포 (Netlify)
+
+이 저장소는 Netlify 배포에 맞춰 구성돼 있습니다.
+
+- 프론트엔드(화면)는 `public/` 폴더가 정적 호스팅됩니다.
+- 저장 API는 **Netlify Functions**(`netlify/functions/api.mjs`)로 동작하며, 데이터는 **Netlify Blobs**(Netlify 내장 영구 저장소)에 저장됩니다.
+- 설정은 `netlify.toml`에 들어 있어, Netlify에 저장소를 연결하면 자동으로 빌드·배포됩니다.
+
+> Netlify는 상시 서버를 실행하지 못하므로, 로컬용 `server.js`(SQLite) 대신 배포 환경에서는 Functions + Blobs가 같은 REST API를 제공합니다. 프론트엔드 코드는 동일하게 동작합니다.
+>
+> Netlify 대시보드에서 **Production branch가 배포할 브랜치(main)** 로 설정돼 있는지 확인하세요. Blobs는 별도 설정 없이 자동 활성화됩니다(무료).
+
 ## 데이터 저장 / 백업
 
 - 모든 계약 데이터는 `data/contracts.db` (SQLite) 파일 하나에 저장됩니다.

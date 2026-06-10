@@ -1,0 +1,10 @@
+# Netlify 배포 설정
+# - 정적 프론트엔드는 public/ 폴더에서 서빙
+# - 저장 API는 Netlify Functions(서버리스) + Netlify Blobs(영구 저장소)로 처리
+
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"

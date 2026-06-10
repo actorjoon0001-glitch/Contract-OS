@@ -10,5 +10,8 @@
   "scripts": {
     "start": "node --no-warnings server.js",
     "dev": "node --no-warnings --watch server.js"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
   }
 }
