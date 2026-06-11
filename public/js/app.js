@@ -1,9 +1,11 @@
 import { api } from './api.js';
 import {
   SUPPLIER, emptyContract, recalc, paymentRemaining,
-  fmtMan, manToKorean, normalizeSignatures,
+  fmtMan, manToKorean, normalizeContract, computeIntegrityHash,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
+
+let editorLocked = false; // 확정 상태이면 true (입력·서명 잠금)
 
 const app = document.getElementById('app');
 let current = null;     // 편집 중인 계약 객체
@@ -122,13 +124,14 @@ async function openEditor(id) {
   } else {
     current = emptyContract();
   }
-  normalizeSignatures(current);
+  normalizeContract(current);
   recalc(current);
   renderEditor();
 }
 
 function renderEditor() {
   const c = current;
+  editorLocked = c.status === 'confirmed';
   const [y, mo, d] = (c.contractDate || '').split('-');
 
   app.innerHTML = `
@@ -273,10 +276,14 @@ function renderTerms() {
 
 // 입력 필드 생성 (인쇄 시 밑줄/테두리 없는 텍스트처럼 보임)
 function field(path, value, cls = '', align = '') {
-  return `<input class="f ${cls} ${align}" data-path="${path}" value="${esc(value)}" />`;
+  const lock = editorLocked ? 'readonly' : '';
+  const lc = editorLocked ? 'locked' : '';
+  return `<input class="f ${cls} ${align} ${lc}" data-path="${path}" value="${esc(value)}" ${lock} />`;
 }
 function dateField(part, value, suffix, size) {
-  return `<input class="f date ${part}" data-date="${part}" value="${esc(value || '')}" size="${size}" placeholder="${suffix === '년' ? '____' : '__'}" /><span class="unit3">${suffix}</span>`;
+  const lock = editorLocked ? 'readonly' : '';
+  const lc = editorLocked ? 'locked' : '';
+  return `<input class="f date ${part} ${lc}" data-date="${part}" value="${esc(value || '')}" size="${size}" placeholder="${suffix === '년' ? '____' : '__'}" ${lock} /><span class="unit3">${suffix}</span>`;
 }
 
 // ---------- 전자 서명 ----------
@@ -288,11 +295,14 @@ function signSlot(party) {
 function signSlotInner(party) {
   const sig = current.signatures?.[party] || {};
   if (sig.image) {
-    return `<span class="sig-wrap signed" data-sign="${party}" title="클릭하여 다시 서명">
+    const clickable = editorLocked ? '' : `data-sign="${party}"`;
+    const title = editorLocked ? '확정·봉인됨' : '클릭하여 다시 서명';
+    return `<span class="sig-wrap signed ${editorLocked ? 'locked' : ''}" ${clickable} title="${title}">
         <img class="sig-img" src="${esc(sig.image)}" alt="서명" />
         ${sig.signedAt ? `<span class="sig-date no-print">${esc(fmtSignDate(sig.signedAt))} 전자서명</span>` : ''}
       </span>`;
   }
+  if (editorLocked) return `<span class="seal">(인)</span>`;
   return `<button type="button" class="sig-btn no-print" data-sign="${party}">✎ 서명</button><span class="seal print-only">(인)</span>`;
 }
 
@@ -313,8 +323,8 @@ function bindSign(scope) {
         initial: current.signatures?.[party]?.image || '',
         onSave: (dataUrl) => {
           current.signatures[party] = dataUrl
-            ? { image: dataUrl, signedAt: new Date().toISOString() }
-            : { image: '', signedAt: '' };
+            ? { image: dataUrl, signedAt: new Date().toISOString(), agent: navigator.userAgent }
+            : { image: '', signedAt: '', agent: '' };
           markDirty();
           const host = document.getElementById('sign-host-' + party);
           if (host) { host.innerHTML = signSlotInner(party); bindSign(host); }
@@ -328,12 +338,26 @@ function bindSign(scope) {
 function bindEditor() {
   document.getElementById('save-btn').onclick = saveContract;
   document.getElementById('print-btn').onclick = () => window.print();
-  document.getElementById('status-confirmed').onchange = (e) => {
-    current.status = e.target.checked ? 'confirmed' : 'draft';
+  document.getElementById('status-confirmed').onchange = async (e) => {
+    if (e.target.checked) {
+      // 확정: 무결성 봉인 후 잠금
+      current.status = 'confirmed';
+      await sealContract();
+    } else {
+      // 확정 해제: 봉인 깨짐 경고
+      if (!confirm('확정을 해제하면 전자 서명 무결성 봉인이 깨집니다. 내용을 다시 수정하시겠습니까?')) {
+        e.target.checked = true;
+        return;
+      }
+      current.status = 'draft';
+      current.integrity = { hash: '', sealedAt: '', agent: '' };
+    }
     markDirty();
+    renderEditor();
   };
 
   bindSign(app);
+  updateSealBanner();
 
   app.querySelectorAll('input.f[data-path]').forEach((inp) => {
     inp.addEventListener('input', () => {
@@ -365,6 +389,36 @@ function markDirty() {
   dirty = true;
   const f = document.getElementById('dirty-flag');
   if (f) f.textContent = '● 미저장';
+}
+
+// 확정 시점의 계약 내용+서명을 해시로 봉인
+async function sealContract() {
+  current.integrity = { hash: '', sealedAt: new Date().toISOString(), agent: navigator.userAgent };
+  current.integrity.hash = await computeIntegrityHash(current);
+}
+
+// 무결성 봉인 상태 배너 (확정 후 변경 여부 검증)
+async function updateSealBanner() {
+  const contractEl = document.getElementById('contract');
+  if (!contractEl) return;
+  let banner = document.getElementById('seal-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'seal-banner';
+    banner.className = 'seal-banner no-print';
+    contractEl.prepend(banner);
+  }
+  if (current.status === 'confirmed' && current.integrity?.hash) {
+    const ok = (await computeIntegrityHash(current)) === current.integrity.hash;
+    const when = fmtSignDate(current.integrity.sealedAt);
+    banner.className = `seal-banner no-print ${ok ? 'ok' : 'bad'}`;
+    banner.innerHTML = ok
+      ? `🔒 <b>확정·봉인됨</b> — 확정(${esc(when)}) 이후 내용 변경 없음. 수정하려면 상단 ‘확정’을 해제하세요.`
+      : `⚠ <b>무결성 경고</b> — 확정(${esc(when)}) 이후 계약 내용 또는 서명이 변경되었습니다.`;
+  } else {
+    banner.className = 'seal-banner no-print';
+    banner.innerHTML = '';
+  }
 }
 
 // 자동계산 결과를 화면에 반영
