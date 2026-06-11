@@ -65,22 +65,41 @@ export function emptyContract() {
       phone: '',
       address: '',
     },
-    // 전자 서명 (캔버스로 그린 PNG data URL + 서명 시각)
+    // 전자 서명 (캔버스로 그린 PNG data URL + 서명 시각 + 서명 기기)
     signatures: {
-      supplier: { image: '', signedAt: '' }, // 공급자(대표)
-      client: { image: '', signedAt: '' },   // 계약자(건축주)
+      supplier: { image: '', signedAt: '', agent: '' }, // 공급자(대표)
+      client: { image: '', signedAt: '', agent: '' },   // 계약자(건축주)
     },
+    // 무결성 봉인 (확정 시 계약 내용+서명의 해시를 기록 → 이후 변경 여부 검증)
+    integrity: { hash: '', sealedAt: '', agent: '' },
   };
 }
 
-// 이전에 저장된 계약(서명 필드 없음)도 안전하게 다루도록 기본 구조 보정
-export function normalizeSignatures(contract) {
+const oneSig = (s) => ({ image: s?.image || '', signedAt: s?.signedAt || '', agent: s?.agent || '' });
+
+// 이전에 저장된 계약(서명/무결성 필드 없음)도 안전하게 다루도록 기본 구조 보정
+export function normalizeContract(contract) {
   const s = contract.signatures || {};
-  contract.signatures = {
-    supplier: { image: s.supplier?.image || '', signedAt: s.supplier?.signedAt || '' },
-    client: { image: s.client?.image || '', signedAt: s.client?.signedAt || '' },
-  };
+  contract.signatures = { supplier: oneSig(s.supplier), client: oneSig(s.client) };
+  const i = contract.integrity || {};
+  contract.integrity = { hash: i.hash || '', sealedAt: i.sealedAt || '', agent: i.agent || '' };
   return contract;
+}
+
+// 키 순서에 무관하게 안정적인 JSON 문자열 (해시 입력용)
+function stableStringify(v) {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
+  const keys = Object.keys(v).sort();
+  return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
+}
+
+// 계약 내용(integrity 필드 제외)의 SHA-256 지문 — 브라우저 Web Crypto 사용
+export async function computeIntegrityHash(contract) {
+  const { integrity, contractNo, ...rest } = contract; // 봉인값·채번은 내용 변경과 무관하므로 제외
+  const bytes = new TextEncoder().encode(stableStringify(rest));
+  const buf = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 const num = (v) => {
