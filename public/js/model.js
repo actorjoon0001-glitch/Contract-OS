@@ -65,7 +65,22 @@ export function emptyContract() {
       phone: '',
       address: '',
     },
+    // 전자 서명 (캔버스로 그린 PNG data URL + 서명 시각)
+    signatures: {
+      supplier: { image: '', signedAt: '' }, // 공급자(대표)
+      client: { image: '', signedAt: '' },   // 계약자(건축주)
+    },
   };
+}
+
+// 이전에 저장된 계약(서명 필드 없음)도 안전하게 다루도록 기본 구조 보정
+export function normalizeSignatures(contract) {
+  const s = contract.signatures || {};
+  contract.signatures = {
+    supplier: { image: s.supplier?.image || '', signedAt: s.supplier?.signedAt || '' },
+    client: { image: s.client?.image || '', signedAt: s.client?.signedAt || '' },
+  };
+  return contract;
 }
 
 const num = (v) => {

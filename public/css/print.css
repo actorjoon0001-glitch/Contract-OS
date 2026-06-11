@@ -39,6 +39,14 @@
     print-color-adjust: exact;
   }
 
+  /* 전자 서명: 화면 전용 버튼은 숨기고, 미서명란은 "(인)" 표시, 서명 이미지는 그대로 인쇄 */
+  .print-only { display: inline !important; }
+  .sig-img {
+    height: 42px; max-width: 180px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   /* 페이지 잘림 방지 */
   table, tr, td, th { page-break-inside: avoid; }
 }

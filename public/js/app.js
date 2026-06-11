@@ -1,8 +1,9 @@
 import { api } from './api.js';
 import {
   SUPPLIER, emptyContract, recalc, paymentRemaining,
-  fmtMan, manToKorean,
+  fmtMan, manToKorean, normalizeSignatures,
 } from './model.js';
+import { openSignaturePad } from './sign.js';
 
 const app = document.getElementById('app');
 let current = null;     // 편집 중인 계약 객체
@@ -121,6 +122,7 @@ async function openEditor(id) {
   } else {
     current = emptyContract();
   }
+  normalizeSignatures(current);
   recalc(current);
   renderEditor();
 }
@@ -174,14 +176,14 @@ function renderEditor() {
           <td rowspan="3" class="sign-label">공급자</td>
           <td class="sign-co">${esc(SUPPLIER.company)}</td>
           <td rowspan="3" class="sign-label">계약자<br><span class="muted small">(건축주)</span></td>
-          <td class="sign-field"><span class="fl">건축주</span> ${field('client.name', c.client.name, 'name')} <span class="seal">(인)</span></td>
+          <td class="sign-field"><span class="fl">건축주</span> <span class="sign-name">${field('client.name', c.client.name, 'name')}</span> ${signSlot('client')}</td>
         </tr>
         <tr>
           <td class="sign-co">사업자번호 : ${esc(SUPPLIER.bizNo)}</td>
           <td class="sign-field"><span class="fl">생년월일</span> ${field('client.birth', c.client.birth)}</td>
         </tr>
         <tr>
-          <td class="sign-co">대표 ${esc(SUPPLIER.ceo)} <span class="seal">(인)</span></td>
+          <td class="sign-co">대표 ${esc(SUPPLIER.ceo)} ${signSlot('supplier')}</td>
           <td class="sign-field"><span class="fl">연락처</span> ${field('client.phone', c.client.phone)}</td>
         </tr>
         <tr>
@@ -277,6 +279,51 @@ function dateField(part, value, suffix, size) {
   return `<input class="f date ${part}" data-date="${part}" value="${esc(value || '')}" size="${size}" placeholder="${suffix === '년' ? '____' : '__'}" /><span class="unit3">${suffix}</span>`;
 }
 
+// ---------- 전자 서명 ----------
+// 서명 슬롯: 서명 전에는 "✎ 서명" 버튼(화면) + 인쇄용 "(인)", 서명 후에는 서명 이미지
+function signSlot(party) {
+  return `<span class="sign-host" id="sign-host-${party}" data-sign-host="${party}">${signSlotInner(party)}</span>`;
+}
+
+function signSlotInner(party) {
+  const sig = current.signatures?.[party] || {};
+  if (sig.image) {
+    return `<span class="sig-wrap signed" data-sign="${party}" title="클릭하여 다시 서명">
+        <img class="sig-img" src="${esc(sig.image)}" alt="서명" />
+        ${sig.signedAt ? `<span class="sig-date no-print">${esc(fmtSignDate(sig.signedAt))} 전자서명</span>` : ''}
+      </span>`;
+  }
+  return `<button type="button" class="sig-btn no-print" data-sign="${party}">✎ 서명</button><span class="seal print-only">(인)</span>`;
+}
+
+function fmtSignDate(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// 서명 슬롯에 클릭 이벤트 연결 (서명 패드 열기)
+function bindSign(scope) {
+  scope.querySelectorAll('[data-sign]').forEach((el) => {
+    el.onclick = () => {
+      const party = el.dataset.sign;
+      openSignaturePad({
+        title: party === 'supplier' ? '공급자(대표) 전자 서명' : '계약자(건축주) 전자 서명',
+        initial: current.signatures?.[party]?.image || '',
+        onSave: (dataUrl) => {
+          current.signatures[party] = dataUrl
+            ? { image: dataUrl, signedAt: new Date().toISOString() }
+            : { image: '', signedAt: '' };
+          markDirty();
+          const host = document.getElementById('sign-host-' + party);
+          if (host) { host.innerHTML = signSlotInner(party); bindSign(host); }
+        },
+      });
+    };
+  });
+}
+
 // ---------- 편집 이벤트 ----------
 function bindEditor() {
   document.getElementById('save-btn').onclick = saveContract;
@@ -285,6 +332,8 @@ function bindEditor() {
     current.status = e.target.checked ? 'confirmed' : 'draft';
     markDirty();
   };
+
+  bindSign(app);
 
   app.querySelectorAll('input.f[data-path]').forEach((inp) => {
     inp.addEventListener('input', () => {
