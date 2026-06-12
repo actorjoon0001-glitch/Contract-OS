@@ -8,15 +8,22 @@ export const SUPPLIER = {
   bankAccount: '332-910069-81104 하나은행',
 };
 
-// 주문내용 8개 항목 (원본 양식 단가 그대로) — unit: '평당' | '정액'
+// 이동 설치비 거리 구간별 금액(만원) — 필요 시 구간/금액을 여기서 추가·수정
+export const DISTANCE_TIERS = [
+  { label: '100km 이내', amount: 200 },
+  { label: '200km 이내', amount: 300 },
+  { label: '400km 이내', amount: 500 },
+];
+
+// 주문내용 8개 항목 (원본 양식 단가 그대로) — unit: '평당' | '정액' | '거리'
 export function defaultItems() {
   return [
     { no: '1', name: '<인허가> 토목설계', unit: '정액', unitPrice: 450, area: '', amount: '', note: '인허가 기간 평균 1~2달 이상 소요' },
     { no: '1', name: '<인허가> 건축설계', unit: '정액', unitPrice: 450, area: '', amount: '', note: '' },
     { no: '2', name: '약식 기초공사(평당)', unit: '평당', unitPrice: 110, area: '', amount: '', note: '높이400T / 기초에 관한 기본설비 포함' },
     { no: '3', name: '건물건축비(평당)', unit: '평당', unitPrice: 380, area: '', amount: '', note: '' },
-    { no: '4', name: '현장 시공비', unit: '정액', unitPrice: 80, area: '', amount: '', note: '현장시공시 처마 가능함' },
-    { no: '5', name: '이동 설치비', unit: '정액', unitPrice: '', area: '', amount: '', note: '트럭+크레인(25톤기준)+주춧돌+설치인원 포함 (현장상황에 따른 추가금 있음)' },
+    { no: '4', name: '현장 시공비(평당)', unit: '평당', unitPrice: 80, area: '', amount: '', note: '현장시공시 처마 가능함' },
+    { no: '5', name: '이동 설치비', unit: '거리', unitPrice: '', area: '', amount: '', tier: '', note: '트럭+크레인(25톤기준)+주춧돌+설치인원 포함 (현장상황에 따른 추가금 있음)' },
     { no: '6', name: '포치/데크(평당)', unit: '평당', unitPrice: 190, area: '', amount: '', note: '아연각관+합성데크판 사용(방부목X) / 데크 평당 85만원' },
     { no: '7', name: '썬룸(평당)', unit: '평당', unitPrice: 300, area: '', amount: '', note: '썬룸,포치는 하부3면 사이딩 마감. 폴딩도어는 추가금 발생' },
     { no: '8', name: '습식난방 가스/기름', unit: '정액', unitPrice: 600, area: '', amount: '', note: '토목공사 및 정화조는 현장답사하여 건축주와 협의 후 진행' },

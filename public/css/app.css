@@ -105,6 +105,14 @@ html, body {
 .item-no { font-weight: 700; }
 .item-price { color: var(--brand); font-weight: 700; margin-left: 2px; }
 .area-input { margin-left: 4px; white-space: nowrap; }
+.dist-input { margin-left: 4px; white-space: nowrap; }
+select.f.dist {
+  border: 1px solid #c9d3df; border-radius: 5px; background: #f4f9ff;
+  font: inherit; font-size: 12px; padding: 1px 4px; color: #111; outline: none; cursor: pointer;
+}
+select.f.dist:focus { background: #fff5d6; border-color: var(--brand); }
+select.f.dist.locked { background: #f1f3f5; cursor: default; }
+.dist-print { font-weight: 600; }
 .note { font-size: 12px; line-height: 1.25; }
 
 .datecell, .sitecell { }
