@@ -465,7 +465,7 @@ function updateTotals() {
   }
   if (current.amounts.productTotal > 0) {
     const won = manToKorean(current.amounts.productTotal);
-    hint.innerHTML = `<span class="ok">✔ 결제 스케줄 자동 배분</span> 계약금 10% · 중도금 각 30% · 잔금 나머지 · 제품합계 ${won}`;
+    hint.innerHTML = `<span class="ok">✔ 결제 스케줄 자동 배분</span> 계약금 10% · 중도금 각 30% (백만원 단위 내림) · 잔금 나머지 · 제품합계 ${won}`;
   } else {
     hint.innerHTML = '';
   }

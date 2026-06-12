@@ -112,7 +112,8 @@ const num = (v) => {
 // 결제 스케줄 자동 배분 비율 (제품합계 기준)
 export const PAY_DOWN_RATE = 0.10;    // 계약금 10%
 export const PAY_INTERIM_RATE = 0.30; // 중도금 1·2·3 각 30%
-// 잔금은 나머지(= 총액 - 계약금 - 중도금 합계)
+export const PAY_UNIT_MAN = 100;      // 계약금·중도금 내림 단위: 백만원(=100만원)
+// 계약금·중도금은 백만원 단위로 내림, 잔금은 나머지(= 총액 - 계약금 - 중도금 합계)
 
 // 항목 금액(평당이면 평수×단가) 및 공급가/부가세/제품합계/결제스케줄 자동계산
 export function recalc(contract) {
@@ -131,12 +132,14 @@ export function recalc(contract) {
   a.vat = Math.round(a.productSupply * 0.1);
   a.productTotal = a.productSupply + a.vat;
 
-  // 결제 스케줄 자동 배분 (총액 기준, 잔금 = 나머지)
+  // 결제 스케줄 자동 배분 (총액 기준)
+  // 계약금·중도금은 백만원 단위로 내림, 끝자리는 잔금이 흡수
   const total = a.productTotal;
-  a.downPayment = Math.round(total * PAY_DOWN_RATE);
-  a.interim1 = Math.round(total * PAY_INTERIM_RATE);
-  a.interim2 = Math.round(total * PAY_INTERIM_RATE);
-  a.interim3 = Math.round(total * PAY_INTERIM_RATE);
+  const floorUnit = (v) => Math.floor(v / PAY_UNIT_MAN) * PAY_UNIT_MAN;
+  a.downPayment = floorUnit(total * PAY_DOWN_RATE);
+  a.interim1 = floorUnit(total * PAY_INTERIM_RATE);
+  a.interim2 = floorUnit(total * PAY_INTERIM_RATE);
+  a.interim3 = floorUnit(total * PAY_INTERIM_RATE);
   a.balance = total - a.downPayment - a.interim1 - a.interim2 - a.interim3;
   return contract;
 }
