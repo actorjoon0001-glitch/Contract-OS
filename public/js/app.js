@@ -237,14 +237,14 @@ function leftCell(row) {
       </td>`;
   }
   if (row.type === 'supply') {
-    // 직접 입력 우선, 비우면 항목 합계 자동 (항목 합계는 placeholder/인쇄용 span 으로 표시)
+    // 주문내용 금액 합계가 자동으로 채워짐. 직접 입력하면 그 값이 우선됨.
     const ro = editorLocked ? 'readonly' : '';
     const lc = editorLocked ? 'locked' : '';
     const manualEmpty = c.amounts.supplyManual === '' || c.amounts.supplyManual == null;
+    const shown = manualEmpty ? fmtMan(c.amounts.itemsSupply) : c.amounts.supplyManual;
     return `<td class="lbl">${row.label}</td>
       <td colspan="2" class="amt">
-        <input class="f amt right ${lc}" data-path="amounts.supplyManual" value="${esc(c.amounts.supplyManual)}" placeholder="${esc(fmtMan(c.amounts.itemsSupply))}" ${ro} />
-        <span class="supply-print print-only">${manualEmpty ? fmtMan(c.amounts.productSupply) : ''}</span>
+        <input class="f amt right ${lc}" data-path="amounts.supplyManual" value="${esc(shown)}" title="주문내용 금액의 합계가 자동 입력됩니다. 직접 입력하면 그 값이 우선됩니다(지우면 다시 합계)." ${ro} />
         <span class="unit">만원</span>
       </td>`;
   }
@@ -400,6 +400,13 @@ function bindEditor() {
   // 비고 textarea 초기 높이 맞춤 (저장된 내용이 모두 보이도록)
   app.querySelectorAll('textarea.f').forEach(autoGrow);
 
+  // 제품공급가: 직접 입력을 비우고 빠져나가면 주문내용 합계로 복귀
+  const supplyInput = app.querySelector('input[data-path="amounts.supplyManual"]');
+  if (supplyInput) supplyInput.addEventListener('blur', () => {
+    const manualEmpty = current.amounts.supplyManual === '' || current.amounts.supplyManual == null;
+    if (manualEmpty) supplyInput.value = fmtMan(current.amounts.itemsSupply);
+  });
+
   // 계약일자 (년/월/일 → contractDate 합성)
   app.querySelectorAll('input.f.date[data-date]').forEach((inp) => {
     inp.addEventListener('input', () => {
@@ -454,13 +461,11 @@ function updateTotals() {
   app.querySelectorAll('[data-total]').forEach((el) => {
     el.textContent = fmtMan(current.amounts[el.dataset.total]);
   });
-  // 제품공급가: 항목 합계(placeholder)와 인쇄용 표시 동기화
+  // 제품공급가: 직접 입력값이 없으면 주문내용 금액 합계를 실시간 반영
   const supplyInput = app.querySelector('input[data-path="amounts.supplyManual"]');
-  if (supplyInput) supplyInput.placeholder = fmtMan(current.amounts.itemsSupply);
-  const supplyPrint = app.querySelector('.supply-print');
-  if (supplyPrint) {
+  if (supplyInput && document.activeElement !== supplyInput) {
     const manualEmpty = current.amounts.supplyManual === '' || current.amounts.supplyManual == null;
-    supplyPrint.textContent = manualEmpty ? fmtMan(current.amounts.productSupply) : '';
+    if (manualEmpty) supplyInput.value = fmtMan(current.amounts.itemsSupply);
   }
   // 평당 항목은 금액칸도 자동 갱신 (사용자가 평수 입력 시)
   current.items.forEach((it, i) => {
