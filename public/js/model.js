@@ -50,14 +50,16 @@ export function emptyContract() {
     items: defaultItems(),
     terms: defaultTerms(),
     amounts: {
-      productSupply: 0, // 제품공급가 (항목 합계, 자동)
-      vat: 0,           // 부가세 (자동)
-      productTotal: 0,  // 제품 합계 (자동)
-      downPayment: '',  // 계약금
-      interim1: '',     // 중도금1 (기초공사 완료 후)
-      interim2: '',     // 중도금2 (철골공사 완료 후)
-      interim3: '',     // 중도금3 (지붕·외장 완료 후)
-      balance: '',      // 잔금 (준공서류 전달/출고 전)
+      supplyManual: '',  // 제품공급가 직접 입력 (비우면 항목 합계 사용)
+      itemsSupply: 0,    // 우측 항목 금액 합계 (참고/플레이스홀더용)
+      productSupply: 0,  // 제품공급가 (직접입력 우선, 없으면 항목 합계)
+      vat: 0,            // 부가세 (자동)
+      productTotal: 0,   // 제품 합계 (자동)
+      downPayment: 0,    // 계약금 (총액 10%, 자동)
+      interim1: 0,       // 중도금1 (총액 30%, 자동)
+      interim2: 0,       // 중도금2 (총액 30%, 자동)
+      interim3: 0,       // 중도금3 (총액 30%, 자동)
+      balance: 0,        // 잔금 (나머지, 자동)
     },
     client: {
       name: '',
@@ -107,19 +109,35 @@ const num = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-// 항목 금액(평당이면 평수×단가) 및 합계/부가세/제품합계 자동계산
+// 결제 스케줄 자동 배분 비율 (제품합계 기준)
+export const PAY_DOWN_RATE = 0.10;    // 계약금 10%
+export const PAY_INTERIM_RATE = 0.30; // 중도금 1·2·3 각 30%
+// 잔금은 나머지(= 총액 - 계약금 - 중도금 합계)
+
+// 항목 금액(평당이면 평수×단가) 및 공급가/부가세/제품합계/결제스케줄 자동계산
 export function recalc(contract) {
-  let supply = 0;
+  let itemsSum = 0;
   for (const it of contract.items) {
     if (it.unit === '평당' && num(it.area) > 0 && num(it.unitPrice) > 0) {
       it.amount = num(it.area) * num(it.unitPrice);
     }
-    supply += num(it.amount);
+    itemsSum += num(it.amount);
   }
   const a = contract.amounts;
-  a.productSupply = Math.round(supply);
-  a.vat = Math.round(supply * 0.1);
+  a.itemsSupply = Math.round(itemsSum);
+  // 제품공급가: 직접 입력값이 있으면 우선, 없으면 항목 합계
+  const hasManual = a.supplyManual !== '' && a.supplyManual != null;
+  a.productSupply = hasManual ? Math.round(num(a.supplyManual)) : a.itemsSupply;
+  a.vat = Math.round(a.productSupply * 0.1);
   a.productTotal = a.productSupply + a.vat;
+
+  // 결제 스케줄 자동 배분 (총액 기준, 잔금 = 나머지)
+  const total = a.productTotal;
+  a.downPayment = Math.round(total * PAY_DOWN_RATE);
+  a.interim1 = Math.round(total * PAY_INTERIM_RATE);
+  a.interim2 = Math.round(total * PAY_INTERIM_RATE);
+  a.interim3 = Math.round(total * PAY_INTERIM_RATE);
+  a.balance = total - a.downPayment - a.interim1 - a.interim2 - a.interim3;
   return contract;
 }
 

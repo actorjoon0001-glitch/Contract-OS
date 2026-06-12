@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import {
-  SUPPLIER, emptyContract, recalc, paymentRemaining,
+  SUPPLIER, emptyContract, recalc,
   fmtMan, manToKorean, normalizeContract, computeIntegrityHash,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
@@ -207,7 +207,7 @@ function renderRows() {
   const c = current;
   // 좌측(계약금액) 행 정의
   const left = [
-    { label: '제품공급가', type: 'calc', key: 'productSupply' },
+    { label: '제품공급가', type: 'supply', key: 'productSupply' },
     { label: '부가세(Vat)', type: 'calc', key: 'vat' },
     { label: '제품 합계', type: 'calc', key: 'productTotal', strong: true },
     { label: '계약금', type: 'pay', key: 'downPayment' },
@@ -236,9 +236,22 @@ function leftCell(row) {
         <span class="auto" data-total="${row.key}">${fmtMan(c.amounts[row.key])}</span> <span class="unit">만원</span>
       </td>`;
   }
-  if (row.type === 'pay') {
+  if (row.type === 'supply') {
+    // 직접 입력 우선, 비우면 항목 합계 자동 (항목 합계는 placeholder/인쇄용 span 으로 표시)
+    const ro = editorLocked ? 'readonly' : '';
+    const lc = editorLocked ? 'locked' : '';
+    const manualEmpty = c.amounts.supplyManual === '' || c.amounts.supplyManual == null;
     return `<td class="lbl">${row.label}</td>
-      <td class="amt">${field('amounts.' + row.key, c.amounts[row.key], 'amt', 'right')} <span class="unit">만원</span></td>
+      <td colspan="2" class="amt">
+        <input class="f amt right ${lc}" data-path="amounts.supplyManual" value="${esc(c.amounts.supplyManual)}" placeholder="${esc(fmtMan(c.amounts.itemsSupply))}" ${ro} />
+        <span class="supply-print print-only">${manualEmpty ? fmtMan(c.amounts.productSupply) : ''}</span>
+        <span class="unit">만원</span>
+      </td>`;
+  }
+  if (row.type === 'pay') {
+    // 자동 배분 값 (읽기전용 표시)
+    return `<td class="lbl">${row.label}</td>
+      <td class="amt"><span class="auto" data-total="${row.key}">${fmtMan(c.amounts[row.key])}</span> <span class="unit">만원</span></td>
       <td class="cond muted small">${row.cond || ''}</td>`;
   }
   if (row.type === 'date') {
@@ -427,6 +440,14 @@ function updateTotals() {
   app.querySelectorAll('[data-total]').forEach((el) => {
     el.textContent = fmtMan(current.amounts[el.dataset.total]);
   });
+  // 제품공급가: 항목 합계(placeholder)와 인쇄용 표시 동기화
+  const supplyInput = app.querySelector('input[data-path="amounts.supplyManual"]');
+  if (supplyInput) supplyInput.placeholder = fmtMan(current.amounts.itemsSupply);
+  const supplyPrint = app.querySelector('.supply-print');
+  if (supplyPrint) {
+    const manualEmpty = current.amounts.supplyManual === '' || current.amounts.supplyManual == null;
+    supplyPrint.textContent = manualEmpty ? fmtMan(current.amounts.productSupply) : '';
+  }
   // 평당 항목은 금액칸도 자동 갱신 (사용자가 평수 입력 시)
   current.items.forEach((it, i) => {
     if (it.unit === '평당') {
@@ -434,8 +455,7 @@ function updateTotals() {
       if (inp && document.activeElement !== inp) inp.value = fmtMan(it.amount);
     }
   });
-  // 결제 스케줄 잔액 안내
-  const remain = paymentRemaining(current);
+  // 결제 스케줄 안내 (자동 배분: 계약금 10% · 중도금 각 30% · 잔금 나머지)
   let hint = document.getElementById('pay-hint');
   if (!hint) {
     hint = document.createElement('div');
@@ -445,13 +465,7 @@ function updateTotals() {
   }
   if (current.amounts.productTotal > 0) {
     const won = manToKorean(current.amounts.productTotal);
-    if (Math.abs(remain) < 0.5) {
-      hint.innerHTML = `<span class="ok">✔ 결제 스케줄 합계가 제품합계와 일치합니다.</span> 제품합계 ${won}`;
-    } else if (remain > 0) {
-      hint.innerHTML = `<span class="warn">⚠ 미배정 잔액 ${fmtMan(remain)}만원</span> · 제품합계 ${won}`;
-    } else {
-      hint.innerHTML = `<span class="warn">⚠ 결제 합계가 제품합계를 ${fmtMan(-remain)}만원 초과</span> · 제품합계 ${won}`;
-    }
+    hint.innerHTML = `<span class="ok">✔ 결제 스케줄 자동 배분</span> 계약금 10% · 중도금 각 30% · 잔금 나머지 · 제품합계 ${won}`;
   } else {
     hint.innerHTML = '';
   }
