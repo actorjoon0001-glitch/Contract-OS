@@ -25,13 +25,15 @@
   .note, .terms-list li { font-size: 10px; }
 
   /* 입력 필드를 일반 텍스트처럼 (배경·테두리 제거) */
-  input.f {
+  input.f, textarea.f {
     border: none !important;
     background: transparent !important;
     color: #000 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+  /* 비고 textarea: 잘리지 않고 전체 내용 출력 */
+  textarea.f.note { overflow: visible !important; resize: none; }
 
   /* 배경색(섹션 헤더 등) 인쇄되도록 */
   .sec, .lbl, .sign-label {
