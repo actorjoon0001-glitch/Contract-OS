@@ -165,6 +165,15 @@ function renderEditor() {
         ${renderRows()}
       </table>
 
+      <table class="grid extra-grid">
+        <tr><th class="sec extra-head">[ 서비스 · 기타 내용 ]</th></tr>
+        <tr>
+          <td class="extra-cell">
+            <textarea class="f extra ${editorLocked ? 'locked' : ''}" data-path="extraNotes" rows="2" placeholder="서비스 내용, 기타 특약 등 추가로 기입할 내용을 입력하세요." ${editorLocked ? 'readonly' : ''}>${esc(c.extraNotes || '')}</textarea>
+          </td>
+        </tr>
+      </table>
+
       <table class="grid terms-grid">
         <tr><th class="sec terms-head" colspan="2">[ 약 관 ]</th></tr>
         <tr>
