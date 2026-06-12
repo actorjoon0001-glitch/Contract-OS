@@ -280,7 +280,7 @@ function rightCell(item, i) {
         : ''}
     </td>
     <td class="amt">${field(`items.${i}.amount`, item.amount, 'amt', 'right')} <span class="unit">만원</span></td>
-    <td class="note">${field(`items.${i}.note`, item.note, 'note')}</td>`;
+    <td class="note">${noteField(`items.${i}.note`, item.note)}</td>`;
 }
 
 function renderTerms() {
@@ -292,6 +292,17 @@ function field(path, value, cls = '', align = '') {
   const lock = editorLocked ? 'readonly' : '';
   const lc = editorLocked ? 'locked' : '';
   return `<input class="f ${cls} ${align} ${lc}" data-path="${path}" value="${esc(value)}" ${lock} />`;
+}
+// 비고/설명: 여러 줄로 줄바꿈되는 textarea (높이는 내용에 맞춰 자동 조절)
+function noteField(path, value) {
+  const lock = editorLocked ? 'readonly' : '';
+  const lc = editorLocked ? 'locked' : '';
+  return `<textarea class="f note ${lc}" data-path="${path}" rows="1" ${lock}>${esc(value)}</textarea>`;
+}
+// 내용 길이에 맞춰 textarea 높이 자동 조절
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = (el.scrollHeight + 2) + 'px';
 }
 function dateField(part, value, suffix, size) {
   const lock = editorLocked ? 'readonly' : '';
@@ -372,7 +383,7 @@ function bindEditor() {
   bindSign(app);
   updateSealBanner();
 
-  app.querySelectorAll('input.f[data-path]').forEach((inp) => {
+  app.querySelectorAll('input.f[data-path], textarea.f[data-path]').forEach((inp) => {
     inp.addEventListener('input', () => {
       const path = inp.dataset.path;
       let v = inp.value;
@@ -381,10 +392,13 @@ function bindEditor() {
         v = v.replace(/[^\d.,]/g, '');
       }
       setPath(current, path, v);
+      if (inp.tagName === 'TEXTAREA') autoGrow(inp);
       if (path.startsWith('items.') || path.startsWith('amounts.')) updateTotals();
       markDirty();
     });
   });
+  // 비고 textarea 초기 높이 맞춤 (저장된 내용이 모두 보이도록)
+  app.querySelectorAll('textarea.f').forEach(autoGrow);
 
   // 계약일자 (년/월/일 → contractDate 합성)
   app.querySelectorAll('input.f.date[data-date]').forEach((inp) => {
