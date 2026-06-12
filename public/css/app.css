@@ -125,6 +125,18 @@ select.f.dist.locked { background: #f1f3f5; cursor: default; }
 .terms-list li { position: relative; padding-left: 14px; margin-bottom: 3px; font-size: 12px; line-height: 1.35; }
 .terms-list li::before { content: '※'; position: absolute; left: 0; color: #666; }
 
+/* 추가 내용(서비스·기타) 자유 기입란 */
+.extra-grid { margin-top: -1px; }
+.extra-head { letter-spacing: 4px; }
+.extra-cell { padding: 6px 10px; }
+textarea.f.extra {
+  width: 100%; font-size: 13px; line-height: 1.45; min-height: 46px;
+  resize: none; overflow: hidden; display: block; box-sizing: border-box;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  border: 1px dashed #cdd5df; border-radius: 4px; background: #f9fbff;
+}
+textarea.f.extra:focus { background: #fff5d6; border-color: var(--brand); border-style: solid; }
+
 /* 서명부 */
 .sign-grid { margin-top: -1px; }
 .sign-label { background: var(--lbl-bg); text-align: center; font-weight: 800; letter-spacing: 3px; }

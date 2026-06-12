@@ -56,6 +56,7 @@ export function emptyContract() {
     siteAddress: '',
     items: defaultItems(),
     terms: defaultTerms(),
+    extraNotes: '', // 약관 위 자유 기입란 (서비스 내용·기타 특약 등)
     amounts: {
       supplyManual: '',  // 제품공급가 직접 입력 (비우면 항목 합계 사용)
       itemsSupply: 0,    // 우측 항목 금액 합계 (참고/플레이스홀더용)
@@ -92,6 +93,7 @@ export function normalizeContract(contract) {
   contract.signatures = { supplier: oneSig(s.supplier), client: oneSig(s.client) };
   const i = contract.integrity || {};
   contract.integrity = { hash: i.hash || '', sealedAt: i.sealedAt || '', agent: i.agent || '' };
+  if (typeof contract.extraNotes !== 'string') contract.extraNotes = contract.extraNotes || '';
   return contract;
 }
 
