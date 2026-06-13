@@ -35,9 +35,6 @@
   /* 비고 textarea: 잘리지 않고 전체 내용 출력 */
   textarea.f.note { overflow: visible !important; resize: none; }
 
-  /* 이사 협의 미확인 시 해당 문구는 인쇄하지 않음 */
-  .approval-grid.unchecked { display: none !important; }
-
   /* 배경색(섹션 헤더 등) 인쇄되도록 */
   .sec, .lbl, .sign-label {
     -webkit-print-color-adjust: exact;
