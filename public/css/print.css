@@ -20,6 +20,11 @@
   }
 
   .c-head h1 { font-size: 26px; }
+  .c-logo-img {
+    height: 32px; width: auto;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
   .sec { font-size: 14px; padding: 3px; }
   .grid th, .grid td { padding: 2px 5px; }
   .note, .terms-list li { font-size: 10px; }

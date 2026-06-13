@@ -7,6 +7,7 @@ export const SUPPLIER = {
   ceo: '김민석',
   bankAccount: '332-910069-81104 하나은행',
   sealImage: '/img/seal.png', // 공급자(대표) 법인 인감 이미지 경로 (없으면 '(인)' 표시)
+  logoImage: '/img/logo.png', // 계약서 상단 로고 이미지 경로 (없으면 'SEUM' 글씨 표시)
 };
 
 // 이동 설치비 요금표 — 종류 × 거리구간 (+ 일반트럭 추가요금). 금액 단위: 만원
