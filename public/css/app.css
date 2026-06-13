@@ -127,6 +127,15 @@ select.f.dist.locked { background: #f1f3f5; cursor: default; }
 .terms-list li { position: relative; padding-left: 14px; margin-bottom: 3px; font-size: 12px; line-height: 1.35; }
 .terms-list li::before { content: '※'; position: absolute; left: 0; color: #666; }
 
+/* 이사 협의 확인 */
+.approval-grid { margin-top: -1px; }
+.approval-cell { padding: 6px 10px; font-size: 12.5px; }
+.approval-check { vertical-align: middle; margin-right: 6px; transform: scale(1.1); }
+.approval-text { vertical-align: middle; }
+.approval-grid.unchecked .approval-text { opacity: .45; }
+input.f.apv-name { width: 90px; text-align: center; }
+input.f.apv-date { width: 100px; text-align: center; }
+
 /* 추가 내용(서비스·기타) 자유 기입란 */
 .extra-grid { margin-top: -1px; }
 .extra-head { letter-spacing: 4px; }
