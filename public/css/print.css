@@ -48,6 +48,11 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+  .seal-img {
+    height: 50px; width: auto;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 
   /* 페이지 잘림 방지 */
   table, tr, td, th { page-break-inside: avoid; }
