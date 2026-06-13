@@ -45,13 +45,18 @@ function go(hash) {
 }
 
 // ---------- 목록 화면 ----------
+let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터는 클라이언트에서 처리)
+const LIST_COLS = 10;
+
 async function renderList() {
   current = null; currentId = null; dirty = false;
   app.innerHTML = `
     <div class="topbar no-print">
       <div class="brand"><span class="logo">SEUM</span> 전산 계약서 <small>Contract-OS</small></div>
       <div class="actions">
-        <input id="search" class="search" type="search" placeholder="건축주명 · 현장주소 · 계약번호 검색" />
+        <input id="search" class="search" type="search" placeholder="건축주 · 현장주소 · 계약번호 · 전시장 · 영업사원 검색" />
+        <select id="filter-showroom" class="filter-sel"><option value="">전시장 전체</option></select>
+        <select id="filter-sales" class="filter-sel"><option value="">영업사원 전체</option></select>
         <button class="btn primary" id="new-btn">+ 새 계약서</button>
       </div>
     </div>
@@ -59,55 +64,86 @@ async function renderList() {
       <table class="list-table">
         <thead>
           <tr>
-            <th>계약번호</th><th>건축주</th><th>현장주소</th><th class="right">제품합계(만원)</th>
-            <th>계약일자</th><th>상태</th><th>수정일</th><th></th>
+            <th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
+            <th class="right">제품합계(만원)</th><th>계약일자</th><th>상태</th><th>수정일</th><th></th>
           </tr>
         </thead>
-        <tbody id="list-body"><tr><td colspan="8" class="muted center">불러오는 중...</td></tr></tbody>
+        <tbody id="list-body"><tr><td colspan="${LIST_COLS}" class="muted center">불러오는 중...</td></tr></tbody>
       </table>
     </div>`;
 
   document.getElementById('new-btn').onclick = () => go('#/new');
-  const search = document.getElementById('search');
-  let timer;
-  search.oninput = () => { clearTimeout(timer); timer = setTimeout(() => loadList(search.value), 250); };
-  loadList('');
+  document.getElementById('search').oninput = applyListFilters;
+  document.getElementById('filter-showroom').onchange = applyListFilters;
+  document.getElementById('filter-sales').onchange = applyListFilters;
+  loadList();
 }
 
-async function loadList(q) {
+async function loadList() {
   const body = document.getElementById('list-body');
   try {
-    const rows = await api.list(q);
-    if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="8" class="muted center">계약서가 없습니다. <b>+ 새 계약서</b>로 시작하세요.</td></tr>`;
-      return;
-    }
-    body.innerHTML = rows.map((r) => `
-      <tr data-id="${r.id}" class="row">
-        <td>${esc(r.contract_no || '-')}</td>
-        <td>${esc(r.client_name || '-')}</td>
-        <td class="ellipsis">${esc(r.site_address || '-')}</td>
-        <td class="right">${fmtMan(r.total_amount) || '-'}</td>
-        <td>${esc(r.contract_date || '-')}</td>
-        <td><span class="badge ${r.status}">${r.status === 'confirmed' ? '확정' : '작성중'}</span></td>
-        <td class="muted small">${esc((r.updated_at || '').slice(0, 16))}</td>
-        <td><button class="btn tiny danger" data-del="${r.id}">삭제</button></td>
-      </tr>`).join('');
-
-    body.querySelectorAll('.row').forEach((tr) => {
-      tr.onclick = (e) => { if (e.target.dataset.del) return; go(`#/edit/${tr.dataset.id}`); };
-    });
-    body.querySelectorAll('[data-del]').forEach((b) => {
-      b.onclick = async (e) => {
-        e.stopPropagation();
-        if (!confirm('이 계약서를 삭제할까요? 되돌릴 수 없습니다.')) return;
-        await api.remove(b.dataset.del);
-        loadList(document.getElementById('search').value);
-      };
-    });
+    listRows = await api.list('');
+    populateFilter('filter-showroom', '전시장 전체', listRows.map((r) => r.showroom));
+    populateFilter('filter-sales', '영업사원 전체', listRows.map((r) => r.salesperson));
+    applyListFilters();
   } catch (err) {
-    body.innerHTML = `<tr><td colspan="8" class="center danger">목록을 불러오지 못했습니다: ${esc(err.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="${LIST_COLS}" class="center danger">목록을 불러오지 못했습니다: ${esc(err.message)}</td></tr>`;
   }
+}
+
+function populateFilter(id, allLabel, values) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  const prev = sel.value;
+  const distinct = [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
+  sel.innerHTML = `<option value="">${allLabel}</option>` + distinct.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  sel.value = prev; // 선택 유지
+}
+
+function applyListFilters() {
+  const q = (document.getElementById('search').value || '').toLowerCase().trim();
+  const sr = document.getElementById('filter-showroom').value;
+  const sp = document.getElementById('filter-sales').value;
+  let rows = listRows;
+  if (sr) rows = rows.filter((r) => (r.showroom || '') === sr);
+  if (sp) rows = rows.filter((r) => (r.salesperson || '') === sp);
+  if (q) rows = rows.filter((r) =>
+    [r.client_name, r.site_address, r.contract_no, r.showroom, r.salesperson]
+      .some((v) => (v || '').toLowerCase().includes(q)));
+  renderListRows(rows);
+}
+
+function renderListRows(rows) {
+  const body = document.getElementById('list-body');
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="${LIST_COLS}" class="muted center">조건에 맞는 계약서가 없습니다.</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map((r) => `
+    <tr data-id="${r.id}" class="row">
+      <td>${esc(r.contract_no || '-')}</td>
+      <td>${esc(r.showroom || '-')}</td>
+      <td>${esc(r.salesperson || '-')}</td>
+      <td>${esc(r.client_name || '-')}</td>
+      <td class="ellipsis">${esc(r.site_address || '-')}</td>
+      <td class="right">${fmtMan(r.total_amount) || '-'}</td>
+      <td>${esc(r.contract_date || '-')}</td>
+      <td><span class="badge ${r.status}">${r.status === 'confirmed' ? '확정' : '작성중'}</span></td>
+      <td class="muted small">${esc((r.updated_at || '').slice(0, 16))}</td>
+      <td><button class="btn tiny danger" data-del="${r.id}">삭제</button></td>
+    </tr>`).join('');
+
+  body.querySelectorAll('.row').forEach((tr) => {
+    tr.onclick = (e) => { if (e.target.dataset.del) return; go(`#/edit/${tr.dataset.id}`); };
+  });
+  body.querySelectorAll('[data-del]').forEach((b) => {
+    b.onclick = async (e) => {
+      e.stopPropagation();
+      if (!confirm('이 계약서를 삭제할까요? 되돌릴 수 없습니다.')) return;
+      await api.remove(b.dataset.del);
+      loadList();
+    };
+  });
 }
 
 // ---------- 편집 화면 ----------
@@ -147,6 +183,13 @@ function renderEditor() {
         <button class="btn" id="print-btn">🖨 인쇄 / PDF</button>
         <button class="btn primary" id="save-btn">💾 저장</button>
       </div>
+    </div>
+
+    <div class="manage-bar no-print">
+      <span class="mb-title">관리</span>
+      <label>전시장 ${field('showroom', c.showroom, 'manage')}</label>
+      <label>영업사원 ${field('salesperson', c.salesperson, 'manage')}</label>
+      <span class="mb-hint muted small">※ 목록 분류·검색용 (계약서 인쇄에는 표시 안 됨)</span>
     </div>
 
     <div id="contract" class="contract">

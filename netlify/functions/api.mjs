@@ -29,6 +29,8 @@ function summarize(id, contractNo, data) {
     status: data?.status || 'draft',
     client_name: data?.client?.name || '',
     site_address: data?.siteAddress || '',
+    showroom: data?.showroom || '',
+    salesperson: data?.salesperson || '',
     contract_date: data?.contractDate || '',
     total_amount: num(data?.amounts?.productTotal),
     updated_at: new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -65,7 +67,9 @@ export async function handle(req, idParam, s) {
             (it) =>
               (it.client_name || '').toLowerCase().includes(q) ||
               (it.site_address || '').toLowerCase().includes(q) ||
-              (it.contract_no || '').toLowerCase().includes(q)
+              (it.contract_no || '').toLowerCase().includes(q) ||
+              (it.showroom || '').toLowerCase().includes(q) ||
+              (it.salesperson || '').toLowerCase().includes(q)
           );
         }
         return json(items);

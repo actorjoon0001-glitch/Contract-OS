@@ -91,6 +91,8 @@ export function emptyContract() {
     status: 'draft',
     contractDate: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`,
     siteAddress: '',
+    showroom: '',     // 전시장 (목록 분류·관리용)
+    salesperson: '',  // 영업사원 (목록 분류·관리용)
     items: defaultItems(),
     terms: defaultTerms(),
     extraNotes: '', // 약관 위 자유 기입란 (서비스 내용·기타 특약 등)
@@ -131,6 +133,8 @@ export function normalizeContract(contract) {
   const i = contract.integrity || {};
   contract.integrity = { hash: i.hash || '', sealedAt: i.sealedAt || '', agent: i.agent || '' };
   if (typeof contract.extraNotes !== 'string') contract.extraNotes = contract.extraNotes || '';
+  if (typeof contract.showroom !== 'string') contract.showroom = contract.showroom || '';
+  if (typeof contract.salesperson !== 'string') contract.salesperson = contract.salesperson || '';
   return contract;
 }
 
