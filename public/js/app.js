@@ -280,7 +280,7 @@ function leftCell(row) {
 
 function rightCell(item, i) {
   if (!item) return `<td colspan="3" class="empty"></td>`;
-  const priceLabel = item.unitPrice !== '' ? `${item.unitPrice}만원` : '';
+  const priceLabel = item.priceLabel ? item.priceLabel : (item.unitPrice !== '' ? `${item.unitPrice}만원` : '');
   return `
     <td class="item-name">
       <span class="item-no">${item.no}.</span> ${esc(item.name)}
@@ -555,9 +555,9 @@ function updateTotals() {
     const manualEmpty = current.amounts.supplyManual === '' || current.amounts.supplyManual == null;
     if (manualEmpty) supplyInput.value = fmtMan(current.amounts.itemsSupply);
   }
-  // 평당 항목은 금액칸도 자동 갱신 (사용자가 평수 입력 시)
+  // 자동계산 항목(평당·요금규칙·거리)은 금액칸도 자동 갱신
   current.items.forEach((it, i) => {
-    if (it.unit === '평당') {
+    if (it.unit === '평당' || it.priceRule || it.unit === '거리') {
       const inp = app.querySelector(`input[data-path="items.${i}.amount"]`);
       if (inp && document.activeElement !== inp) inp.value = fmtMan(it.amount);
     }

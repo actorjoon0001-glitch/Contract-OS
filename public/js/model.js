@@ -55,13 +55,14 @@ export function defaultItems() {
   return [
     { no: '1', name: '<인허가> 토목설계', unit: '정액', unitPrice: 450, area: '', amount: '', note: '인허가 기간 평균 1~2달 이상 소요' },
     { no: '1', name: '<인허가> 건축설계', unit: '정액', unitPrice: 450, area: '', amount: '', note: '' },
-    { no: '2', name: '약식 기초공사(평당)', unit: '평당', unitPrice: 110, area: '', amount: '', note: '높이400T / 기초에 관한 기본설비 포함' },
+    { no: '2', name: '약식 기초공사(평당)', unit: '평당', priceRule: 'foundation', priceLabel: '12평↓ 140 / 12평↑ 110', unitPrice: '', area: '', amount: '', note: '높이400T / 기초에 관한 기본설비 포함' },
     { no: '3', name: '건물건축비(평당)', unit: '평당', unitPrice: 380, area: '', amount: '', note: '' },
     { no: '4', name: '현장 시공비(평당)', unit: '평당', unitPrice: 80, area: '', amount: '', note: '현장시공시 처마 가능함' },
     { no: '5', name: '이동 설치비', unit: '거리', unitPrice: '', area: '', amount: '', moveCategory: '', tier: '', truck: false, note: '트럭+크레인(25톤기준)+주춧돌+설치인원 포함 (현장상황에 따른 추가금 있음)' },
     { no: '6', name: '포치/데크(평당)', unit: '평당', unitPrice: 190, area: '', amount: '', note: '아연각관+합성데크판 사용(방부목X) / 데크 평당 85만원' },
-    { no: '7', name: '썬룸(평당)', unit: '평당', unitPrice: 300, area: '', amount: '', note: '썬룸,포치는 하부3면 사이딩 마감. 폴딩도어는 추가금 발생' },
-    { no: '8', name: '습식난방 가스/기름', unit: '정액', unitPrice: 600, area: '', amount: '', note: '토목공사 및 정화조는 현장답사하여 건축주와 협의 후 진행' },
+    { no: '7', name: '썬룸(평당)', unit: '평당', key: 'sunroom', unitPrice: 300, area: '', amount: '', note: '썬룸,포치는 하부3면 사이딩 마감. 폴딩도어는 추가금 발생' },
+    { no: '', name: '└ 썬룸 약식기초(300T)', unit: '정액', key: 'sunroomFoundation', priceRule: 'sunroomFoundation', priceLabel: '평당 65만원', unitPrice: '', area: '', amount: '', note: '썬룸 선택(면적 입력) 시 자동 적용 · 300T' },
+    { no: '8', name: '습식난방 가스/기름(평당)', unit: '평당', priceRule: 'heating', priceLabel: '10~15평 550 / 16~24평 600 / 24평↑ 초과분 평당20', unitPrice: '', area: '', amount: '', note: '토목공사 및 정화조는 현장답사하여 건축주와 협의 후 진행' },
   ];
 }
 
@@ -161,10 +162,24 @@ export const PAY_UNIT_MAN = 100;      // 계약금·중도금 내림 단위: 백
 
 // 항목 금액(평당이면 평수×단가) 및 공급가/부가세/제품합계/결제스케줄 자동계산
 export function recalc(contract) {
+  // 썬룸 면적(썬룸 약식기초 계산용)
+  const sun = contract.items.find((it) => it.key === 'sunroom');
+  const sunArea = sun ? num(sun.area) : 0;
+
   let itemsSum = 0;
   for (const it of contract.items) {
-    if (it.unit === '평당' && num(it.area) > 0 && num(it.unitPrice) > 0) {
-      it.amount = num(it.area) * num(it.unitPrice);
+    const a = num(it.area);
+    if (it.priceRule === 'foundation') {
+      // 기초공사: 12평 미만 평당 140, 12평 이상 평당 110
+      it.amount = a > 0 ? a * (a < 12 ? 140 : 110) : '';
+    } else if (it.priceRule === 'heating') {
+      // 습식난방: 10~15평 550, 16~24평 600, 24평 초과 시 600 + 초과분 평당 20
+      it.amount = a > 0 ? (a < 16 ? 550 : a <= 24 ? 600 : 600 + (a - 24) * 20) : '';
+    } else if (it.priceRule === 'sunroomFoundation') {
+      // 썬룸 약식기초(300T): 썬룸 면적 × 65
+      it.amount = sunArea > 0 ? sunArea * 65 : '';
+    } else if (it.unit === '평당' && a > 0 && num(it.unitPrice) > 0) {
+      it.amount = a * num(it.unitPrice);
     } else if (it.unit === '거리') {
       const fee = computeMoveFee(it);
       if (fee !== '') it.amount = fee;
