@@ -425,6 +425,14 @@ function signSlot(party) {
 }
 
 function signSlotInner(party) {
+  // 공급자(대표)는 별도 서명 없이 법인 인감 도장 이미지를 자동 표시 (이미지 없으면 '(인)')
+  if (party === 'supplier') {
+    return `<span class="sig-wrap seal-wrap">
+        <img class="seal-img" src="${esc(SUPPLIER.sealImage)}" alt="법인 인감"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='inline';" />
+        <span class="seal seal-fallback" style="display:none">(인)</span>
+      </span>`;
+  }
   const sig = current.signatures?.[party] || {};
   if (sig.image) {
     const clickable = editorLocked ? '' : `data-sign="${party}"`;
