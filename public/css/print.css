@@ -1,18 +1,33 @@
-/* 인쇄 / PDF 출력 - A4 가로 한 장에 계약서만 출력
-   레이아웃·글자크기는 화면과 동일하게 두고, app.js의 인쇄 맞춤(fitPrint)이
-   전체를 균일 축소하여 내용 그대로 한 페이지에 들어가게 합니다. */
+/* 인쇄 / PDF 출력 - A4 한 장에 계약서만 출력 */
 @page {
   size: A4 landscape;
   margin: 8mm;
 }
 
 @media print {
-  html, body { background: #fff !important; margin: 0 !important; }
+  html, body { background: #fff !important; }
   .no-print { display: none !important; }
 
   #app { min-height: 0; }
 
-  .contract { box-shadow: none !important; }
+  .contract {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    font-size: 11px;
+  }
+
+  .c-head h1 { font-size: 26px; }
+  .c-logo-img {
+    height: 32px; width: auto;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .sec { font-size: 14px; padding: 3px; }
+  .grid th, .grid td { padding: 2px 5px; }
+  .note, .terms-list li { font-size: 10px; }
 
   /* 입력 필드를 일반 텍스트처럼 (배경·테두리 제거) */
   input.f, textarea.f {
@@ -25,12 +40,25 @@
   /* 비고 textarea: 잘리지 않고 전체 내용 출력 */
   textarea.f.note { overflow: visible !important; resize: none; }
 
-  /* 배경색·이미지(섹션 헤더, 로고, 도장, 서명) 인쇄되도록 */
-  .sec, .lbl, .sign-label, .c-logo-img, .seal-img, .sig-img {
+  /* 배경색(섹션 헤더 등) 인쇄되도록 */
+  .sec, .lbl, .sign-label {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
-  /* 화면 전용 버튼은 숨기고, 미서명란은 "(인)" 표시 */
+  /* 전자 서명: 화면 전용 버튼은 숨기고, 미서명란은 "(인)" 표시, 서명 이미지는 그대로 인쇄 */
   .print-only { display: inline !important; }
+  .sig-img {
+    height: 42px; max-width: 180px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .seal-img {
+    height: 74px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 페이지 잘림 방지 */
+  table, tr, td, th { page-break-inside: avoid; }
 }
