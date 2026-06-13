@@ -69,6 +69,16 @@ export function defaultItems() {
   ];
 }
 
+// 서비스·기타 내용 기본 양식 (작성 시작 시 미리 채워짐)
+export function defaultExtraNotes() {
+  return [
+    '담당 영업사원 : ',
+    '전시장 : ',
+    '모델명 : ',
+    '평수 : ',
+  ].join('\n');
+}
+
 // 약관 (원본 양식 그대로)
 export function defaultTerms() {
   return [
@@ -97,7 +107,7 @@ export function emptyContract() {
     salesperson: '',  // 영업사원 (목록 분류·관리용)
     items: defaultItems(),
     terms: defaultTerms(),
-    extraNotes: '', // 약관 위 자유 기입란 (서비스 내용·기타 특약 등)
+    extraNotes: defaultExtraNotes(), // 약관 위 자유 기입란 (담당 영업사원·전시장·모델·평수 등)
     amounts: {
       supplyManual: '',  // 제품공급가 직접 입력 (비우면 항목 합계 사용)
       itemsSupply: 0,    // 우측 항목 금액 합계 (참고/플레이스홀더용)
