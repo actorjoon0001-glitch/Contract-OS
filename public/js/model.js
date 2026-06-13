@@ -69,14 +69,9 @@ export function defaultItems() {
   ];
 }
 
-// 서비스·기타 내용 기본 양식 (작성 시작 시 미리 채워짐)
+// 서비스·기타 내용 기본 양식 (작성 시작 시 미리 채워짐) — 한 줄
 export function defaultExtraNotes() {
-  return [
-    '담당 영업사원 : ',
-    '전시장 : ',
-    '모델명 : ',
-    '평수 : ',
-  ].join('\n');
+  return '담당 영업사원 :   /  전시장 :   /  모델명 :   /  평수 : ';
 }
 
 // 약관 (원본 양식 그대로)
