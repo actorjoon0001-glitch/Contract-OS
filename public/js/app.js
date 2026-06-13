@@ -165,6 +165,15 @@ function renderEditor() {
         ${renderRows()}
       </table>
 
+      <table class="grid approval-grid ${c.approval.checked ? '' : 'unchecked'}">
+        <tr>
+          <td class="approval-cell">
+            <input type="checkbox" class="approval-check no-print" data-approval-check ${c.approval.checked ? 'checked' : ''} ${editorLocked ? 'disabled' : ''} />
+            <span class="approval-text">※ 상기 계약 금액은 이사 ${field('approval.director', c.approval.director, 'apv-name')} 와(과) 충분히 협의하여 확정하였습니다. (협의일 ${field('approval.date', c.approval.date, 'apv-date')})</span>
+          </td>
+        </tr>
+      </table>
+
       <table class="grid extra-grid">
         <tr><th class="sec extra-head">[ 서비스 · 기타 내용 ]</th></tr>
         <tr>
@@ -447,6 +456,14 @@ function bindEditor() {
 
   bindSign(app);
   updateSealBanner();
+
+  // 이사 협의 확인 체크박스 (인쇄 표시 여부 토글)
+  const apvCheck = app.querySelector('[data-approval-check]');
+  if (apvCheck) apvCheck.addEventListener('change', () => {
+    current.approval.checked = apvCheck.checked;
+    apvCheck.closest('.approval-grid')?.classList.toggle('unchecked', !apvCheck.checked);
+    markDirty();
+  });
 
   app.querySelectorAll('input.f[data-path], textarea.f[data-path]').forEach((inp) => {
     inp.addEventListener('input', () => {
