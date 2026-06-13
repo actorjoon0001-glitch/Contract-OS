@@ -2,7 +2,7 @@ import { api } from './api.js';
 import {
   SUPPLIER, emptyContract, recalc,
   fmtMan, manToKorean, normalizeContract, computeIntegrityHash,
-  DISTANCE_TIERS,
+  MOVE_OPTIONS, computeMoveFee,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
 
@@ -288,7 +288,7 @@ function rightCell(item, i) {
       ${item.unit === '평당'
         ? `<span class="area-input">${field(`items.${i}.area`, item.area, 'area', 'right')}<span class="unit2">평</span></span>`
         : ''}
-      ${item.unit === '거리' ? distanceSelect(i, item) : ''}
+      ${item.unit === '거리' ? moveControls(i, item) : ''}
     </td>
     <td class="amt">${field(`items.${i}.amount`, item.amount, 'amt', 'right')} <span class="unit">만원</span></td>
     <td class="note">${noteField(`items.${i}.note`, item.note)}</td>`;
@@ -316,18 +316,58 @@ function autoGrow(el) {
   el.style.height = (el.scrollHeight + 2) + 'px';
 }
 // 이동 설치비: 거리 구간 선택(드롭다운). 선택 시 금액 자동 입력. 인쇄용 라벨 별도 표시.
-function distanceSelect(i, item) {
+function moveControls(i, item) {
   const dis = editorLocked ? 'disabled' : '';
   const lc = editorLocked ? 'locked' : '';
-  const opts = DISTANCE_TIERS.map((t) =>
-    `<option value="${esc(t.label)}" ${item.tier === t.label ? 'selected' : ''}>${esc(t.label)} · ${fmtMan(t.amount)}만원</option>`
-  ).join('');
-  return `<span class="dist-input">
-      <select class="f dist no-print ${lc}" data-dist="${i}" ${dis}>
-        <option value="">거리 선택</option>${opts}
+  const cat = MOVE_OPTIONS.categories.find((c) => c.key === item.moveCategory);
+  const catOpts = MOVE_OPTIONS.categories.map((c) =>
+    `<option value="${c.key}" ${item.moveCategory === c.key ? 'selected' : ''}>${esc(c.label)}</option>`).join('');
+  // 거리 구간 라벨은 종류와 무관하게 동일(100km미만/200km미만/200km이상)
+  const tierLabels = (cat ? cat.tiers : MOVE_OPTIONS.categories[0].tiers).map((t) => t.label);
+  const tierOpts = tierLabels.map((l) =>
+    `<option value="${esc(l)}" ${item.tier === l ? 'selected' : ''}>${esc(l)}</option>`).join('');
+  const showTruck = !!(cat && cat.truck);
+  return `<span class="move-input">
+      <select class="f dist no-print ${lc}" data-move-cat="${i}" ${dis}>
+        <option value="">종류 선택</option>${catOpts}
       </select>
-      <span class="dist-print print-only">${item.tier ? esc(item.tier) : ''}</span>
+      <select class="f dist no-print ${lc}" data-move-tier="${i}" ${dis}>
+        <option value="">거리 선택</option>${tierOpts}
+      </select>
+      <label class="move-truck no-print" data-move-truck-wrap="${i}" style="${showTruck ? '' : 'display:none'}">
+        <input type="checkbox" data-move-truck="${i}" ${item.truck ? 'checked' : ''} ${dis}/> 일반트럭 추가
+      </label>
+      <span class="move-print print-only" data-move-print="${i}">${esc(movePrintLabel(item))}</span>
     </span>`;
+}
+
+// 인쇄/확정 시 표시할 이동 설치비 선택 요약 라벨
+function movePrintLabel(item) {
+  const cat = MOVE_OPTIONS.categories.find((c) => c.key === item.moveCategory);
+  if (!cat || !item.tier) return '';
+  let s = `${cat.label} · ${item.tier}`;
+  if (cat.truck && item.truck) s += ' · 일반트럭 추가';
+  return s;
+}
+
+// 이동 설치비 선택 변경 시 금액·표시 갱신
+function updateMoveFee(i) {
+  const item = current.items[i];
+  const cat = MOVE_OPTIONS.categories.find((c) => c.key === item.moveCategory);
+  // 트럭옵션 없는 종류(농막)면 체크박스 숨김 + 트럭 선택 해제
+  const wrap = app.querySelector(`[data-move-truck-wrap="${i}"]`);
+  if (wrap) wrap.style.display = (cat && cat.truck) ? '' : 'none';
+  if (!(cat && cat.truck)) item.truck = false;
+  // 금액 계산 → 금액칸 반영
+  const fee = computeMoveFee(item);
+  item.amount = fee === '' ? '' : fee;
+  const amtInp = app.querySelector(`input[data-path="items.${i}.amount"]`);
+  if (amtInp) amtInp.value = fee === '' ? '' : fmtMan(fee);
+  // 인쇄 라벨 갱신
+  const printEl = app.querySelector(`[data-move-print="${i}"]`);
+  if (printEl) printEl.textContent = movePrintLabel(item);
+  updateTotals();
+  markDirty();
 }
 function dateField(part, value, suffix, size) {
   const lock = editorLocked ? 'readonly' : '';
@@ -423,18 +463,25 @@ function bindEditor() {
     });
   });
   // 이동 설치비: 거리 구간 선택 → 금액 자동 입력
-  app.querySelectorAll('select[data-dist]').forEach((sel) => {
+  app.querySelectorAll('select[data-move-cat]').forEach((sel) => {
     sel.addEventListener('change', () => {
-      const i = Number(sel.dataset.dist);
-      const tier = DISTANCE_TIERS.find((t) => t.label === sel.value);
+      const i = Number(sel.dataset.moveCat);
+      current.items[i].moveCategory = sel.value;
+      updateMoveFee(i);
+    });
+  });
+  app.querySelectorAll('select[data-move-tier]').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      const i = Number(sel.dataset.moveTier);
       current.items[i].tier = sel.value;
-      current.items[i].amount = tier ? tier.amount : '';
-      const amtInp = app.querySelector(`input[data-path="items.${i}.amount"]`);
-      if (amtInp) amtInp.value = fmtMan(current.items[i].amount);
-      const printEl = sel.parentElement.querySelector('.dist-print');
-      if (printEl) printEl.textContent = sel.value || '';
-      updateTotals();
-      markDirty();
+      updateMoveFee(i);
+    });
+  });
+  app.querySelectorAll('input[data-move-truck]').forEach((chk) => {
+    chk.addEventListener('change', () => {
+      const i = Number(chk.dataset.moveTruck);
+      current.items[i].truck = chk.checked;
+      updateMoveFee(i);
     });
   });
 

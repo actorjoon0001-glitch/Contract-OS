@@ -8,12 +8,47 @@ export const SUPPLIER = {
   bankAccount: '332-910069-81104 하나은행',
 };
 
-// 이동 설치비 거리 구간별 금액(만원) — 필요 시 구간/금액을 여기서 추가·수정
-export const DISTANCE_TIERS = [
-  { label: '100km 이내', amount: 200 },
-  { label: '200km 이내', amount: 300 },
-  { label: '400km 이내', amount: 500 },
-];
+// 이동 설치비 요금표 — 종류 × 거리구간 (+ 일반트럭 추가요금). 금액 단위: 만원
+// 구간/금액을 여기서 수정하면 화면·계산에 바로 반영됩니다.
+export const MOVE_OPTIONS = {
+  categories: [
+    {
+      key: 'farm', label: '농막', truck: false,
+      tiers: [
+        { label: '100km 미만', base: 180 },
+        { label: '200km 미만', base: 220 },
+        { label: '200km 이상', base: 250 },
+      ],
+    },
+    {
+      key: 'stay35', label: '체류형쉼터·이동식주택 (높이 3.5m 이하)', truck: true,
+      tiers: [
+        { label: '100km 미만', base: 220, truckAdd: 60 },
+        { label: '200km 미만', base: 360, truckAdd: 80 },
+        { label: '200km 이상', base: 310, truckAdd: 100 },
+      ],
+    },
+    {
+      key: 'stay40', label: '체류형쉼터·이동식주택 (높이 3.5~4m)', truck: true,
+      tiers: [
+        { label: '100km 미만', base: 280, truckAdd: 60 },
+        { label: '200km 미만', base: 330, truckAdd: 80 },
+        { label: '200km 이상', base: 390, truckAdd: 100 },
+      ],
+    },
+  ],
+};
+
+// 이동 설치비 항목의 선택값(종류·거리·트럭)으로 금액(만원) 계산. 미선택이면 '' 반환
+export function computeMoveFee(item) {
+  const cat = MOVE_OPTIONS.categories.find((c) => c.key === item.moveCategory);
+  if (!cat) return '';
+  const tier = cat.tiers.find((t) => t.label === item.tier);
+  if (!tier) return '';
+  let amt = tier.base;
+  if (cat.truck && item.truck) amt += (tier.truckAdd || 0);
+  return amt;
+}
 
 // 주문내용 8개 항목 (원본 양식 단가 그대로) — unit: '평당' | '정액' | '거리'
 export function defaultItems() {
@@ -23,7 +58,7 @@ export function defaultItems() {
     { no: '2', name: '약식 기초공사(평당)', unit: '평당', unitPrice: 110, area: '', amount: '', note: '높이400T / 기초에 관한 기본설비 포함' },
     { no: '3', name: '건물건축비(평당)', unit: '평당', unitPrice: 380, area: '', amount: '', note: '' },
     { no: '4', name: '현장 시공비(평당)', unit: '평당', unitPrice: 80, area: '', amount: '', note: '현장시공시 처마 가능함' },
-    { no: '5', name: '이동 설치비', unit: '거리', unitPrice: '', area: '', amount: '', tier: '', note: '트럭+크레인(25톤기준)+주춧돌+설치인원 포함 (현장상황에 따른 추가금 있음)' },
+    { no: '5', name: '이동 설치비', unit: '거리', unitPrice: '', area: '', amount: '', moveCategory: '', tier: '', truck: false, note: '트럭+크레인(25톤기준)+주춧돌+설치인원 포함 (현장상황에 따른 추가금 있음)' },
     { no: '6', name: '포치/데크(평당)', unit: '평당', unitPrice: 190, area: '', amount: '', note: '아연각관+합성데크판 사용(방부목X) / 데크 평당 85만원' },
     { no: '7', name: '썬룸(평당)', unit: '평당', unitPrice: 300, area: '', amount: '', note: '썬룸,포치는 하부3면 사이딩 마감. 폴딩도어는 추가금 발생' },
     { no: '8', name: '습식난방 가스/기름', unit: '정액', unitPrice: 600, area: '', amount: '', note: '토목공사 및 정화조는 현장답사하여 건축주와 협의 후 진행' },
@@ -130,6 +165,9 @@ export function recalc(contract) {
   for (const it of contract.items) {
     if (it.unit === '평당' && num(it.area) > 0 && num(it.unitPrice) > 0) {
       it.amount = num(it.area) * num(it.unitPrice);
+    } else if (it.unit === '거리') {
+      const fee = computeMoveFee(it);
+      if (fee !== '') it.amount = fee;
     }
     itemsSum += num(it.amount);
   }
