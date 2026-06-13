@@ -183,8 +183,9 @@ export function recalc(contract) {
     } else if (it.priceRule === 'sunroomFoundation') {
       // 썬룸 약식기초(300T): 썬룸 면적 × 65
       it.amount = sunArea > 0 ? sunArea * 65 : '';
-    } else if (it.unit === '평당' && a > 0 && num(it.unitPrice) > 0) {
-      it.amount = a * num(it.unitPrice);
+    } else if (it.unit === '평당' && num(it.unitPrice) > 0) {
+      // 평수 입력 시 평수×단가, 평수를 지우면 금액도 비움
+      it.amount = a > 0 ? a * num(it.unitPrice) : '';
     } else if (it.unit === '거리') {
       const fee = computeMoveFee(it);
       if (fee !== '') it.amount = fee;
