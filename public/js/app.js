@@ -239,7 +239,7 @@ function renderEditor() {
           <td class="sign-field"><span class="fl">생년월일</span> ${field('client.birth', c.client.birth)}</td>
         </tr>
         <tr>
-          <td class="sign-co">대표 ${esc(SUPPLIER.ceo)} ${signSlot('supplier')}</td>
+          <td class="sign-co sign-co-rep">대표 ${esc(SUPPLIER.ceo)} ${signSlot('supplier')}</td>
           <td class="sign-field"><span class="fl">연락처</span> ${field('client.phone', c.client.phone)}</td>
         </tr>
         <tr>
