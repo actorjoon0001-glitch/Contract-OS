@@ -208,6 +208,16 @@ function renderEditor() {
         ${renderRows()}
       </table>
 
+      <table class="grid extra-cost-grid ${hasExtraCosts(c) ? '' : 'ec-empty'}">
+        <colgroup><col style="width:52%"><col style="width:33%"><col style="width:15%"></colgroup>
+        <tr><th class="sec ec-head" colspan="3">
+          [ 기타 비용 ]
+          <span class="muted small no-print">어닝 등 추가 옵션을 입력하세요</span>
+          ${editorLocked ? '' : '<button type="button" class="btn tiny no-print" id="ec-add">+ 항목 추가</button>'}
+        </th></tr>
+        ${renderExtraCosts()}
+      </table>
+
       <table class="grid extra-grid">
         <tr><th class="sec extra-head">[ 서비스 · 기타 내용 ]</th></tr>
         <tr>
@@ -350,6 +360,21 @@ function rightCell(item, i) {
 
 function renderTerms() {
   return current.terms.map((t) => `<li>${esc(t)}</li>`).join('');
+}
+
+// 기타 비용 행에 내용이 하나라도 있는지 (인쇄 시 빈 섹션 숨김용)
+function hasExtraCosts(c) {
+  return (c.extraCosts || []).some((ec) => String(ec.name || '').trim() !== '' || String(ec.amount || '').trim() !== '');
+}
+
+// 기타 비용 행 렌더 (항목명 | 금액 | 삭제)
+function renderExtraCosts() {
+  return (current.extraCosts || []).map((ec, i) => `
+    <tr class="ec-row">
+      <td class="ec-name">${field(`extraCosts.${i}.name`, ec.name, 'ec-name-in')}</td>
+      <td class="amt">${field(`extraCosts.${i}.amount`, ec.amount, 'amt', 'right')} <span class="unit">만원</span></td>
+      <td class="ec-del no-print">${editorLocked ? '' : `<button type="button" class="btn tiny danger" data-ec-del="${i}">삭제</button>`}</td>
+    </tr>`).join('');
 }
 
 // 입력 필드 생성 (인쇄 시 밑줄/테두리 없는 텍스트처럼 보임)
@@ -532,7 +557,7 @@ function bindEditor() {
         if (it) it.amountManual = im[2] === 'amount' ? String(v).trim() !== '' : false;
       }
       if (inp.tagName === 'TEXTAREA') autoGrow(inp);
-      if (path.startsWith('items.') || path.startsWith('amounts.')) updateTotals();
+      if (path.startsWith('items.') || path.startsWith('amounts.') || path.startsWith('extraCosts.')) updateTotals();
       markDirty();
     });
   });
@@ -557,6 +582,21 @@ function bindEditor() {
       current.items[i].truckQty = Number(sel.value) || 0;
       updateMoveFee(i);
     });
+  });
+
+  // 기타 비용: 항목 추가 / 삭제
+  const ecAdd = document.getElementById('ec-add');
+  if (ecAdd) ecAdd.onclick = () => {
+    (current.extraCosts ||= []).push({ name: '', amount: '' });
+    markDirty();
+    renderEditor();
+  };
+  app.querySelectorAll('[data-ec-del]').forEach((b) => {
+    b.onclick = () => {
+      current.extraCosts.splice(Number(b.dataset.ecDel), 1);
+      markDirty();
+      renderEditor();
+    };
   });
 
   // 비고 textarea 초기 높이 맞춤 (저장된 내용이 모두 보이도록)

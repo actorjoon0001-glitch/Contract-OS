@@ -107,6 +107,7 @@ export function emptyContract() {
     showroom: '',     // 전시장 (목록 분류·관리용)
     salesperson: '',  // 영업사원 (목록 분류·관리용)
     items: defaultItems(),
+    extraCosts: [], // 기타 비용(어닝 등 추가 옵션) — { name, amount } 목록
     terms: defaultTerms(),
     extraNotes: defaultExtraNotes(), // 약관 위 자유 기입란 (추가 계약 내용)
     amounts: {
@@ -148,6 +149,7 @@ export function normalizeContract(contract) {
   if (typeof contract.extraNotes !== 'string') contract.extraNotes = contract.extraNotes || '';
   if (typeof contract.showroom !== 'string') contract.showroom = contract.showroom || '';
   if (typeof contract.salesperson !== 'string') contract.salesperson = contract.salesperson || '';
+  if (!Array.isArray(contract.extraCosts)) contract.extraCosts = []; // 기타 비용 목록 보정
   // 이동 설치비: 구버전 일반트럭 boolean(truck) → 수량(truckQty)으로 변환
   for (const it of contract.items || []) {
     if (it && it.unit === '거리') {
@@ -222,6 +224,8 @@ export function recalc(contract) {
     }
     itemsSum += num(it.amount);
   }
+  // 기타 비용(어닝 등 추가 옵션) 금액도 공급가 합계에 포함
+  for (const ec of contract.extraCosts || []) itemsSum += num(ec.amount);
   const a = contract.amounts;
   a.itemsSupply = Math.round(itemsSum);
   // 제품공급가: 직접 입력값이 있으면 우선, 없으면 항목 합계
