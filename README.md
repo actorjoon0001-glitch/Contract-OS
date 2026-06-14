@@ -32,12 +32,19 @@ npm start          # 또는: node --no-warnings server.js
 이 저장소는 Netlify 배포에 맞춰 구성돼 있습니다.
 
 - 프론트엔드(화면)는 `public/` 폴더가 정적 호스팅됩니다.
-- 저장 API는 **Netlify Functions**(`netlify/functions/api.mjs`)로 동작하며, 데이터는 **Netlify Blobs**(Netlify 내장 영구 저장소)에 저장됩니다.
+- 저장 API는 **Netlify Functions**(`netlify/functions/api.mjs`)로 동작하며, 데이터는 **Supabase**(PostgreSQL)에 저장됩니다.
 - 설정은 `netlify.toml`에 들어 있어, Netlify에 저장소를 연결하면 자동으로 빌드·배포됩니다.
 
-> Netlify는 상시 서버를 실행하지 못하므로, 로컬용 `server.js`(SQLite) 대신 배포 환경에서는 Functions + Blobs가 같은 REST API를 제공합니다. 프론트엔드 코드는 동일하게 동작합니다.
->
-> Netlify 대시보드에서 **Production branch가 배포할 브랜치(main)** 로 설정돼 있는지 확인하세요. Blobs는 별도 설정 없이 자동 활성화됩니다(무료).
+> Netlify는 상시 서버를 실행하지 못하므로, 로컬용 `server.js`(SQLite) 대신 배포 환경에서는 Functions + Supabase가 같은 REST API를 제공합니다. 프론트엔드 코드는 동일하게 동작합니다.
+
+### Supabase 설정
+
+1. Supabase 프로젝트의 **SQL Editor**에서 `supabase/schema.sql`을 실행해 `contracts` 테이블을 만듭니다.
+2. Netlify 대시보드 → **Site settings → Environment variables**에 아래 두 값을 추가합니다.
+   - `SUPABASE_URL` — 프로젝트 URL (예: `https://xxxx.supabase.co`)
+   - `SUPABASE_SERVICE_ROLE_KEY` — 프로젝트의 **service_role** 키 (서버 전용, 절대 공개·커밋 금지)
+3. 환경변수를 저장한 뒤 **재배포(Deploy)** 하면 적용됩니다.
+4. Netlify 대시보드에서 **Production branch가 배포할 브랜치(main)** 로 설정돼 있는지 확인하세요.
 
 ## 데이터 저장 / 백업
 
