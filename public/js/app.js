@@ -212,7 +212,7 @@ function renderEditor() {
         <tr><th class="sec extra-head">[ 서비스 · 기타 내용 ]</th></tr>
         <tr>
           <td class="extra-cell">
-            <textarea class="f extra ${editorLocked ? 'locked' : ''}" data-path="extraNotes" rows="2" placeholder="서비스 내용, 기타 특약 등 추가로 기입할 내용을 입력하세요." ${editorLocked ? 'readonly' : ''}>${esc(c.extraNotes || '')}</textarea>
+            <textarea class="f extra ${editorLocked ? 'locked' : ''}" data-path="extraNotes" rows="2" placeholder="추가 계약 내용을 입력하세요. (특약·서비스 등)" ${editorLocked ? 'readonly' : ''}>${esc(c.extraNotes || '')}</textarea>
           </td>
         </tr>
       </table>
