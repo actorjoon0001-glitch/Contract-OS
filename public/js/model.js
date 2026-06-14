@@ -110,10 +110,10 @@ export function emptyContract() {
       vat: 0,            // 부가세 (자동)
       productTotal: 0,   // 제품 합계 (자동)
       downPayment: 0,    // 계약금 (총액 10%, 자동)
-      interim1: 0,       // 중도금1 (총액 30%, 자동)
-      interim2: 0,       // 중도금2 (총액 30%, 자동)
-      interim3: 0,       // 중도금3 (총액 30%, 자동)
-      balance: 0,        // 잔금 (나머지, 자동)
+      interim1: 0,       // 중도금1 (총액 40%, 기초공사 완료 후)
+      interim2: 0,       // 중도금2 (총액 45%, 골조·외장·지붕 공사 완료 후)
+      balance: 0,        // 잔금 (나머지 5%, 자동)
+      payManual: false,  // 결제 스케줄 수동 조정 여부 (true면 자동 배분 건너뜀)
     },
     client: {
       name: '',
@@ -142,6 +142,12 @@ export function normalizeContract(contract) {
   if (typeof contract.extraNotes !== 'string') contract.extraNotes = contract.extraNotes || '';
   if (typeof contract.showroom !== 'string') contract.showroom = contract.showroom || '';
   if (typeof contract.salesperson !== 'string') contract.salesperson = contract.salesperson || '';
+  // 결제 스케줄: 구버전 중도금3 제거, 수동 조정 플래그 기본값 보정
+  const am = contract.amounts;
+  if (am) {
+    if (am.interim3 !== undefined) delete am.interim3; // 중도금3 폐지 (4단계로)
+    if (typeof am.payManual !== 'boolean') am.payManual = false;
+  }
   return contract;
 }
 
@@ -167,9 +173,11 @@ const num = (v) => {
 };
 
 // 결제 스케줄 자동 배분 비율 (제품합계 기준)
-export const PAY_DOWN_RATE = 0.10;    // 계약금 10%
-export const PAY_INTERIM_RATE = 0.30; // 중도금 1·2·3 각 30%
-export const PAY_UNIT_MAN = 100;      // 계약금·중도금 내림 단위: 백만원(=100만원)
+//  계약금 10% · 중도금1 40% · 중도금2 45% · 잔금 5%(나머지)
+export const PAY_DOWN_RATE = 0.10;      // 계약금 10%
+export const PAY_INTERIM1_RATE = 0.40;  // 중도금1 40% (기초공사 완료 후)
+export const PAY_INTERIM2_RATE = 0.45;  // 중도금2 45% (골조·외장·지붕 공사 완료 후)
+export const PAY_UNIT_MAN = 100;        // 계약금·중도금 내림 단위: 백만원(=100만원)
 // 계약금·중도금은 백만원 단위로 내림, 잔금은 나머지(= 총액 - 계약금 - 중도금 합계)
 
 // 항목 금액(평당이면 평수×단가) 및 공급가/부가세/제품합계/결제스케줄 자동계산
@@ -207,22 +215,23 @@ export function recalc(contract) {
   a.vat = Math.round(a.productSupply * 0.1);
   a.productTotal = a.productSupply + a.vat;
 
-  // 결제 스케줄 자동 배분 (총액 기준)
+  // 결제 스케줄 자동 배분 (총액 기준) — 수동 조정 모드면 건너뜀
   // 계약금·중도금은 백만원 단위로 내림, 끝자리는 잔금이 흡수
-  const total = a.productTotal;
-  const floorUnit = (v) => Math.floor(v / PAY_UNIT_MAN) * PAY_UNIT_MAN;
-  a.downPayment = floorUnit(total * PAY_DOWN_RATE);
-  a.interim1 = floorUnit(total * PAY_INTERIM_RATE);
-  a.interim2 = floorUnit(total * PAY_INTERIM_RATE);
-  a.interim3 = floorUnit(total * PAY_INTERIM_RATE);
-  a.balance = total - a.downPayment - a.interim1 - a.interim2 - a.interim3;
+  if (!a.payManual) {
+    const total = a.productTotal;
+    const floorUnit = (v) => Math.floor(v / PAY_UNIT_MAN) * PAY_UNIT_MAN;
+    a.downPayment = floorUnit(total * PAY_DOWN_RATE);
+    a.interim1 = floorUnit(total * PAY_INTERIM1_RATE);
+    a.interim2 = floorUnit(total * PAY_INTERIM2_RATE);
+    a.balance = total - a.downPayment - a.interim1 - a.interim2;
+  }
   return contract;
 }
 
 // 결제 스케줄 합계와 미배정 잔액(만원)
 export function paymentRemaining(contract) {
   const a = contract.amounts;
-  const scheduled = num(a.downPayment) + num(a.interim1) + num(a.interim2) + num(a.interim3) + num(a.balance);
+  const scheduled = num(a.downPayment) + num(a.interim1) + num(a.interim2) + num(a.balance);
   return a.productTotal - scheduled;
 }
 
