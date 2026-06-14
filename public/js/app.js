@@ -391,7 +391,7 @@ function moveControls(i, item) {
       <label class="move-truck no-print" data-move-truck-wrap="${i}" style="${showTruck ? '' : 'display:none'}">
         일반트럭 추가
         <select class="f dist no-print ${lc}" data-move-truck="${i}" ${dis}>
-          ${[0, 1, 2, 3].map((n) => `<option value="${n}" ${moveTruckQty(item) === n ? 'selected' : ''}>${n === 0 ? '없음' : n + '대'}</option>`).join('')}
+          ${[0, 1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${moveTruckQty(item) === n ? 'selected' : ''}>${n === 0 ? '없음' : n + '대'}</option>`).join('')}
         </select>
       </label>
       <span class="move-print print-only" data-move-print="${i}">${esc(movePrintLabel(item))}</span>
