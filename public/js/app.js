@@ -521,6 +521,12 @@ function bindEditor() {
       setPath(current, path, v);
       // 결제 항목을 직접 수정하면 수동 조정 모드로 전환 (자동 배분 중지)
       if (inp.dataset.pay) current.amounts.payManual = true;
+      // 주문 항목: 금액을 직접 수정하면 수동 금액 고정, 평수·단가를 고치면 자동 계산 복귀
+      const im = path.match(/^items\.(\d+)\.(amount|area|unitPrice)$/);
+      if (im) {
+        const it = current.items[Number(im[1])];
+        if (it) it.amountManual = im[2] === 'amount' ? String(v).trim() !== '' : false;
+      }
       if (inp.tagName === 'TEXTAREA') autoGrow(inp);
       if (path.startsWith('items.') || path.startsWith('amounts.')) updateTotals();
       markDirty();
