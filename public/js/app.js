@@ -2,7 +2,7 @@ import { api } from './api.js';
 import {
   SUPPLIER, emptyContract, recalc, paymentRemaining,
   fmtMan, manToKorean, normalizeContract, computeIntegrityHash,
-  MOVE_OPTIONS, computeMoveFee,
+  MOVE_OPTIONS, computeMoveFee, moveTruckQty,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
 
@@ -389,7 +389,10 @@ function moveControls(i, item) {
         <option value="">거리 선택</option>${tierOpts}
       </select>
       <label class="move-truck no-print" data-move-truck-wrap="${i}" style="${showTruck ? '' : 'display:none'}">
-        <input type="checkbox" data-move-truck="${i}" ${item.truck ? 'checked' : ''} ${dis}/> 일반트럭 추가
+        일반트럭 추가
+        <select class="f dist no-print ${lc}" data-move-truck="${i}" ${dis}>
+          ${[0, 1, 2, 3].map((n) => `<option value="${n}" ${moveTruckQty(item) === n ? 'selected' : ''}>${n === 0 ? '없음' : n + '대'}</option>`).join('')}
+        </select>
       </label>
       <span class="move-print print-only" data-move-print="${i}">${esc(movePrintLabel(item))}</span>
     </span>`;
@@ -400,7 +403,8 @@ function movePrintLabel(item) {
   const cat = MOVE_OPTIONS.categories.find((c) => c.key === item.moveCategory);
   if (!cat || !item.tier) return '';
   let s = `${cat.label} · ${item.tier}`;
-  if (cat.truck && item.truck) s += ' · 일반트럭 추가';
+  const qty = moveTruckQty(item);
+  if (cat.truck && qty > 0) s += ` · 일반트럭 ${qty}대 추가`;
   return s;
 }
 
@@ -411,7 +415,7 @@ function updateMoveFee(i) {
   // 트럭옵션 없는 종류(농막)면 체크박스 숨김 + 트럭 선택 해제
   const wrap = app.querySelector(`[data-move-truck-wrap="${i}"]`);
   if (wrap) wrap.style.display = (cat && cat.truck) ? '' : 'none';
-  if (!(cat && cat.truck)) item.truck = false;
+  if (!(cat && cat.truck)) item.truckQty = 0;
   // 금액 계산 → 금액칸 반영
   const fee = computeMoveFee(item);
   item.amount = fee === '' ? '' : fee;
@@ -547,10 +551,10 @@ function bindEditor() {
       updateMoveFee(i);
     });
   });
-  app.querySelectorAll('input[data-move-truck]').forEach((chk) => {
-    chk.addEventListener('change', () => {
-      const i = Number(chk.dataset.moveTruck);
-      current.items[i].truck = chk.checked;
+  app.querySelectorAll('select[data-move-truck]').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      const i = Number(sel.dataset.moveTruck);
+      current.items[i].truckQty = Number(sel.value) || 0;
       updateMoveFee(i);
     });
   });
