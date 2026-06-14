@@ -42,10 +42,10 @@ export const MOVE_OPTIONS = {
 };
 
 // 이동 설치비 항목의 선택값(종류·거리·트럭)으로 금액(만원) 계산. 미선택이면 '' 반환
-// 일반트럭 추가 수량 (0~3) — 구버전 boolean(truck) 호환
+// 일반트럭 추가 수량 (0~5) — 구버전 boolean(truck) 호환
 export function moveTruckQty(item) {
   const raw = item.truckQty != null ? item.truckQty : (item.truck ? 1 : 0);
-  return Math.max(0, Math.min(3, Math.floor(Number(raw) || 0)));
+  return Math.max(0, Math.min(5, Math.floor(Number(raw) || 0)));
 }
 
 export function computeMoveFee(item) {
