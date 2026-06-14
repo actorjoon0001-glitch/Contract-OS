@@ -327,11 +327,18 @@ function leftCell(row) {
 
 function rightCell(item, i) {
   if (!item) return `<td colspan="3" class="empty"></td>`;
-  const priceLabel = item.priceLabel ? item.priceLabel : (item.unitPrice !== '' ? `${item.unitPrice}만원` : '');
+  // 단가: priceEditable 항목은 직접 입력칸(체류형 쉼터 등 단가가 다른 경우), 그 외엔 고정 라벨
+  let priceHtml = '';
+  if (item.priceEditable) {
+    priceHtml = `<span class="item-price price-edit">평당 ${field(`items.${i}.unitPrice`, item.unitPrice, 'price', 'right')}<span class="unit2">만원</span></span>`;
+  } else {
+    const priceLabel = item.priceLabel ? item.priceLabel : (item.unitPrice !== '' ? `${item.unitPrice}만원` : '');
+    priceHtml = priceLabel ? `<span class="item-price">${esc(priceLabel)}</span>` : '';
+  }
   return `
     <td class="item-name">
       <span class="item-no">${item.no}.</span> ${esc(item.name)}
-      ${priceLabel ? `<span class="item-price">${esc(priceLabel)}</span>` : ''}
+      ${priceHtml}
       ${item.unit === '평당'
         ? `<span class="area-input">${field(`items.${i}.area`, item.area, 'area', 'right')}<span class="unit2">평</span></span>`
         : ''}
@@ -507,8 +514,8 @@ function bindEditor() {
     inp.addEventListener('input', () => {
       const path = inp.dataset.path;
       let v = inp.value;
-      // 금액/면적 입력은 숫자(콤마 허용)
-      if (inp.classList.contains('amt') || inp.classList.contains('area')) {
+      // 금액/면적/단가 입력은 숫자(콤마 허용)
+      if (inp.classList.contains('amt') || inp.classList.contains('area') || inp.classList.contains('price')) {
         v = v.replace(/[^\d.,]/g, '');
       }
       setPath(current, path, v);

@@ -237,6 +237,8 @@ input.f:focus, textarea.f:focus { background: #fff5d6; border-bottom-color: var(
 input.f.right { text-align: right; }
 input.f.amt { width: 90px; font-weight: 700; }
 input.f.area { width: 48px; }
+input.f.price { width: 52px; font-weight: 700; color: var(--brand); }
+.price-edit { margin-left: 2px; white-space: nowrap; }
 /* 비고: 여러 줄 줄바꿈 + 내용에 맞춘 자동 높이 */
 textarea.f.note {
   width: 100%; font-size: 12px; line-height: 1.3;
