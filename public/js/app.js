@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import {
-  SUPPLIER, emptyContract, recalc,
+  SUPPLIER, emptyContract, recalc, paymentRemaining,
   fmtMan, manToKorean, normalizeContract, computeIntegrityHash,
   MOVE_OPTIONS, computeMoveFee,
 } from './model.js';
@@ -263,11 +263,10 @@ function renderRows() {
     { label: '제품공급가', type: 'supply', key: 'productSupply' },
     { label: '부가세(Vat)', type: 'calc', key: 'vat' },
     { label: '제품 합계', type: 'calc', key: 'productTotal', strong: true },
-    { label: '계약금', type: 'pay', key: 'downPayment' },
-    { label: '중도금 1', type: 'pay', key: 'interim1', cond: '기초공사 완료 후 입금' },
-    { label: '중도금 2', type: 'pay', key: 'interim2', cond: '철골공사 완료 후 입금' },
-    { label: '중도금 3', type: 'pay', key: 'interim3', cond: '지붕·외장 완료 후 입금' },
-    { label: '잔금', type: 'pay', key: 'balance', cond: '준공서류 전달 / 이동설치시 출고 전 입금' },
+    { label: '계약금', type: 'pay', key: 'downPayment', cond: '계약 시 입금 (10%)' },
+    { label: '중도금 1', type: 'pay', key: 'interim1', cond: '기초공사 완료 후 입금 (40%)' },
+    { label: '중도금 2', type: 'pay', key: 'interim2', cond: '골조·외장·지붕 공사 완료 후 입금 (45%)' },
+    { label: '잔금', type: 'pay', key: 'balance', cond: '준공서류 전달 / 이동설치시 출고 전 입금 (5%)' },
     { label: '계약일자', type: 'date' },
     { label: '현장주소', type: 'site' },
   ];
@@ -302,9 +301,14 @@ function leftCell(row) {
       </td>`;
   }
   if (row.type === 'pay') {
-    // 자동 배분 값 (읽기전용 표시)
+    // 비율대로 자동 배분되며, 직접 입력하면 그 값이 우선됨(수동 조정)
+    const ro = editorLocked ? 'readonly' : '';
+    const lc = editorLocked ? 'locked' : '';
     return `<td class="lbl">${row.label}</td>
-      <td class="amt"><span class="auto" data-total="${row.key}">${fmtMan(c.amounts[row.key])}</span> <span class="unit">만원</span></td>
+      <td class="amt">
+        <input class="f amt right ${lc}" data-path="amounts.${row.key}" data-pay="${row.key}" value="${esc(fmtMan(c.amounts[row.key]))}" title="비율대로 자동 입력됩니다. 직접 입력하면 그 값이 우선됩니다(수동 조정)." ${ro} />
+        <span class="unit">만원</span>
+      </td>
       <td class="cond muted small">${row.cond || ''}</td>`;
   }
   if (row.type === 'date') {
@@ -508,6 +512,8 @@ function bindEditor() {
         v = v.replace(/[^\d.,]/g, '');
       }
       setPath(current, path, v);
+      // 결제 항목을 직접 수정하면 수동 조정 모드로 전환 (자동 배분 중지)
+      if (inp.dataset.pay) current.amounts.payManual = true;
       if (inp.tagName === 'TEXTAREA') autoGrow(inp);
       if (path.startsWith('items.') || path.startsWith('amounts.')) updateTotals();
       markDirty();
@@ -613,7 +619,14 @@ function updateTotals() {
       if (inp && document.activeElement !== inp) inp.value = fmtMan(it.amount);
     }
   });
-  // 결제 스케줄 안내 (자동 배분: 계약금 10% · 중도금 각 30% · 잔금 나머지)
+  // 자동 배분 모드면 결제 입력칸도 비율대로 갱신 (포커스 중인 칸은 건드리지 않음)
+  if (!current.amounts.payManual) {
+    ['downPayment', 'interim1', 'interim2', 'balance'].forEach((k) => {
+      const inp = app.querySelector(`input[data-pay="${k}"]`);
+      if (inp && document.activeElement !== inp) inp.value = fmtMan(current.amounts[k]);
+    });
+  }
+  // 결제 스케줄 안내 + 수동 조정 시 되돌리기 버튼
   let hint = document.getElementById('pay-hint');
   if (!hint) {
     hint = document.createElement('div');
@@ -623,7 +636,22 @@ function updateTotals() {
   }
   if (current.amounts.productTotal > 0) {
     const won = manToKorean(current.amounts.productTotal);
-    hint.innerHTML = `<span class="ok">✔ 결제 스케줄 자동 배분</span> 계약금 10% · 중도금 각 30% (백만원 단위 내림) · 잔금 나머지 · 제품합계 ${won}`;
+    const remain = paymentRemaining(current);
+    if (current.amounts.payManual) {
+      const balanceNote = Math.abs(remain) < 0.5
+        ? `<span class="ok">합계 일치</span>`
+        : remain > 0 ? `<span class="warn">미배정 ${fmtMan(remain)}만원</span>`
+          : `<span class="warn">${fmtMan(-remain)}만원 초과</span>`;
+      hint.innerHTML = `<span class="warn">✎ 결제 금액 수동 조정됨</span> · ${balanceNote} · 제품합계 ${won} <button type="button" class="btn tiny" id="pay-reset"${editorLocked ? ' disabled' : ''}>자동 배분으로 되돌리기</button>`;
+      const resetBtn = document.getElementById('pay-reset');
+      if (resetBtn) resetBtn.onclick = () => {
+        current.amounts.payManual = false;
+        markDirty();
+        updateTotals();
+      };
+    } else {
+      hint.innerHTML = `<span class="ok">✔ 결제 스케줄 자동 배분</span> 계약금 10% · 중도금1 40% · 중도금2 45% (백만원 단위 내림) · 잔금 나머지 · 제품합계 ${won}`;
+    }
   } else {
     hint.innerHTML = '';
   }
