@@ -8,6 +8,9 @@
   html, body { background: #fff !important; }
   .no-print { display: none !important; }
 
+  /* 기타 비용이 비어 있으면 인쇄본에서 섹션 숨김 */
+  .extra-cost-grid.ec-empty { display: none !important; }
+
   #app { min-height: 0; }
 
   .contract {
