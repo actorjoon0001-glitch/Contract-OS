@@ -189,7 +189,9 @@ export function recalc(contract) {
   let itemsSum = 0;
   for (const it of contract.items) {
     const a = num(it.area);
-    if (it.priceRule === 'foundation') {
+    if (it.amountManual) {
+      // 영업사원이 금액을 직접 수정한 항목: 자동 계산 건너뛰고 입력값 유지
+    } else if (it.priceRule === 'foundation') {
       // 기초공사: 12평 미만 평당 140, 12평 이상 평당 110
       it.amount = a > 0 ? a * (a < 12 ? 140 : 110) : '';
     } else if (it.priceRule === 'heating') {
