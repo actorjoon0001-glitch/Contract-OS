@@ -26,16 +26,16 @@ export const MOVE_OPTIONS = {
       key: 'stay35', label: '체류형쉼터·이동식주택 (높이 3.5m 이하)', truck: true,
       tiers: [
         { label: '100km 미만', base: 220, truckAdd: 60 },
-        { label: '200km 미만', base: 360, truckAdd: 80 },
-        { label: '200km 이상', base: 310, truckAdd: 100 },
+        { label: '200km 미만', base: 310, truckAdd: 80 },
+        { label: '200km 이상', base: 360, truckAdd: 100 },
       ],
     },
     {
       key: 'stay40', label: '체류형쉼터·이동식주택 (높이 3.5~4m)', truck: true,
       tiers: [
-        { label: '100km 미만', base: 280, truckAdd: 60 },
-        { label: '200km 미만', base: 330, truckAdd: 80 },
-        { label: '200km 이상', base: 390, truckAdd: 100 },
+        { label: '100km 미만', base: 350, truckAdd: 60 },
+        { label: '200km 미만', base: 390, truckAdd: 80 },
+        { label: '200km 이상', base: 430, truckAdd: 100 },
       ],
     },
   ],
