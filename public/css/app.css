@@ -89,6 +89,11 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 .badge.stage-negotiating { background: #fff3d6; color: #97700a; }
 .badge.stage-completed { background: #dff3e4; color: #1c7d3c; }
 .lock { font-size: 11px; vertical-align: middle; }
+/* 목록에서 바로 바꾸는 진행상태 드롭다운 */
+.row-stage { border: 1px solid #d2d7dd; border-radius: 20px; padding: 3px 8px; font-size: 12px; font-weight: 700; cursor: pointer; background: #fff; }
+.row-stage.stage-prospect { background: #e7eef7; color: #3a5a82; border-color: #cdd9e8; }
+.row-stage.stage-negotiating { background: #fff3d6; color: #97700a; border-color: #f0e2b8; }
+.row-stage.stage-completed { background: #dff3e4; color: #1c7d3c; border-color: #c2e6cd; }
 /* 관리바 진행상태 선택 */
 .mb-stage { border: 1px solid #c4c9d0; border-radius: 7px; padding: 5px 9px; font-size: 13px; font-weight: 700; background: #fff; cursor: pointer; }
 .mb-stage.stage-prospect { color: #3a5a82; }

@@ -78,7 +78,7 @@ async function renderList() {
         <thead>
           <tr>
             <th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
-            <th class="right">제품합계(만원)</th><th>계약일자</th><th>상태</th><th>수정일</th><th></th>
+            <th class="right">제품합계(만원)</th><th>계약일자</th><th>진행상태</th><th>수정일</th><th></th>
           </tr>
         </thead>
         <tbody id="list-body"><tr><td colspan="${LIST_COLS}" class="muted center">불러오는 중...</td></tr></tbody>
@@ -148,13 +148,42 @@ function renderListRows(rows) {
       <td>${esc(r.contract_date || '-')}</td>
       <td>${r.is_sample
         ? '<span class="badge">샘플</span>'
-        : `<span class="badge stage-${stageOf(r)}">${esc(stageLabel(stageOf(r)))}</span>${r.status === 'confirmed' ? ' <span class="lock" title="확정·봉인됨">🔒</span>' : ''}`}</td>
+        : `<select class="row-stage stage-${stageOf(r)}" data-stage-id="${r.id}" title="진행상태 변경">
+            ${STAGES.map((s) => `<option value="${s.key}" ${stageOf(r) === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
+          </select>${r.status === 'confirmed' ? ' <span class="lock" title="확정·봉인됨">🔒</span>' : ''}`}</td>
       <td class="muted small">${esc((r.updated_at || '').slice(0, 16))}</td>
       <td>${r.is_sample ? '' : `<button class="btn tiny danger" data-del="${r.id}">삭제</button>`}</td>
     </tr>`).join('');
 
   body.querySelectorAll('.row').forEach((tr) => {
-    tr.onclick = (e) => { if (e.target.dataset.del) return; go(`#/edit/${tr.dataset.id}`); };
+    tr.onclick = (e) => {
+      if (e.target.dataset.del || e.target.closest('.row-stage')) return; // 삭제·진행상태 조작은 행 이동 제외
+      go(`#/edit/${tr.dataset.id}`);
+    };
+  });
+  // 진행상태: 목록에서 바로 변경 (계약서를 열지 않아도 됨)
+  body.querySelectorAll('.row-stage').forEach((sel) => {
+    sel.onclick = (e) => e.stopPropagation();
+    sel.onchange = async (e) => {
+      e.stopPropagation();
+      const id = sel.dataset.stageId;
+      const stage = sel.value;
+      sel.disabled = true;
+      try {
+        const rec = await api.get(id);
+        const data = rec.data || {};
+        data.stage = stage;
+        await api.update(id, data);
+        sel.className = `row-stage stage-${stage}`; // 색상 갱신
+        const cached = listRows.find((r) => String(r.id) === String(id));
+        if (cached) cached.stage = stage; // 캐시 동기화 (필터 정확도)
+      } catch (err) {
+        alert('진행상태 변경 실패: ' + err.message);
+        loadList();
+      } finally {
+        sel.disabled = false;
+      }
+    };
   });
   body.querySelectorAll('[data-del]').forEach((b) => {
     b.onclick = async (e) => {
