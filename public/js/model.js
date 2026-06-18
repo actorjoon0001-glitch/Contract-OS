@@ -10,6 +10,24 @@ export const SUPPLIER = {
   logoImage: '/img/logo.png', // 계약서 상단 로고 이미지 경로 (없으면 'SEUM' 글씨 표시)
 };
 
+// 영업 진행상태(가망건 → 협의중 → 계약완료). '확정' 잠금·봉인과는 별개의 관리용 라벨.
+export const STAGES = [
+  { key: 'prospect', label: '가망건' },
+  { key: 'negotiating', label: '협의중' },
+  { key: 'completed', label: '계약완료' },
+];
+export const DEFAULT_STAGE = 'negotiating';
+export function stageLabel(key) {
+  return (STAGES.find((s) => s.key === key) || {}).label || '협의중';
+}
+// 구버전(진행상태 없음) 보정: 확정건은 계약완료, 그 외는 협의중으로 추정
+export function normalizeStage(contract) {
+  if (!STAGES.some((s) => s.key === contract.stage)) {
+    contract.stage = contract.status === 'confirmed' ? 'completed' : DEFAULT_STAGE;
+  }
+  return contract.stage;
+}
+
 // 이동 설치비 요금표 — 종류 × 거리구간 (+ 일반트럭 추가요금). 금액 단위: 만원
 // 구간/금액을 여기서 수정하면 화면·계산에 바로 반영됩니다.
 export const MOVE_OPTIONS = {
@@ -102,6 +120,7 @@ export function emptyContract() {
   return {
     contractNo: '',
     status: 'draft',
+    stage: DEFAULT_STAGE, // 영업 진행상태 (가망건/협의중/계약완료) — '확정' 잠금과 별개
     contractDate: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`,
     siteAddress: '',
     showroom: '',     // 전시장 (목록 분류·관리용)
@@ -146,6 +165,7 @@ export function sampleContract() {
   const c = emptyContract();
   c.contractNo = '샘플';
   c.status = 'draft';
+  c.stage = 'prospect';
   c.contractDate = '2026-06-01';
   c.siteAddress = '경기도 화성시 향남읍 예시로 123';
   c.showroom = '본점';
@@ -179,6 +199,7 @@ export function sampleListRow() {
     total_amount: c.amounts.productTotal,
     contract_date: c.contractDate,
     status: c.status,
+    stage: c.stage,
     updated_at: '',
     is_sample: true,
   };
@@ -195,6 +216,8 @@ export function normalizeContract(contract) {
   if (typeof contract.extraNotes !== 'string') contract.extraNotes = contract.extraNotes || '';
   if (typeof contract.showroom !== 'string') contract.showroom = contract.showroom || '';
   if (typeof contract.salesperson !== 'string') contract.salesperson = contract.salesperson || '';
+  normalizeStage(contract); // 진행상태 기본값 보정
+
   if (!Array.isArray(contract.extraCosts)) contract.extraCosts = []; // 기타 비용 목록 보정
   // 이동 설치비: 구버전 일반트럭 boolean(truck) → 수량(truckQty)으로 변환
   for (const it of contract.items || []) {
@@ -222,7 +245,7 @@ function stableStringify(v) {
 
 // 계약 내용(integrity 필드 제외)의 SHA-256 지문 — 브라우저 Web Crypto 사용
 export async function computeIntegrityHash(contract) {
-  const { integrity, contractNo, ...rest } = contract; // 봉인값·채번은 내용 변경과 무관하므로 제외
+  const { integrity, contractNo, stage, ...rest } = contract; // 봉인값·채번·진행상태(관리용)는 내용 변경과 무관하므로 제외
   const bytes = new TextEncoder().encode(stableStringify(rest));
   const buf = await crypto.subtle.digest('SHA-256', bytes);
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');

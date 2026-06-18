@@ -4,10 +4,17 @@ import {
   fmtMan, manToKorean, normalizeContract, computeIntegrityHash,
   MOVE_OPTIONS, computeMoveFee, moveTruckQty,
   SAMPLE_ID, sampleContract, sampleListRow,
+  STAGES, stageLabel,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
 
 let editorLocked = false; // 확정 상태이면 true (입력·서명 잠금)
+
+// 진행상태(stage) — 값이 없으면 확정 여부로 추정
+function stageOf(row) {
+  if (STAGES.some((s) => s.key === row.stage)) return row.stage;
+  return row.status === 'confirmed' ? 'completed' : 'negotiating';
+}
 
 const app = document.getElementById('app');
 let current = null;     // 편집 중인 계약 객체
@@ -57,6 +64,10 @@ async function renderList() {
       <div class="brand"><span class="logo">SEUM</span> 전산 계약서 <small>Contract-OS</small></div>
       <div class="actions">
         <input id="search" class="search" type="search" placeholder="건축주 · 현장주소 · 계약번호 · 전시장 · 영업사원 검색" />
+        <select id="filter-stage" class="filter-sel">
+          <option value="">진행상태 전체</option>
+          ${STAGES.map((s) => `<option value="${s.key}">${s.label}</option>`).join('')}
+        </select>
         <select id="filter-showroom" class="filter-sel"><option value="">전시장 전체</option></select>
         <select id="filter-sales" class="filter-sel"><option value="">영업사원 전체</option></select>
         <button class="btn primary" id="new-btn">+ 새 계약서</button>
@@ -76,6 +87,7 @@ async function renderList() {
 
   document.getElementById('new-btn').onclick = () => go('#/new');
   document.getElementById('search').oninput = applyListFilters;
+  document.getElementById('filter-stage').onchange = applyListFilters;
   document.getElementById('filter-showroom').onchange = applyListFilters;
   document.getElementById('filter-sales').onchange = applyListFilters;
   loadList();
@@ -106,9 +118,11 @@ function populateFilter(id, allLabel, values) {
 
 function applyListFilters() {
   const q = (document.getElementById('search').value || '').toLowerCase().trim();
+  const st = document.getElementById('filter-stage').value;
   const sr = document.getElementById('filter-showroom').value;
   const sp = document.getElementById('filter-sales').value;
   let rows = listRows;
+  if (st) rows = rows.filter((r) => stageOf(r) === st);
   if (sr) rows = rows.filter((r) => (r.showroom || '') === sr);
   if (sp) rows = rows.filter((r) => (r.salesperson || '') === sp);
   if (q) rows = rows.filter((r) =>
@@ -132,7 +146,9 @@ function renderListRows(rows) {
       <td class="ellipsis">${esc(r.site_address || '-')}</td>
       <td class="right">${fmtMan(r.total_amount) || '-'}</td>
       <td>${esc(r.contract_date || '-')}</td>
-      <td>${r.is_sample ? '<span class="badge">샘플</span>' : `<span class="badge ${r.status}">${r.status === 'confirmed' ? '확정' : '작성중'}</span>`}</td>
+      <td>${r.is_sample
+        ? '<span class="badge">샘플</span>'
+        : `<span class="badge stage-${stageOf(r)}">${esc(stageLabel(stageOf(r)))}</span>${r.status === 'confirmed' ? ' <span class="lock" title="확정·봉인됨">🔒</span>' : ''}`}</td>
       <td class="muted small">${esc((r.updated_at || '').slice(0, 16))}</td>
       <td>${r.is_sample ? '' : `<button class="btn tiny danger" data-del="${r.id}">삭제</button>`}</td>
     </tr>`).join('');
@@ -196,6 +212,11 @@ function renderEditor() {
 
     <div class="manage-bar no-print">
       <span class="mb-title">관리</span>
+      <label>진행상태
+        <select id="stage-select" class="mb-stage stage-${stageOf(c)}">
+          ${STAGES.map((s) => `<option value="${s.key}" ${stageOf(c) === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
+        </select>
+      </label>
       <label>전시장 ${field('showroom', c.showroom, 'manage')}</label>
       <label>영업사원 ${field('salesperson', c.salesperson, 'manage')}</label>
       <span class="mb-hint muted small">※ 목록 분류·검색용 (계약서 인쇄에는 표시 안 됨)</span>
@@ -527,6 +548,13 @@ function bindSign(scope) {
 function bindEditor() {
   document.getElementById('save-btn').onclick = saveContract;
   document.getElementById('print-btn').onclick = () => window.print();
+  // 진행상태: '확정' 잠금과 무관하게 언제든 변경 가능 (관리용 라벨)
+  const stageSel = document.getElementById('stage-select');
+  if (stageSel) stageSel.onchange = (e) => {
+    current.stage = e.target.value;
+    e.target.className = `mb-stage stage-${current.stage}`; // 색상 갱신
+    markDirty();
+  };
   document.getElementById('status-confirmed').onchange = async (e) => {
     if (e.target.checked) {
       // 확정: 무결성 봉인 후 잠금
