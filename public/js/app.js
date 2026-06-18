@@ -308,7 +308,8 @@ function renderEditor() {
           <td class="sign-field"><span class="fl">생년월일</span> ${field('client.birth', c.client.birth)}</td>
         </tr>
         <tr>
-          <td class="sign-co sign-co-rep">대표 ${esc(SUPPLIER.ceo)} ${signSlot('supplier')}</td>
+          <td class="sign-co sign-co-rep">대표 ${esc(SUPPLIER.ceo)} ${signSlot('supplier')}
+            <span class="approval-box"><span class="fl">대표이사 승인</span> ${signSlot('approval')}</span></td>
           <td class="sign-field"><span class="fl">연락처</span> ${field('client.phone', c.client.phone)}</td>
         </tr>
         <tr>
@@ -542,7 +543,8 @@ function signSlotInner(party) {
       </span>`;
   }
   if (editorLocked) return `<span class="seal">(인)</span>`;
-  return `<button type="button" class="sig-btn no-print" data-sign="${party}">✎ 서명</button><span class="seal print-only">(인)</span>`;
+  const label = party === 'approval' ? '✎ 승인' : '✎ 서명';
+  return `<button type="button" class="sig-btn no-print" data-sign="${party}">${label}</button><span class="seal print-only">(인)</span>`;
 }
 
 function fmtSignDate(iso) {
@@ -558,7 +560,8 @@ function bindSign(scope) {
     el.onclick = () => {
       const party = el.dataset.sign;
       openSignaturePad({
-        title: party === 'supplier' ? '공급자(대표) 전자 서명' : '계약자(건축주) 전자 서명',
+        title: party === 'approval' ? '대표이사 승인 전자 서명'
+          : party === 'supplier' ? '공급자(대표) 전자 서명' : '계약자(건축주) 전자 서명',
         initial: current.signatures?.[party]?.image || '',
         onSave: (dataUrl) => {
           current.signatures[party] = dataUrl
