@@ -10,11 +10,17 @@ export const SUPPLIER = {
   logoImage: '/img/logo.png', // 계약서 상단 로고 이미지 경로 (없으면 'SEUM' 글씨 표시)
 };
 
-// 영업 진행상태(가망건 → 협의중 → 계약완료). '확정' 잠금·봉인과는 별개의 관리용 라벨.
+// 영업 진행상태(가망건 → … → 납품완료). '확정' 잠금·봉인과는 별개의 관리용 라벨.
+// key는 저장값(변경 시 기존 데이터 호환 주의), label은 화면 표시. 순서 = 진행 단계 순서.
 export const STAGES = [
   { key: 'prospect', label: '가망건' },
   { key: 'negotiating', label: '협의중' },
+  { key: 'deposit_wait', label: '계약금 대기' },
   { key: 'completed', label: '계약완료' },
+  { key: 'design_3d', label: '3D도면 작업중' },
+  { key: 'production', label: '제작중' },
+  { key: 'installing', label: '설치·시공중' },
+  { key: 'delivered', label: '납품완료' },
 ];
 export const DEFAULT_STAGE = 'negotiating';
 export function stageLabel(key) {
