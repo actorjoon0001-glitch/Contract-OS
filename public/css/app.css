@@ -87,6 +87,10 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 .lock { font-size: 11px; vertical-align: middle; }
 /* 목록에서 바로 바꾸는 진행상태 드롭다운 */
 .row-stage { border: 1px solid #d2d7dd; border-radius: 20px; padding: 3px 8px; font-size: 12px; font-weight: 700; cursor: pointer; background: #fff; }
+/* 휴지통 */
+.trash-note { margin: 4px 2px 12px; font-size: 13px; }
+.trash-actions { white-space: nowrap; }
+.trash-actions .btn { margin-left: 4px; }
 /* 목록 대표이사 승인 버튼 */
 .row-approve { border: 1px dashed #b9c2cf; background: #f4f9ff; color: var(--brand); padding: 3px 9px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; }
 .row-approve:hover { background: #e9f2ff; border-color: var(--brand); }

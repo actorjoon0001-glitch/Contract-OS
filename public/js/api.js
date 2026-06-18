@@ -18,7 +18,13 @@ async function req(url, options) {
 }
 
 export const api = {
-  list: (q = '') => req(`${BASE}${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  list: (q = '', { deleted = false } = {}) => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (deleted) params.set('deleted', '1');
+    const qs = params.toString();
+    return req(`${BASE}${qs ? `?${qs}` : ''}`);
+  },
   get: (id) => req(`${BASE}/${id}`),
   create: (data) => req(BASE, { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => req(`${BASE}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
