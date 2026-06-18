@@ -21,6 +21,7 @@ export const STAGES = [
   { key: 'production', label: '제작중' },
   { key: 'installing', label: '설치·시공중' },
   { key: 'delivered', label: '납품완료' },
+  { key: 'canceled', label: '취소' },
 ];
 export const DEFAULT_STAGE = 'negotiating';
 export function stageLabel(key) {
