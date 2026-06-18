@@ -164,19 +164,29 @@ function renderListRows(rows) {
       go(`#/edit/${tr.dataset.id}`);
     };
   });
-  // 대표이사 승인: 목록에서 바로 전자서명 결재
+  // 대표이사 승인: 목록에서 바로 전자서명 결재 (이미 승인된 건은 기존 서명을 미리보기로 띄워 수정 가능)
   body.querySelectorAll('.row-approve').forEach((btn) => {
-    btn.onclick = (e) => {
+    btn.onclick = async (e) => {
       e.stopPropagation();
       const id = btn.dataset.approveId;
+      btn.disabled = true;
+      let rec;
+      try {
+        rec = await api.get(id); // 기존 승인 서명 이미지를 가져와 미리보기
+      } catch (err) {
+        alert('불러오기 실패: ' + err.message);
+        btn.disabled = false;
+        return;
+      }
+      btn.disabled = false;
+      const data = rec.data || {};
+      const existing = data.signatures?.approval?.image || '';
       openSignaturePad({
-        title: '대표이사 승인 전자서명',
-        initial: '',
+        title: existing ? '대표이사 승인 — 서명 수정' : '대표이사 승인 전자서명',
+        initial: existing,
         onSave: async (dataUrl) => {
           btn.disabled = true;
           try {
-            const rec = await api.get(id);
-            const data = rec.data || {};
             data.signatures = data.signatures || {};
             data.signatures.approval = dataUrl
               ? { image: dataUrl, signedAt: new Date().toISOString(), agent: navigator.userAgent }
