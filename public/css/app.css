@@ -103,6 +103,7 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 .row-stage.stage-production, .mb-stage.stage-production, .badge.stage-production { background: #d4eef0; color: #0f6b73; border-color: #b8e2e6; }
 .row-stage.stage-installing, .mb-stage.stage-installing, .badge.stage-installing { background: #dde2fb; color: #3a4fa0; border-color: #c7cef5; }
 .row-stage.stage-delivered, .mb-stage.stage-delivered, .badge.stage-delivered { background: #d6dbe2; color: #3b4654; border-color: #c2c9d3; }
+.row-stage.stage-canceled, .mb-stage.stage-canceled, .badge.stage-canceled { background: #fbe0e0; color: #b02a2a; border-color: #f3c4c4; }
 
 /* ---------- 계약서 본문 ---------- */
 .contract {
