@@ -62,7 +62,7 @@ export async function handle(req, idParam, supa) {
         const q = (url.searchParams.get('q') || '').trim();
         let query = supa
           .from(TABLE)
-          .select('id, contract_no, status, stage:data->>stage, client_name, site_address, showroom, salesperson, contract_date, total_amount, updated_at')
+          .select('id, contract_no, status, stage:data->>stage, approval_at:data->signatures->approval->>signedAt, client_name, site_address, showroom, salesperson, contract_date, total_amount, updated_at')
           .order('updated_at', { ascending: false });
         if (q) {
           const safe = q.replace(/[%,()]/g, ' ');
