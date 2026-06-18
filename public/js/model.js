@@ -155,7 +155,8 @@ export function emptyContract() {
     },
     // 전자 서명 (캔버스로 그린 PNG data URL + 서명 시각 + 서명 기기)
     signatures: {
-      supplier: { image: '', signedAt: '', agent: '' }, // 공급자(대표)
+      supplier: { image: '', signedAt: '', agent: '' }, // 공급자(대표) — 법인 인감 도장
+      approval: { image: '', signedAt: '', agent: '' },  // 대표이사 승인 전자서명
       client: { image: '', signedAt: '', agent: '' },   // 계약자(건축주)
     },
     // 무결성 봉인 (확정 시 계약 내용+서명의 해시를 기록 → 이후 변경 여부 검증)
@@ -216,7 +217,7 @@ const oneSig = (s) => ({ image: s?.image || '', signedAt: s?.signedAt || '', age
 // 이전에 저장된 계약(서명/무결성 필드 없음)도 안전하게 다루도록 기본 구조 보정
 export function normalizeContract(contract) {
   const s = contract.signatures || {};
-  contract.signatures = { supplier: oneSig(s.supplier), client: oneSig(s.client) };
+  contract.signatures = { supplier: oneSig(s.supplier), approval: oneSig(s.approval), client: oneSig(s.client) };
   const i = contract.integrity || {};
   contract.integrity = { hash: i.hash || '', sealedAt: i.sealedAt || '', agent: i.agent || '' };
   if (typeof contract.extraNotes !== 'string') contract.extraNotes = contract.extraNotes || '';
@@ -252,6 +253,11 @@ function stableStringify(v) {
 // 계약 내용(integrity 필드 제외)의 SHA-256 지문 — 브라우저 Web Crypto 사용
 export async function computeIntegrityHash(contract) {
   const { integrity, contractNo, stage, ...rest } = contract; // 봉인값·채번·진행상태(관리용)는 내용 변경과 무관하므로 제외
+  // 하위호환: 비어있는 '대표이사 승인' 서명은 해시에서 제외 → 이 항목 추가 전에 봉인된 기존 계약의 무결성 유지
+  if (rest.signatures && !rest.signatures.approval?.image) {
+    const { approval, ...sigRest } = rest.signatures;
+    rest.signatures = sigRest;
+  }
   const bytes = new TextEncoder().encode(stableStringify(rest));
   const buf = await crypto.subtle.digest('SHA-256', bytes);
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
