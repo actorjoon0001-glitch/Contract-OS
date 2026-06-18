@@ -55,7 +55,7 @@ function go(hash) {
 
 // ---------- 목록 화면 ----------
 let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터는 클라이언트에서 처리)
-const LIST_COLS = 10;
+const LIST_COLS = 11;
 
 async function renderList() {
   current = null; currentId = null; dirty = false;
@@ -78,7 +78,7 @@ async function renderList() {
         <thead>
           <tr>
             <th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
-            <th class="right">제품합계(만원)</th><th>계약일자</th><th>진행상태</th><th>수정일</th><th></th>
+            <th class="right">제품합계(만원)</th><th>계약일자</th><th>진행상태</th><th>대표이사 승인</th><th>수정일</th><th></th>
           </tr>
         </thead>
         <tbody id="list-body"><tr><td colspan="${LIST_COLS}" class="muted center">불러오는 중...</td></tr></tbody>
@@ -151,14 +151,44 @@ function renderListRows(rows) {
         : `<select class="row-stage stage-${stageOf(r)}" data-stage-id="${r.id}" title="진행상태 변경">
             ${STAGES.map((s) => `<option value="${s.key}" ${stageOf(r) === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
           </select>${r.status === 'confirmed' ? ' <span class="lock" title="확정·봉인됨">🔒</span>' : ''}`}</td>
+      <td>${r.is_sample ? '' : (r.approval_at
+        ? `<button class="row-approve approved" data-approve-id="${r.id}" title="${esc(fmtSignDate(r.approval_at))} 승인됨 · 다시 서명">✅ 승인됨</button>`
+        : `<button class="row-approve" data-approve-id="${r.id}" title="대표이사 승인 전자서명">✎ 승인</button>`)}</td>
       <td class="muted small">${esc((r.updated_at || '').slice(0, 16))}</td>
       <td>${r.is_sample ? '' : `<button class="btn tiny danger" data-del="${r.id}">삭제</button>`}</td>
     </tr>`).join('');
 
   body.querySelectorAll('.row').forEach((tr) => {
     tr.onclick = (e) => {
-      if (e.target.dataset.del || e.target.closest('.row-stage')) return; // 삭제·진행상태 조작은 행 이동 제외
+      if (e.target.dataset.del || e.target.closest('.row-stage') || e.target.closest('.row-approve')) return; // 삭제·진행상태·승인 조작은 행 이동 제외
       go(`#/edit/${tr.dataset.id}`);
+    };
+  });
+  // 대표이사 승인: 목록에서 바로 전자서명 결재
+  body.querySelectorAll('.row-approve').forEach((btn) => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.approveId;
+      openSignaturePad({
+        title: '대표이사 승인 전자서명',
+        initial: '',
+        onSave: async (dataUrl) => {
+          btn.disabled = true;
+          try {
+            const rec = await api.get(id);
+            const data = rec.data || {};
+            data.signatures = data.signatures || {};
+            data.signatures.approval = dataUrl
+              ? { image: dataUrl, signedAt: new Date().toISOString(), agent: navigator.userAgent }
+              : { image: '', signedAt: '', agent: '' }; // 빈 서명이면 승인 취소
+            await api.update(id, data);
+            loadList();
+          } catch (err) {
+            alert('승인 저장 실패: ' + err.message);
+            btn.disabled = false;
+          }
+        },
+      });
     };
   });
   // 진행상태: 목록에서 바로 변경 (계약서를 열지 않아도 됨)
@@ -308,8 +338,7 @@ function renderEditor() {
           <td class="sign-field"><span class="fl">생년월일</span> ${field('client.birth', c.client.birth)}</td>
         </tr>
         <tr>
-          <td class="sign-co sign-co-rep">대표 ${esc(SUPPLIER.ceo)} ${signSlot('supplier')}
-            <span class="approval-box"><span class="fl">대표이사 승인</span> ${signSlot('approval')}</span></td>
+          <td class="sign-co sign-co-rep">대표 ${esc(SUPPLIER.ceo)} ${signSlot('supplier')}</td>
           <td class="sign-field"><span class="fl">연락처</span> ${field('client.phone', c.client.phone)}</td>
         </tr>
         <tr>
@@ -543,8 +572,7 @@ function signSlotInner(party) {
       </span>`;
   }
   if (editorLocked) return `<span class="seal">(인)</span>`;
-  const label = party === 'approval' ? '✎ 승인' : '✎ 서명';
-  return `<button type="button" class="sig-btn no-print" data-sign="${party}">${label}</button><span class="seal print-only">(인)</span>`;
+  return `<button type="button" class="sig-btn no-print" data-sign="${party}">✎ 서명</button><span class="seal print-only">(인)</span>`;
 }
 
 function fmtSignDate(iso) {
@@ -560,8 +588,7 @@ function bindSign(scope) {
     el.onclick = () => {
       const party = el.dataset.sign;
       openSignaturePad({
-        title: party === 'approval' ? '대표이사 승인 전자 서명'
-          : party === 'supplier' ? '공급자(대표) 전자 서명' : '계약자(건축주) 전자 서명',
+        title: party === 'supplier' ? '공급자(대표) 전자 서명' : '계약자(건축주) 전자 서명',
         initial: current.signatures?.[party]?.image || '',
         onSave: (dataUrl) => {
           current.signatures[party] = dataUrl
