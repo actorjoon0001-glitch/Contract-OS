@@ -68,8 +68,10 @@ async function handleApi(req, res, pathname) {
     // 목록 / 생성
     if (pathname === '/api/contracts') {
       if (req.method === 'GET') {
-        const q = new URL(req.url, 'http://localhost').searchParams.get('q') || '';
-        return sendJson(res, 200, Contracts.list({ q }));
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const q = params.get('q') || '';
+        const deleted = params.get('deleted') === '1';
+        return sendJson(res, 200, Contracts.list({ q, deleted }));
       }
       if (req.method === 'POST') {
         const body = await readBody(req);

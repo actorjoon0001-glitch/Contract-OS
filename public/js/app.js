@@ -40,6 +40,7 @@ window.addEventListener('DOMContentLoaded', route);
 async function route() {
   const hash = location.hash || '#/';
   if (hash === '#/' || hash === '') return renderList();
+  if (hash === '#/trash') return renderTrash();
   if (hash === '#/new') return openEditor(null);
   if (hash === `#/edit/${SAMPLE_ID}`) return openEditor(SAMPLE_ID);
   const m = hash.match(/^#\/edit\/(\d+)$/);
@@ -70,6 +71,7 @@ async function renderList() {
         </select>
         <select id="filter-showroom" class="filter-sel"><option value="">전시장 전체</option></select>
         <select id="filter-sales" class="filter-sel"><option value="">영업사원 전체</option></select>
+        <button class="btn" id="trash-btn" title="삭제된 계약 보기/복원">🗑 휴지통</button>
         <button class="btn primary" id="new-btn">+ 새 계약서</button>
       </div>
     </div>
@@ -86,6 +88,7 @@ async function renderList() {
     </div>`;
 
   document.getElementById('new-btn').onclick = () => go('#/new');
+  document.getElementById('trash-btn').onclick = () => go('#/trash');
   document.getElementById('search').oninput = applyListFilters;
   document.getElementById('filter-stage').onchange = applyListFilters;
   document.getElementById('filter-showroom').onchange = applyListFilters;
@@ -228,9 +231,105 @@ function renderListRows(rows) {
   body.querySelectorAll('[data-del]').forEach((b) => {
     b.onclick = async (e) => {
       e.stopPropagation();
-      if (!confirm('이 계약서를 삭제할까요? 되돌릴 수 없습니다.')) return;
-      await api.remove(b.dataset.del);
-      loadList();
+      if (!confirm('이 계약서를 휴지통으로 보낼까요?\n휴지통에서 다시 복원할 수 있습니다.')) return;
+      b.disabled = true;
+      try {
+        const rec = await api.get(b.dataset.del); // 소프트 삭제: 본문에 삭제표시만 남기고 보관
+        const data = rec.data || {};
+        data.deletedAt = new Date().toISOString();
+        await api.update(b.dataset.del, data);
+        loadList();
+      } catch (err) {
+        alert('삭제 실패: ' + err.message);
+        b.disabled = false;
+      }
+    };
+  });
+}
+
+// ---------- 휴지통 화면 ----------
+async function renderTrash() {
+  current = null; currentId = null; dirty = false;
+  app.innerHTML = `
+    <div class="topbar no-print">
+      <div class="brand"><span class="logo">SEUM</span> 휴지통 <small>삭제된 계약</small></div>
+      <div class="actions">
+        <button class="btn" id="back-btn">← 목록으로</button>
+      </div>
+    </div>
+    <div class="list-wrap no-print">
+      <p class="muted trash-note"><b>복원</b>하면 계약 목록으로 되돌아가고, <b>영구삭제</b>하면 다시 살릴 수 없습니다.</p>
+      <table class="list-table">
+        <thead>
+          <tr>
+            <th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
+            <th class="right">제품합계(만원)</th><th>계약일자</th><th>삭제일시</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="trash-body"><tr><td colspan="9" class="muted center">불러오는 중...</td></tr></tbody>
+      </table>
+    </div>`;
+  document.getElementById('back-btn').onclick = () => go('#/');
+  loadTrash();
+}
+
+async function loadTrash() {
+  const body = document.getElementById('trash-body');
+  try {
+    const rows = await api.list('', { deleted: true });
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="9" class="muted center">휴지통이 비어 있습니다.</td></tr>`;
+      return;
+    }
+    body.innerHTML = rows.map((r) => `
+      <tr data-id="${r.id}">
+        <td>${esc(r.contract_no || '-')}</td>
+        <td>${esc(r.showroom || '-')}</td>
+        <td>${esc(r.salesperson || '-')}</td>
+        <td>${esc(r.client_name || '-')}</td>
+        <td class="ellipsis">${esc(r.site_address || '-')}</td>
+        <td class="right">${fmtMan(r.total_amount) || '-'}</td>
+        <td>${esc(r.contract_date || '-')}</td>
+        <td class="muted small">${esc(r.deleted_at ? fmtSignDate(r.deleted_at) : '-')}</td>
+        <td class="trash-actions">
+          <button class="btn tiny primary" data-restore="${r.id}">복원</button>
+          <button class="btn tiny danger" data-purge="${r.id}">영구삭제</button>
+        </td>
+      </tr>`).join('');
+    bindTrashActions();
+  } catch (err) {
+    body.innerHTML = `<tr><td colspan="9" class="center danger">휴지통을 불러오지 못했습니다: ${esc(err.message)}</td></tr>`;
+  }
+}
+
+function bindTrashActions() {
+  const body = document.getElementById('trash-body');
+  body.querySelectorAll('[data-restore]').forEach((b) => {
+    b.onclick = async () => {
+      b.disabled = true;
+      try {
+        const rec = await api.get(b.dataset.restore); // 복원: 삭제표시만 제거
+        const data = rec.data || {};
+        delete data.deletedAt;
+        await api.update(b.dataset.restore, data);
+        loadTrash();
+      } catch (err) {
+        alert('복원 실패: ' + err.message);
+        b.disabled = false;
+      }
+    };
+  });
+  body.querySelectorAll('[data-purge]').forEach((b) => {
+    b.onclick = async () => {
+      if (!confirm('영구 삭제하면 되돌릴 수 없습니다.\n정말 삭제할까요?')) return;
+      b.disabled = true;
+      try {
+        await api.remove(b.dataset.purge); // 영구삭제: DB에서 완전 제거
+        loadTrash();
+      } catch (err) {
+        alert('영구삭제 실패: ' + err.message);
+        b.disabled = false;
+      }
     };
   });
 }

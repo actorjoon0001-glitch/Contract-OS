@@ -253,7 +253,7 @@ function stableStringify(v) {
 
 // 계약 내용(integrity 필드 제외)의 SHA-256 지문 — 브라우저 Web Crypto 사용
 export async function computeIntegrityHash(contract) {
-  const { integrity, contractNo, stage, ...rest } = contract; // 봉인값·채번·진행상태(관리용)는 내용 변경과 무관하므로 제외
+  const { integrity, contractNo, stage, deletedAt, ...rest } = contract; // 봉인값·채번·진행상태·휴지통표시(관리용)는 내용 변경과 무관하므로 제외
   // '대표이사 승인'은 내부 결재용 메타데이터 → 봉인 해시에서 항상 제외 (승인해도 기존 봉인 안 깨짐, 기존 계약 호환)
   if (rest.signatures && 'approval' in rest.signatures) {
     const { approval, ...sigRest } = rest.signatures;
