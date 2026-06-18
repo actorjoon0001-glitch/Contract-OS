@@ -138,6 +138,52 @@ export function emptyContract() {
   };
 }
 
+// 목록 맨 아래에 항상 노출되는 예시(샘플) 계약서.
+// 실제 DB에 저장되지 않는 참고용 양식으로, 열어서 내용을 확인하거나 그대로 저장해 새 계약서로 활용할 수 있습니다.
+export const SAMPLE_ID = 'sample';
+
+export function sampleContract() {
+  const c = emptyContract();
+  c.contractNo = '샘플';
+  c.status = 'draft';
+  c.contractDate = '2026-06-01';
+  c.siteAddress = '경기도 화성시 향남읍 예시로 123';
+  c.showroom = '본점';
+  c.salesperson = '샘플';
+  c.client = {
+    name: '김세움(샘플)',
+    birth: '1980-01-01',
+    phone: '010-1234-5678',
+    address: '경기도 화성시 향남읍 예시로 123',
+  };
+  // 평당 항목 몇 개에 평수를 채워 합계가 계산되도록 예시값 입력
+  const setArea = (match, area) => { const it = c.items.find((x) => x.name.includes(match)); if (it) it.area = area; };
+  setArea('건물건축비', 12);
+  setArea('약식 기초공사', 12);
+  setArea('현장 시공비', 12);
+  setArea('데크(평당)', 6);
+  recalc(c);
+  return c;
+}
+
+// 목록 표시용 샘플 행(메타데이터). 실제 계약서 행과 동일한 형태로 맨 아래에 렌더링됩니다.
+export function sampleListRow() {
+  const c = sampleContract();
+  return {
+    id: SAMPLE_ID,
+    contract_no: c.contractNo,
+    showroom: c.showroom,
+    salesperson: c.salesperson,
+    client_name: c.client.name,
+    site_address: c.siteAddress,
+    total_amount: c.amounts.productTotal,
+    contract_date: c.contractDate,
+    status: c.status,
+    updated_at: '',
+    is_sample: true,
+  };
+}
+
 const oneSig = (s) => ({ image: s?.image || '', signedAt: s?.signedAt || '', agent: s?.agent || '' });
 
 // 이전에 저장된 계약(서명/무결성 필드 없음)도 안전하게 다루도록 기본 구조 보정

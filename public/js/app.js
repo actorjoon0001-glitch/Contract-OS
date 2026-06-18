@@ -3,6 +3,7 @@ import {
   SUPPLIER, emptyContract, recalc, paymentRemaining,
   fmtMan, manToKorean, normalizeContract, computeIntegrityHash,
   MOVE_OPTIONS, computeMoveFee, moveTruckQty,
+  SAMPLE_ID, sampleContract, sampleListRow,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
 
@@ -33,6 +34,7 @@ async function route() {
   const hash = location.hash || '#/';
   if (hash === '#/' || hash === '') return renderList();
   if (hash === '#/new') return openEditor(null);
+  if (hash === `#/edit/${SAMPLE_ID}`) return openEditor(SAMPLE_ID);
   const m = hash.match(/^#\/edit\/(\d+)$/);
   if (m) return openEditor(Number(m[1]));
   renderList();
@@ -82,9 +84,11 @@ async function renderList() {
 async function loadList() {
   const body = document.getElementById('list-body');
   try {
-    listRows = await api.list('');
-    populateFilter('filter-showroom', '전시장 전체', listRows.map((r) => r.showroom));
-    populateFilter('filter-sales', '영업사원 전체', listRows.map((r) => r.salesperson));
+    const rows = await api.list('');
+    // 필터 드롭다운은 실제 계약서 기준으로 채우고(샘플 값 제외), 샘플 행은 목록 맨 아래에 고정
+    populateFilter('filter-showroom', '전시장 전체', rows.map((r) => r.showroom));
+    populateFilter('filter-sales', '영업사원 전체', rows.map((r) => r.salesperson));
+    listRows = [...rows, sampleListRow()];
     applyListFilters();
   } catch (err) {
     body.innerHTML = `<tr><td colspan="${LIST_COLS}" class="center danger">목록을 불러오지 못했습니다: ${esc(err.message)}</td></tr>`;
@@ -128,9 +132,9 @@ function renderListRows(rows) {
       <td class="ellipsis">${esc(r.site_address || '-')}</td>
       <td class="right">${fmtMan(r.total_amount) || '-'}</td>
       <td>${esc(r.contract_date || '-')}</td>
-      <td><span class="badge ${r.status}">${r.status === 'confirmed' ? '확정' : '작성중'}</span></td>
+      <td>${r.is_sample ? '<span class="badge">샘플</span>' : `<span class="badge ${r.status}">${r.status === 'confirmed' ? '확정' : '작성중'}</span>`}</td>
       <td class="muted small">${esc((r.updated_at || '').slice(0, 16))}</td>
-      <td><button class="btn tiny danger" data-del="${r.id}">삭제</button></td>
+      <td>${r.is_sample ? '' : `<button class="btn tiny danger" data-del="${r.id}">삭제</button>`}</td>
     </tr>`).join('');
 
   body.querySelectorAll('.row').forEach((tr) => {
@@ -149,7 +153,12 @@ function renderListRows(rows) {
 // ---------- 편집 화면 ----------
 async function openEditor(id) {
   currentId = id;
-  if (id) {
+  if (id === SAMPLE_ID) {
+    // 샘플은 DB에 없는 참고용 양식 → 새 계약서처럼 다룬다(저장 시 새로 생성)
+    current = sampleContract();
+    current.contractNo = '';
+    currentId = null;
+  } else if (id) {
     try {
       const rec = await api.get(id);
       current = rec.data;
