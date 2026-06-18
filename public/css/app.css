@@ -84,21 +84,21 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 .badge { font-size: 11.5px; padding: 2px 9px; border-radius: 20px; font-weight: 700; }
 .badge.draft { background: #fff3d6; color: #97700a; }
 .badge.confirmed { background: #dff3e4; color: #1c7d3c; }
-/* 진행상태 뱃지 (가망건 / 협의중 / 계약완료) */
-.badge.stage-prospect { background: #e7eef7; color: #3a5a82; }
-.badge.stage-negotiating { background: #fff3d6; color: #97700a; }
-.badge.stage-completed { background: #dff3e4; color: #1c7d3c; }
 .lock { font-size: 11px; vertical-align: middle; }
 /* 목록에서 바로 바꾸는 진행상태 드롭다운 */
 .row-stage { border: 1px solid #d2d7dd; border-radius: 20px; padding: 3px 8px; font-size: 12px; font-weight: 700; cursor: pointer; background: #fff; }
-.row-stage.stage-prospect { background: #e7eef7; color: #3a5a82; border-color: #cdd9e8; }
-.row-stage.stage-negotiating { background: #fff3d6; color: #97700a; border-color: #f0e2b8; }
-.row-stage.stage-completed { background: #dff3e4; color: #1c7d3c; border-color: #c2e6cd; }
 /* 관리바 진행상태 선택 */
 .mb-stage { border: 1px solid #c4c9d0; border-radius: 7px; padding: 5px 9px; font-size: 13px; font-weight: 700; background: #fff; cursor: pointer; }
-.mb-stage.stage-prospect { color: #3a5a82; }
-.mb-stage.stage-negotiating { color: #97700a; }
-.mb-stage.stage-completed { color: #1c7d3c; }
+
+/* 진행상태 단계별 색상 (목록 드롭다운·관리바·뱃지 공통) */
+.row-stage.stage-prospect, .mb-stage.stage-prospect, .badge.stage-prospect { background: #e7eef7; color: #3a5a82; border-color: #cdd9e8; }
+.row-stage.stage-negotiating, .mb-stage.stage-negotiating, .badge.stage-negotiating { background: #fff3d6; color: #97700a; border-color: #f0e2b8; }
+.row-stage.stage-deposit_wait, .mb-stage.stage-deposit_wait, .badge.stage-deposit_wait { background: #ffe3cc; color: #b5560f; border-color: #f6d2b3; }
+.row-stage.stage-completed, .mb-stage.stage-completed, .badge.stage-completed { background: #dff3e4; color: #1c7d3c; border-color: #c2e6cd; }
+.row-stage.stage-design_3d, .mb-stage.stage-design_3d, .badge.stage-design_3d { background: #ede1fb; color: #6b3fa0; border-color: #ddc9f5; }
+.row-stage.stage-production, .mb-stage.stage-production, .badge.stage-production { background: #d4eef0; color: #0f6b73; border-color: #b8e2e6; }
+.row-stage.stage-installing, .mb-stage.stage-installing, .badge.stage-installing { background: #dde2fb; color: #3a4fa0; border-color: #c7cef5; }
+.row-stage.stage-delivered, .mb-stage.stage-delivered, .badge.stage-delivered { background: #d6dbe2; color: #3b4654; border-color: #c2c9d3; }
 
 /* ---------- 계약서 본문 ---------- */
 .contract {
