@@ -472,8 +472,9 @@ function renderRows() {
     { label: '부가세(Vat)', type: 'calc', key: 'vat' },
     { label: '제품 합계', type: 'calc', key: 'productTotal', strong: true },
     { label: '계약금', type: 'pay', key: 'downPayment', cond: '계약 시 입금 (10%)' },
-    { label: '중도금 1', type: 'pay', key: 'interim1', cond: '기초공사 완료 후 입금 (40%)' },
-    { label: '중도금 2', type: 'pay', key: 'interim2', cond: '골조·외장·지붕 공사 완료 후 입금 (45%)' },
+    { label: '중도금 1', type: 'pay', key: 'interim1', cond: '기초공사 완료 후 입금 (30%)' },
+    { label: '중도금 2', type: 'pay', key: 'interim2', cond: '철골·외장·지붕 완료 후 입금 (40%)' },
+    { label: '중도금 3', type: 'pay', key: 'interim3', cond: '내장목공 완료 시 입금 (15%)' },
     { label: '잔금', type: 'pay', key: 'balance', cond: '준공서류 전달 / 이동설치시 출고 전 입금 (5%)' },
     { label: '계약일자', type: 'date' },
     { label: '현장주소', type: 'site' },
@@ -883,7 +884,7 @@ function updateTotals() {
   });
   // 자동 배분 모드면 결제 입력칸도 비율대로 갱신 (포커스 중인 칸은 건드리지 않음)
   if (!current.amounts.payManual) {
-    ['downPayment', 'interim1', 'interim2', 'balance'].forEach((k) => {
+    ['downPayment', 'interim1', 'interim2', 'interim3', 'balance'].forEach((k) => {
       const inp = app.querySelector(`input[data-pay="${k}"]`);
       if (inp && document.activeElement !== inp) inp.value = fmtMan(current.amounts[k]);
     });
@@ -912,7 +913,7 @@ function updateTotals() {
         updateTotals();
       };
     } else {
-      hint.innerHTML = `<span class="ok">✔ 결제 스케줄 자동 배분</span> 계약금 10% · 중도금1 40% · 중도금2 45% (백만원 단위 내림) · 잔금 나머지 · 제품합계 ${won}`;
+      hint.innerHTML = `<span class="ok">✔ 결제 스케줄 자동 배분</span> 계약금 10% · 중도금1 30% · 중도금2 40% · 중도금3 15% (백만원 단위 내림) · 잔금 나머지 · 제품합계 ${won}`;
     }
   } else {
     hint.innerHTML = '';
