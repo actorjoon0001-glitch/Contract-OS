@@ -127,6 +127,8 @@ export function emptyContract() {
   return {
     contractNo: '',
     status: 'draft',
+    modelId: '',    // 적용 모델 네이밍(stay19 등) — 없으면 통합(전체 옵션)
+    modelName: '',  // 적용 모델 표시명
     stage: DEFAULT_STAGE, // 영업 진행상태 (가망건/협의중/계약완료) — '확정' 잠금과 별개
     contractDate: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`,
     siteAddress: '',
@@ -214,6 +216,44 @@ export function sampleListRow() {
   };
 }
 
+// ──────────────────────────────────────────────────────────────
+// 모델 프리셋 카탈로그 — 전시장·모델별 기본 옵션/평당가/평수 (코드에서 관리)
+//  id: 네이밍(stay19 등), name: 화면표시, showroom: 전시장, type: 분류,
+//  basePrice: 건물건축비 평당가(만원), defaultArea: 기본 평수,
+//  hideItems(선택): 이 모델에서 숨길 주문내용 항목명 일부 배열
+// ※ 모델 추가/수정은 이 배열만 바꾸면 새 계약 선택·편집기 드롭다운에 자동 반영됩니다.
+export const MODELS = [
+  { id: 'stay19', name: '본사 이동식주택 19평', showroom: '본사', type: '이동식주택', basePrice: 380, defaultArea: 19 },
+  { id: 'forest10', name: '1전시장 체류형쉼터 10평', showroom: '1전시장', type: '체류형쉼터', basePrice: 330, defaultArea: 10 },
+];
+
+export function getModel(id) {
+  return MODELS.find((m) => m.id === id) || null;
+}
+
+// 모델 프리셋으로 새 계약 생성 (옵션 항목·평당가·기본 평수 자동 세팅)
+export function modelContract(id) {
+  const c = emptyContract();
+  const m = getModel(id);
+  if (!m) return c;
+  c.modelId = m.id;
+  c.modelName = m.name;
+  c.showroom = m.showroom || '';
+  // 이 모델에서 숨길 옵션 항목 제거
+  if (Array.isArray(m.hideItems) && m.hideItems.length) {
+    c.items = c.items.filter((it) => !m.hideItems.some((h) => it.name.includes(h)));
+  }
+  // 건물건축비: 모델 기준 평당가 + 기본 평수 자동 입력
+  const b = c.items.find((it) => it.name.includes('건물건축비'));
+  if (b) {
+    if (m.basePrice) b.unitPrice = m.basePrice;
+    if (m.defaultArea) b.area = m.defaultArea;
+  }
+  recalc(c);
+  return c;
+}
+// ──────────────────────────────────────────────────────────────
+
 const oneSig = (s) => ({ image: s?.image || '', signedAt: s?.signedAt || '', agent: s?.agent || '' });
 
 // 이전에 저장된 계약(서명/무결성 필드 없음)도 안전하게 다루도록 기본 구조 보정
@@ -222,6 +262,8 @@ export function normalizeContract(contract) {
   contract.signatures = { supplier: oneSig(s.supplier), approval: oneSig(s.approval), client: oneSig(s.client) };
   const i = contract.integrity || {};
   contract.integrity = { hash: i.hash || '', sealedAt: i.sealedAt || '', agent: i.agent || '' };
+  if (typeof contract.modelId !== 'string') contract.modelId = contract.modelId || '';
+  if (typeof contract.modelName !== 'string') contract.modelName = contract.modelName || '';
   if (typeof contract.extraNotes !== 'string') contract.extraNotes = contract.extraNotes || '';
   if (typeof contract.showroom !== 'string') contract.showroom = contract.showroom || '';
   if (typeof contract.salesperson !== 'string') contract.salesperson = contract.salesperson || '';
@@ -254,7 +296,7 @@ function stableStringify(v) {
 
 // 계약 내용(integrity 필드 제외)의 SHA-256 지문 — 브라우저 Web Crypto 사용
 export async function computeIntegrityHash(contract) {
-  const { integrity, contractNo, stage, deletedAt, ...rest } = contract; // 봉인값·채번·진행상태·휴지통표시(관리용)는 내용 변경과 무관하므로 제외
+  const { integrity, contractNo, stage, deletedAt, modelId, modelName, ...rest } = contract; // 봉인값·채번·진행상태·휴지통·모델표시(관리용)는 내용 변경과 무관하므로 제외
   // '대표이사 승인'은 내부 결재용 메타데이터 → 봉인 해시에서 항상 제외 (승인해도 기존 봉인 안 깨짐, 기존 계약 호환)
   if (rest.signatures && 'approval' in rest.signatures) {
     const { approval, ...sigRest } = rest.signatures;
