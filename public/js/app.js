@@ -340,6 +340,17 @@ function bindTrashActions() {
 // ---------- 새 계약: 모델 선택 화면 ----------
 function renderModelPicker() {
   current = null; currentId = null; dirty = false;
+  const cats = [...new Set(MODELS.map((m) => m.category))];
+  const groups = cats.map((cat) => `
+    <h3 class="mp-cat">${esc(cat)}</h3>
+    <div class="mp-grid">
+      ${MODELS.filter((m) => m.category === cat).map((m) => `
+        <button class="mp-card" data-model="${m.id}">
+          <span class="mp-name">${esc(m.name)}</span>
+          <span class="mp-meta">${esc(m.category)} · ${m.area}평</span>
+          <span class="mp-price">시작가 ${fmtMan(m.startPrice)}만</span>
+        </button>`).join('')}
+    </div>`).join('');
   app.innerHTML = `
     <div class="topbar no-print">
       <div class="brand"><a href="#/" class="back">← 목록</a></div>
@@ -348,14 +359,10 @@ function renderModelPicker() {
     </div>
     <div class="model-picker no-print">
       <h2 class="mp-title">어떤 모델로 계약서를 만들까요?</h2>
-      <p class="muted">모델을 고르면 해당 옵션·평당가·기본 평수가 자동으로 세팅된 계약서가 열립니다.</p>
+      <p class="muted">모델을 고르면 해당 시작가·기본 평수가 자동으로 세팅된 계약서가 열립니다.</p>
+      ${groups}
+      <h3 class="mp-cat">기타</h3>
       <div class="mp-grid">
-        ${MODELS.map((m) => `
-          <button class="mp-card" data-model="${m.id}">
-            <span class="mp-name">${esc(m.name)}</span>
-            <span class="mp-meta">${esc(m.showroom)} · ${esc(m.type)}</span>
-            <span class="mp-price">평당 ${m.basePrice}만원 · 기본 ${m.defaultArea}평</span>
-          </button>`).join('')}
         <button class="mp-card mp-blank" data-model="blank">
           <span class="mp-name">통합(전체 옵션) 빈 양식</span>
           <span class="mp-meta">모델 없이 모든 옵션 표시</span>

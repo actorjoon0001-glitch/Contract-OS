@@ -92,6 +92,7 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 /* 새 계약 모델 선택 화면 */
 .model-picker { max-width: 960px; margin: 24px auto; padding: 0 16px; }
 .mp-title { margin: 0 0 4px; font-size: 20px; }
+.mp-cat { margin: 22px 0 2px; font-size: 14px; color: #3a4250; border-bottom: 1px solid #e2e7ee; padding-bottom: 6px; }
 .mp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; }
 .mp-card { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; text-align: left; padding: 16px 18px; border: 1px solid #d4dae3; border-radius: 12px; background: #fff; cursor: pointer; transition: border-color .12s, box-shadow .12s, transform .06s; }
 .mp-card:hover { border-color: var(--brand); box-shadow: 0 4px 14px rgba(30,80,160,.12); transform: translateY(-1px); }
