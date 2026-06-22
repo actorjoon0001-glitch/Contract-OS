@@ -87,6 +87,8 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 .lock { font-size: 11px; vertical-align: middle; }
 /* 목록에서 바로 바꾸는 진행상태 드롭다운 */
 .row-stage { border: 1px solid #d2d7dd; border-radius: 20px; padding: 3px 8px; font-size: 12px; font-weight: 700; cursor: pointer; background: #fff; }
+/* 필수 입력 표시 */
+.req { color: #d6342c; font-weight: 700; }
 /* 새 계약 모델 선택 화면 */
 .model-picker { max-width: 960px; margin: 24px auto; padding: 0 16px; }
 .mp-title { margin: 0 0 4px; font-size: 20px; }

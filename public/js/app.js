@@ -425,9 +425,9 @@ function renderEditor() {
           ${MODELS.map((m) => `<option value="${m.id}" ${c.modelId === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
         </select>
       </label>
-      <label>전시장 ${field('showroom', c.showroom, 'manage')}</label>
-      <label>영업사원 ${field('salesperson', c.salesperson, 'manage')}</label>
-      <span class="mb-hint muted small">※ 목록 분류·검색용 (계약서 인쇄에는 표시 안 됨)</span>
+      <label>전시장 <span class="req">*</span> ${field('showroom', c.showroom, 'manage')}</label>
+      <label>영업사원 <span class="req">*</span> ${field('salesperson', c.salesperson, 'manage')}</label>
+      <span class="mb-hint muted small">※ 목록 분류·검색용 (계약서 인쇄에는 표시 안 됨) · <b>전시장·영업사원·현장주소는 필수</b></span>
     </div>
 
     <div id="contract" class="contract">
@@ -988,6 +988,19 @@ function updateTotals() {
 
 // ---------- 저장 ----------
 async function saveContract() {
+  // 필수 입력 확인: 전시장·영업사원·현장주소가 비어있으면 저장 막기
+  const required = [
+    { key: 'showroom', label: '전시장' },
+    { key: 'salesperson', label: '영업사원' },
+    { key: 'siteAddress', label: '현장주소' },
+  ];
+  const missing = required.filter((r) => !String(current[r.key] || '').trim());
+  if (missing.length) {
+    alert(`다음 항목을 작성해 주세요:\n\n· ${missing.map((m) => m.label).join('\n· ')}\n\n전시장·영업사원·현장주소는 필수 입력입니다.`);
+    const first = app.querySelector(`[data-path="${missing[0].key}"]`);
+    if (first) { first.focus(); first.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    return;
+  }
   try {
     recalc(current);
     let saved;
