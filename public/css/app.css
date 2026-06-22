@@ -87,6 +87,19 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 .lock { font-size: 11px; vertical-align: middle; }
 /* 목록에서 바로 바꾸는 진행상태 드롭다운 */
 .row-stage { border: 1px solid #d2d7dd; border-radius: 20px; padding: 3px 8px; font-size: 12px; font-weight: 700; cursor: pointer; background: #fff; }
+/* 새 계약 모델 선택 화면 */
+.model-picker { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+.mp-title { margin: 0 0 4px; font-size: 20px; }
+.mp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; }
+.mp-card { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; text-align: left; padding: 16px 18px; border: 1px solid #d4dae3; border-radius: 12px; background: #fff; cursor: pointer; transition: border-color .12s, box-shadow .12s, transform .06s; }
+.mp-card:hover { border-color: var(--brand); box-shadow: 0 4px 14px rgba(30,80,160,.12); transform: translateY(-1px); }
+.mp-card .mp-name { font-size: 16px; font-weight: 800; color: #1c2533; }
+.mp-card .mp-meta { font-size: 12px; color: #5a626f; }
+.mp-card .mp-price { font-size: 13px; font-weight: 700; color: var(--brand); }
+.mp-card.mp-blank { border-style: dashed; background: #f7f9fc; }
+.mp-card.mp-blank .mp-name { color: #4a5260; font-weight: 700; }
+/* 편집기 모델 배지 */
+.model-badge { display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 999px; background: #e7f0ff; color: var(--brand); font-size: 12px; font-weight: 700; border: 1px solid #cfe0fb; }
 /* 휴지통 */
 .trash-note { margin: 4px 2px 12px; font-size: 13px; }
 .trash-actions { white-space: nowrap; }

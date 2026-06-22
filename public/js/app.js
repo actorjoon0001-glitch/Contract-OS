@@ -5,6 +5,7 @@ import {
   MOVE_OPTIONS, computeMoveFee, moveTruckQty,
   SAMPLE_ID, sampleContract, sampleListRow,
   STAGES, stageLabel,
+  MODELS, modelContract,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
 
@@ -41,7 +42,9 @@ async function route() {
   const hash = location.hash || '#/';
   if (hash === '#/' || hash === '') return renderList();
   if (hash === '#/trash') return renderTrash();
-  if (hash === '#/new') return openEditor(null);
+  if (hash === '#/new') return renderModelPicker();
+  const mNew = hash.match(/^#\/new\/([\w-]+)$/);
+  if (mNew) return openEditor(null, mNew[1] === 'blank' ? null : mNew[1]);
   if (hash === `#/edit/${SAMPLE_ID}`) return openEditor(SAMPLE_ID);
   const m = hash.match(/^#\/edit\/(\d+)$/);
   if (m) return openEditor(Number(m[1]));
@@ -334,8 +337,38 @@ function bindTrashActions() {
   });
 }
 
+// ---------- 새 계약: 모델 선택 화면 ----------
+function renderModelPicker() {
+  current = null; currentId = null; dirty = false;
+  app.innerHTML = `
+    <div class="topbar no-print">
+      <div class="brand"><a href="#/" class="back">← 목록</a></div>
+      <div class="doc-meta"><span class="muted">새 계약서 — 모델 선택</span></div>
+      <div class="actions"></div>
+    </div>
+    <div class="model-picker no-print">
+      <h2 class="mp-title">어떤 모델로 계약서를 만들까요?</h2>
+      <p class="muted">모델을 고르면 해당 옵션·평당가·기본 평수가 자동으로 세팅된 계약서가 열립니다.</p>
+      <div class="mp-grid">
+        ${MODELS.map((m) => `
+          <button class="mp-card" data-model="${m.id}">
+            <span class="mp-name">${esc(m.name)}</span>
+            <span class="mp-meta">${esc(m.showroom)} · ${esc(m.type)}</span>
+            <span class="mp-price">평당 ${m.basePrice}만원 · 기본 ${m.defaultArea}평</span>
+          </button>`).join('')}
+        <button class="mp-card mp-blank" data-model="blank">
+          <span class="mp-name">통합(전체 옵션) 빈 양식</span>
+          <span class="mp-meta">모델 없이 모든 옵션 표시</span>
+        </button>
+      </div>
+    </div>`;
+  app.querySelectorAll('.mp-card').forEach((b) => {
+    b.onclick = () => go(`#/new/${b.dataset.model}`);
+  });
+}
+
 // ---------- 편집 화면 ----------
-async function openEditor(id) {
+async function openEditor(id, modelId = null) {
   currentId = id;
   if (id === SAMPLE_ID) {
     // 샘플은 DB에 없는 참고용 양식 → 새 계약서처럼 다룬다(저장 시 새로 생성)
@@ -352,7 +385,7 @@ async function openEditor(id) {
       return go('#/');
     }
   } else {
-    current = emptyContract();
+    current = modelId ? modelContract(modelId) : emptyContract();
   }
   normalizeContract(current);
   recalc(current);
@@ -369,6 +402,7 @@ function renderEditor() {
       <div class="brand"><a href="#/" class="back">← 목록</a></div>
       <div class="doc-meta">
         ${c.contractNo ? `계약번호 <b>${esc(c.contractNo)}</b>` : '<span class="muted">새 계약서 (저장 시 번호 부여)</span>'}
+        ${c.modelName ? `<span class="model-badge">${esc(c.modelName)}</span>` : ''}
         <span id="dirty-flag" class="muted"></span>
       </div>
       <div class="actions">
@@ -383,6 +417,12 @@ function renderEditor() {
       <label>진행상태
         <select id="stage-select" class="mb-stage stage-${stageOf(c)}">
           ${STAGES.map((s) => `<option value="${s.key}" ${stageOf(c) === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
+        </select>
+      </label>
+      <label>모델
+        <select id="model-select" class="mb-stage">
+          <option value="" ${c.modelId ? '' : 'selected'}>통합(전체 옵션)</option>
+          ${MODELS.map((m) => `<option value="${m.id}" ${c.modelId === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
         </select>
       </label>
       <label>전시장 ${field('showroom', c.showroom, 'manage')}</label>
@@ -723,6 +763,32 @@ function bindEditor() {
     current.stage = e.target.value;
     e.target.className = `mb-stage stage-${current.stage}`; // 색상 갱신
     markDirty();
+  };
+  // 모델 전환: 주문내용 옵션·금액을 새 모델 기준으로 재설정 (고객/현장/일자 등 입력값은 유지)
+  const modelSel = document.getElementById('model-select');
+  if (modelSel) modelSel.onchange = (e) => {
+    const id = e.target.value;
+    if (editorLocked) { e.target.value = current.modelId || ''; return; }
+    if (!confirm('모델을 바꾸면 주문내용 옵션과 금액이 새 모델 기준으로 초기화됩니다.\n계속할까요?')) {
+      e.target.value = current.modelId || '';
+      return;
+    }
+    const preset = id ? modelContract(id) : emptyContract();
+    // 이미 입력한 고객/관리 정보는 유지
+    preset.client = current.client;
+    preset.siteAddress = current.siteAddress;
+    preset.contractDate = current.contractDate;
+    preset.salesperson = current.salesperson;
+    preset.stage = current.stage;
+    preset.status = current.status;
+    preset.contractNo = current.contractNo;
+    preset.extraNotes = current.extraNotes;
+    if (!id) preset.showroom = current.showroom; // 통합 선택 시 기존 전시장 유지
+    current = preset;
+    normalizeContract(current);
+    recalc(current);
+    markDirty();
+    renderEditor();
   };
   document.getElementById('status-confirmed').onchange = async (e) => {
     if (e.target.checked) {
