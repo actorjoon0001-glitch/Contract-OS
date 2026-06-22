@@ -217,37 +217,49 @@ export function sampleListRow() {
 }
 
 // ──────────────────────────────────────────────────────────────
-// 모델 프리셋 카탈로그 — 전시장·모델별 기본 옵션/평당가/평수 (코드에서 관리)
-//  id: 네이밍(stay19 등), name: 화면표시, showroom: 전시장, type: 분류,
-//  basePrice: 건물건축비 평당가(만원), defaultArea: 기본 평수,
+// 모델 프리셋 카탈로그 — 카테고리·모델별 기본 평수/시작가 (코드에서 관리)
+//  id/name: 모델 네이밍, category: 분류(체류형쉼터/전원주택/특별모델),
+//  area: 기본 평수, startPrice: 시작가(모델 기본 총액, 만원),
 //  hideItems(선택): 이 모델에서 숨길 주문내용 항목명 일부 배열
 // ※ 모델 추가/수정은 이 배열만 바꾸면 새 계약 선택·편집기 드롭다운에 자동 반영됩니다.
 export const MODELS = [
-  { id: 'stay19', name: '본사 이동식주택 19평', showroom: '본사', type: '이동식주택', basePrice: 380, defaultArea: 19 },
-  { id: 'forest10', name: '1전시장 체류형쉼터 10평', showroom: '1전시장', type: '체류형쉼터', basePrice: 330, defaultArea: 10 },
+  // 체류형 쉼터
+  { id: 'FOREST10G',  name: 'FOREST10G',  category: '체류형쉼터', area: 10, startPrice: 2980 },
+  { id: 'FOREST10WB', name: 'FOREST10WB', category: '체류형쉼터', area: 10, startPrice: 3600 },
+  { id: 'FOREST13WB', name: 'FOREST13WB', category: '체류형쉼터', area: 13, startPrice: 3500 },
+  // 전원주택
+  { id: 'STAY15BB', name: 'STAY15BB', category: '전원주택', area: 15, startPrice: 5800 },
+  { id: 'STAY16GB', name: 'STAY16GB', category: '전원주택', area: 16, startPrice: 5920 },
+  { id: 'STAY18WB', name: 'STAY18WB', category: '전원주택', area: 18, startPrice: 6300 },
+  { id: 'STAY19RB', name: 'STAY19RB', category: '전원주택', area: 19, startPrice: 6840 },
+  // 특별모델
+  { id: 'CUBE4B',      name: 'CUBE4B',      category: '특별모델', area: 4,  startPrice: 980 },
+  { id: 'FOREST-P10W', name: 'FOREST-P10W', category: '특별모델', area: 10, startPrice: 4700 },
+  { id: 'CUBE-G10W',   name: 'CUBE-G10W',   category: '특별모델', area: 10, startPrice: 5980 },
 ];
 
 export function getModel(id) {
   return MODELS.find((m) => m.id === id) || null;
 }
 
-// 모델 프리셋으로 새 계약 생성 (옵션 항목·평당가·기본 평수 자동 세팅)
+// 모델 프리셋으로 새 계약 생성 (시작가·기본 평수 자동 세팅)
 export function modelContract(id) {
   const c = emptyContract();
   const m = getModel(id);
   if (!m) return c;
   c.modelId = m.id;
   c.modelName = m.name;
-  c.showroom = m.showroom || '';
   // 이 모델에서 숨길 옵션 항목 제거
   if (Array.isArray(m.hideItems) && m.hideItems.length) {
     c.items = c.items.filter((it) => !m.hideItems.some((h) => it.name.includes(h)));
   }
-  // 건물건축비: 모델 기준 평당가 + 기본 평수 자동 입력
+  // 건물건축비: 모델 시작가를 금액으로 고정(평수 변경/평당가 수정 시 자동계산으로 복귀)
   const b = c.items.find((it) => it.name.includes('건물건축비'));
   if (b) {
-    if (m.basePrice) b.unitPrice = m.basePrice;
-    if (m.defaultArea) b.area = m.defaultArea;
+    b.area = m.area;
+    if (m.area) b.unitPrice = Math.round(m.startPrice / m.area); // 참고용 평당가
+    b.amount = m.startPrice;
+    b.amountManual = true;
   }
   recalc(c);
   return c;
