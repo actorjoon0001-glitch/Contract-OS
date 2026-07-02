@@ -79,19 +79,46 @@ async function loadList(q) {
       return;
     }
     body.innerHTML = rows.map((r) => `
-      <tr data-id="${r.id}" class="row">
+      <tr data-id="${r.id}" data-status="${esc(r.status)}" class="row ${r.status === 'confirmed' ? 'locked' : ''}">
         <td>${esc(r.contract_no || '-')}</td>
         <td>${esc(r.client_name || '-')}</td>
         <td class="ellipsis">${esc(r.site_address || '-')}</td>
         <td class="right">${fmtMan(r.total_amount) || '-'}</td>
         <td>${esc(r.contract_date || '-')}</td>
-        <td><span class="badge ${r.status}">${r.status === 'confirmed' ? '확정' : '작성중'}</span></td>
+        <td><span class="badge ${r.status}">${r.status === 'confirmed' ? '🔒 확정' : '작성중'}</span></td>
         <td class="muted small">${esc((r.updated_at || '').slice(0, 16))}</td>
-        <td><button class="btn tiny danger" data-del="${r.id}">삭제</button></td>
+        <td>
+          ${r.status === 'confirmed' ? `<button class="btn tiny" data-unlock="${r.id}">확정 해제</button>` : ''}
+          <button class="btn tiny danger" data-del="${r.id}">삭제</button>
+        </td>
       </tr>`).join('');
 
     body.querySelectorAll('.row').forEach((tr) => {
-      tr.onclick = (e) => { if (e.target.dataset.del) return; go(`#/edit/${tr.dataset.id}`); };
+      tr.onclick = (e) => {
+        if (e.target.dataset.del || e.target.dataset.unlock) return;
+        // 확정된 계약서는 목록만 보이고 내용은 열지 않음
+        if (tr.dataset.status === 'confirmed') {
+          alert('확정된 계약서입니다. 내용을 보거나 수정하려면 먼저 “확정 해제”를 눌러주세요.');
+          return;
+        }
+        go(`#/edit/${tr.dataset.id}`);
+      };
+    });
+    body.querySelectorAll('[data-unlock]').forEach((b) => {
+      b.onclick = async (e) => {
+        e.stopPropagation();
+        if (!confirm('확정을 해제하고 다시 내용을 편집할 수 있도록 할까요?')) return;
+        try {
+          const rec = await api.get(b.dataset.unlock);
+          const data = rec.data;
+          data.status = 'draft';
+          data.contractNo = rec.contract_no;
+          await api.update(b.dataset.unlock, data);
+          loadList(document.getElementById('search').value);
+        } catch (err) {
+          alert('확정 해제에 실패했습니다: ' + err.message);
+        }
+      };
     });
     body.querySelectorAll('[data-del]').forEach((b) => {
       b.onclick = async (e) => {
@@ -281,9 +308,26 @@ function dateField(part, value, suffix, size) {
 function bindEditor() {
   document.getElementById('save-btn').onclick = saveContract;
   document.getElementById('print-btn').onclick = () => window.print();
-  document.getElementById('status-confirmed').onchange = (e) => {
-    current.status = e.target.checked ? 'confirmed' : 'draft';
-    markDirty();
+  document.getElementById('status-confirmed').onchange = async (e) => {
+    if (e.target.checked) {
+      if (!confirm('계약을 확정하시겠습니까?\n확정하면 계약목록에서 내용이 표시되지 않습니다. (확정 해제 시 다시 편집 가능)')) {
+        e.target.checked = false;
+        return;
+      }
+      current.status = 'confirmed';
+      const ok = await saveContract();   // 확정 상태로 저장
+      if (ok) {
+        dirty = false;
+        go('#/');             // 목록으로 이동 → 내용은 더 이상 표시되지 않음
+      } else {
+        // 저장 실패 시 확정 취소
+        current.status = 'draft';
+        e.target.checked = false;
+      }
+    } else {
+      current.status = 'draft';
+      markDirty();
+    }
   };
 
   app.querySelectorAll('input.f[data-path]').forEach((inp) => {
@@ -373,8 +417,10 @@ async function saveContract() {
     // 계약번호 표시 갱신
     const meta = document.querySelector('.doc-meta');
     if (meta && current.contractNo) meta.innerHTML = `계약번호 <b>${esc(current.contractNo)}</b> <span id="dirty-flag" class="muted">✔ 저장됨</span>`;
+    return true;
   } catch (err) {
     alert('저장에 실패했습니다: ' + err.message);
+    return false;
   }
 }
 
