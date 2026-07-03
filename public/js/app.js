@@ -8,8 +8,10 @@ import {
   MODELS, modelContract,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
+import { loadAuthConfig, authEnabled, currentUser, login, logout, setOnAuthLost } from './auth.js';
 
 let editorLocked = false; // 확정 상태이면 true (입력·서명 잠금)
+let me = null;            // 로그인 사용자 정보 { email, name, isAdmin }
 
 // 진행상태(stage) — 값이 없으면 확정 여부로 추정
 function stageOf(row) {
@@ -35,8 +37,22 @@ function setPath(obj, path, value) {
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // ---------- 라우팅 ----------
-window.addEventListener('hashchange', route);
-window.addEventListener('DOMContentLoaded', route);
+window.addEventListener('hashchange', guardedRoute);
+window.addEventListener('DOMContentLoaded', boot);
+
+// 앱 시작: 로그인 필요 여부 확인 → 필요하면 로그인 화면, 아니면 정상 라우팅
+async function boot() {
+  await loadAuthConfig();
+  setOnAuthLost(() => { me = null; renderLogin(); });
+  if (authEnabled() && currentUser() && !me) { try { me = await api.me(); } catch { /* 401이면 authLost가 처리 */ } }
+  guardedRoute();
+}
+
+// 로그인 필수 모드인데 세션이 없으면 로그인 화면으로 가로챈다.
+function guardedRoute() {
+  if (authEnabled() && !currentUser()) return renderLogin();
+  route();
+}
 
 async function route() {
   const hash = location.hash || '#/';
@@ -55,6 +71,64 @@ function go(hash) {
   if (dirty && !confirm('저장하지 않은 변경사항이 있습니다. 이동하시겠습니까?')) return;
   dirty = false;
   location.hash = hash;
+}
+
+// ---------- 로그인 화면 ----------
+function renderLogin(msg = '') {
+  current = null; currentId = null; dirty = false;
+  app.innerHTML = `
+    <div class="login-wrap no-print">
+      <form class="login-card" id="login-form">
+        <div class="login-brand"><span class="logo">SEUM</span> 전산 계약서</div>
+        <p class="login-sub muted">세움 직원 계정(세움os)으로 로그인하세요.</p>
+        <label class="login-field">이메일
+          <input type="email" id="login-email" autocomplete="username" placeholder="name@seum.com" required />
+        </label>
+        <label class="login-field">비밀번호
+          <input type="password" id="login-pw" autocomplete="current-password" placeholder="비밀번호" required />
+        </label>
+        <div class="login-msg danger" id="login-msg">${esc(msg)}</div>
+        <button class="btn primary login-btn" type="submit">로그인</button>
+      </form>
+    </div>`;
+  const form = document.getElementById('login-form');
+  const msgEl = document.getElementById('login-msg');
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('.login-btn');
+    const email = document.getElementById('login-email').value;
+    const pw = document.getElementById('login-pw').value;
+    btn.disabled = true; btn.textContent = '로그인 중...'; msgEl.textContent = '';
+    try {
+      await login(email, pw);
+      try { me = await api.me(); } catch { me = null; }
+      location.hash = '#/';
+      route();
+    } catch (err) {
+      msgEl.textContent = err.message || '로그인에 실패했습니다.';
+      btn.disabled = false; btn.textContent = '로그인';
+    }
+  };
+  document.getElementById('login-email').focus();
+}
+
+// 상단 계정 표시(이메일 + 관리자 배지 + 로그아웃) — 로그인 모드에서만 노출
+function accountChip() {
+  if (!authEnabled()) return '';
+  const u = me || currentUser() || {};
+  const label = u.name || u.email || '';
+  return `<span class="account-chip" title="${esc(u.email || '')}">
+      <span class="acc-name">${esc(label)}</span>
+      ${me?.isAdmin ? '<span class="acc-admin">관리자</span>' : ''}
+      <button class="btn tiny acc-logout" id="logout-btn" type="button">로그아웃</button>
+    </span>`;
+}
+function bindAccount(scope) {
+  const btn = (scope || document).querySelector('#logout-btn');
+  if (btn) btn.onclick = () => {
+    if (!confirm('로그아웃할까요?')) return;
+    logout(); me = null; renderLogin();
+  };
 }
 
 // ---------- 목록 화면 ----------
@@ -76,6 +150,7 @@ async function renderList() {
         <select id="filter-sales" class="filter-sel"><option value="">영업사원 전체</option></select>
         <button class="btn" id="trash-btn" title="삭제된 계약 보기/복원">🗑 휴지통</button>
         <button class="btn primary" id="new-btn">+ 새 계약서</button>
+        ${accountChip()}
       </div>
     </div>
     <div class="list-wrap no-print">
@@ -92,6 +167,7 @@ async function renderList() {
 
   document.getElementById('new-btn').onclick = () => go('#/new');
   document.getElementById('trash-btn').onclick = () => go('#/trash');
+  bindAccount(app);
   document.getElementById('search').oninput = applyListFilters;
   document.getElementById('filter-stage').onchange = applyListFilters;
   document.getElementById('filter-showroom').onchange = applyListFilters;
@@ -419,6 +495,7 @@ function renderEditor() {
         <label class="status-toggle"><input type="checkbox" id="status-confirmed" ${c.status === 'confirmed' ? 'checked' : ''}/> 확정</label>
         <button class="btn" id="print-btn">🖨 인쇄 / PDF</button>
         <button class="btn primary" id="save-btn">💾 저장</button>
+        ${accountChip()}
       </div>
     </div>
 
@@ -904,6 +981,7 @@ function openImageViewer(src, title = '신분증') {
 function bindEditor() {
   document.getElementById('save-btn').onclick = saveContract;
   document.getElementById('print-btn').onclick = () => window.print();
+  bindAccount(app);
   // 진행상태: '확정' 잠금과 무관하게 언제든 변경 가능 (관리용 라벨)
   const stageSel = document.getElementById('stage-select');
   if (stageSel) stageSel.onchange = (e) => {

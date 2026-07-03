@@ -65,6 +65,10 @@ async function handleApi(req, res, pathname) {
   const idMatch = pathname.match(/^\/api\/contracts\/(\d+)$/);
 
   try {
+    // 로컬 개발은 인증 없이 개방 — 프론트엔드가 로그인 화면을 건너뛰도록 authEnabled:false
+    if (pathname === '/api/config') return sendJson(res, 200, { authEnabled: false, supabaseUrl: '', anonKey: '' });
+    if (pathname === '/api/me') return sendJson(res, 200, { email: '', name: '', isAdmin: true, authEnabled: false });
+
     // 목록 / 생성
     if (pathname === '/api/contracts') {
       if (req.method === 'GET') {
