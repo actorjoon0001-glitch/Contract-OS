@@ -337,3 +337,26 @@ input.f.date.m, input.f.date.d { width: 36px; }
 /* 목록: 신분증 첨부 표시 */
 .list-table td.center { text-align: center; }
 .id-badge { font-size: 12px; font-weight: 700; color: #1c7d3c; background: #dff3e4; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+
+/* 로그인 화면 */
+.login-wrap { min-height: 80vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.login-card {
+  width: 360px; max-width: 92vw; background: #fff; border: 1px solid #e2e6ea; border-radius: 12px;
+  box-shadow: 0 6px 26px rgba(0,0,0,.10); padding: 28px 26px; display: flex; flex-direction: column; gap: 14px;
+}
+.login-brand { font-size: 20px; font-weight: 800; color: var(--brand); letter-spacing: .5px; }
+.login-brand .logo { margin-right: 6px; }
+.login-sub { margin: -6px 0 4px; font-size: 13px; }
+.login-field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 600; color: #444; }
+.login-field input {
+  border: 1px solid #c4c9d0; border-radius: 7px; padding: 10px 12px; font-size: 15px; font-weight: 400; outline: none;
+}
+.login-field input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(28,90,153,.12); }
+.login-msg { min-height: 16px; font-size: 12.5px; }
+.login-btn { padding: 11px; font-size: 15px; margin-top: 2px; }
+
+/* 상단 계정 표시 */
+.account-chip { display: inline-flex; align-items: center; gap: 8px; margin-left: 8px; padding-left: 10px; border-left: 1px solid #dde1e6; }
+.account-chip .acc-name { font-size: 13px; font-weight: 700; color: #33404f; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-chip .acc-admin { font-size: 11px; font-weight: 700; color: #6b3fa0; background: #ede1fb; padding: 2px 7px; border-radius: 20px; }
+.account-chip .acc-logout { color: #666; }
