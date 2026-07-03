@@ -7,6 +7,8 @@ Netlify Functions + Supabase(운영) / `server.js` + SQLite(로컬 개발).
 
 작업을 마치면 **항상 다음 순서로 진행**한다. 사용자가 매번 따로 요청하지 않아도 된다.
 
+0. **작업 시작 전, 작업 브랜치를 최신 `main`에 맞춘다** (`git fetch origin main && git reset --hard origin/main`).
+   PR을 **squash 머지**하면 `main`이 재작성되므로, 재사용하는 작업 브랜치는 다음 작업 전에 반드시 `main` 기준으로 재설정해야 머지 충돌이 안 난다.
 1. 그 세션에 지정된 작업 브랜치에 커밋하고 `origin`에 푸시한다.
 2. **`main`을 대상으로 새 PR(풀 리퀘스트)을 생성**한다.
    - PR 제목·본문은 한국어로, 변경 요약을 간결하게.
