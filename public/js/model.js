@@ -165,6 +165,9 @@ export function emptyContract() {
     },
     // 무결성 봉인 (확정 시 계약 내용+서명의 해시를 기록 → 이후 변경 여부 검증)
     integrity: { hash: '', sealedAt: '', agent: '' },
+    // 신분증 첨부 (계약금 입금 고객의 신분증 사진/스캔 — 내부 보관용, 인쇄 제외)
+    idCards: [], // { image(dataURL), label, uploadedAt } 목록
+    idCount: 0,  // 목록 표시용 첨부 매수 (idCards.length 미러)
   };
 }
 
@@ -282,6 +285,9 @@ export function normalizeContract(contract) {
   normalizeStage(contract); // 진행상태 기본값 보정
 
   if (!Array.isArray(contract.extraCosts)) contract.extraCosts = []; // 기타 비용 목록 보정
+  // 신분증 첨부 목록 보정 + 목록 표시용 매수 미러
+  if (!Array.isArray(contract.idCards)) contract.idCards = [];
+  contract.idCount = contract.idCards.length;
   // 이동 설치비: 구버전 일반트럭 boolean(truck) → 수량(truckQty)으로 변환
   for (const it of contract.items || []) {
     if (it && it.unit === '거리') {
@@ -308,7 +314,7 @@ function stableStringify(v) {
 
 // 계약 내용(integrity 필드 제외)의 SHA-256 지문 — 브라우저 Web Crypto 사용
 export async function computeIntegrityHash(contract) {
-  const { integrity, contractNo, stage, deletedAt, modelId, modelName, ...rest } = contract; // 봉인값·채번·진행상태·휴지통·모델표시(관리용)는 내용 변경과 무관하므로 제외
+  const { integrity, contractNo, stage, deletedAt, modelId, modelName, idCards, idCount, ...rest } = contract; // 봉인값·채번·진행상태·휴지통·모델표시·신분증(계약 후 보관자료)은 내용 변경과 무관하므로 제외
   // '대표이사 승인'은 내부 결재용 메타데이터 → 봉인 해시에서 항상 제외 (승인해도 기존 봉인 안 깨짐, 기존 계약 호환)
   if (rest.signatures && 'approval' in rest.signatures) {
     const { approval, ...sigRest } = rest.signatures;

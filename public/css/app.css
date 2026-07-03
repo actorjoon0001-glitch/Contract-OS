@@ -297,3 +297,43 @@ textarea.f.note {
 input.f.site, input.f.addr, input.f.name { width: 92%; }
 input.f.date { width: 56px; text-align: center; }
 input.f.date.m, input.f.date.d { width: 36px; }
+
+/* 신분증 첨부 (내부 보관 자료 · 인쇄 제외) */
+.idcard-bar {
+  width: 1000px; max-width: 96%; margin: 12px auto -6px; padding: 12px 16px;
+  background: #fff; border: 1px solid #e2e6ea; border-radius: 9px;
+  box-shadow: 0 1px 5px rgba(0,0,0,.06);
+}
+.idcard-bar .ic-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.idcard-bar .mb-title { font-weight: 800; color: var(--brand); letter-spacing: 1px; }
+.idcard-bar .ic-hint { font-weight: 400; }
+.idcard-bar .grow { flex: 1; }
+.ic-add-btn { position: relative; display: inline-flex; align-items: center; }
+.ic-add-btn.busy { opacity: .6; pointer-events: none; }
+.ic-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.ic-empty { margin: 4px 0 0; }
+.ic-card {
+  width: 160px; border: 1px solid #e2e6ea; border-radius: 8px; padding: 8px;
+  background: #fafbfc; display: flex; flex-direction: column; gap: 6px;
+}
+.ic-thumb {
+  width: 100%; height: 104px; object-fit: cover; border-radius: 5px;
+  border: 1px solid #dfe3e8; background: #fff; cursor: zoom-in; display: block;
+}
+.ic-card .ic-label { border: 1px solid #d5dae0; border-radius: 5px; padding: 3px 6px; font-size: 12px; background: #fff; }
+.ic-card .ic-meta { line-height: 1.2; }
+.ic-card .ic-del { align-self: flex-end; }
+
+/* 첨부 이미지 크게 보기 오버레이 */
+.img-viewer-overlay {
+  position: fixed; inset: 0; z-index: 110; background: rgba(15, 23, 35, .72);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.img-viewer { background: #fff; border-radius: 12px; max-width: 96vw; max-height: 94vh; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.4); display: flex; flex-direction: column; }
+.img-viewer .iv-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #eef0f2; }
+.img-viewer .iv-title { font-weight: 700; flex: 1; }
+.img-viewer .iv-img { max-width: 90vw; max-height: 80vh; object-fit: contain; display: block; background: #f4f6f8; }
+
+/* 목록: 신분증 첨부 표시 */
+.list-table td.center { text-align: center; }
+.id-badge { font-size: 12px; font-weight: 700; color: #1c7d3c; background: #dff3e4; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
