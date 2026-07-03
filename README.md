@@ -63,6 +63,32 @@ npm start          # 또는: node --no-warnings server.js
 
 > 로그인은 외부 라이브러리 없이 Supabase Auth REST API를 직접 호출합니다. 액세스 토큰은 브라우저 `localStorage`에 보관되고, 서버(Functions)가 매 요청의 토큰을 검증해 권한을 강제합니다.
 
+### 기존 계약 데이터를 세움os Supabase로 이전(통합)
+
+전자계약서용 Supabase를 따로 쓰고 있었다면, **세움os와 같은 프로젝트로 합치면** 세움os 직원 계정으로 로그인이 바로 됩니다. 이전 순서:
+
+1. **대상(세움os) 프로젝트에 테이블 생성** — 세움os Supabase의 SQL Editor에서 `supabase/schema.sql` 실행.
+   (세움os에 이미 `contracts` 테이블이 있으면 이름이 겹치지 않게 조정 후 진행)
+2. **데이터 이전** — 아래 4개 값을 넣고 이전 스크립트 실행. **소스(기존)는 읽기만 하고 절대 건드리지 않습니다.**
+
+   ```bash
+   SRC_SUPABASE_URL=https://기존.supabase.co \
+   SRC_SERVICE_ROLE_KEY=기존_service_role_키 \
+   DST_SUPABASE_URL=https://세움os.supabase.co \
+   DST_SERVICE_ROLE_KEY=세움os_service_role_키 \
+   npm run migrate:contracts            # 미리보기(건수·목록만 확인, 아무것도 안 옮김)
+
+   # 내용이 맞으면 실제 이전:
+   ... npm run migrate:contracts -- --commit
+   ```
+
+   - 계약번호(`contract_no`) 기준 **upsert**라 여러 번 실행해도 중복이 안 생깁니다(재실행 안전).
+   - 계약번호·본문·작성/수정일시는 그대로 보존됩니다. (내부 PK `id`만 대상에서 새로 부여)
+3. **Netlify 환경변수 교체** — `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`를 세움os 프로젝트 값으로 바꾸고, `SUPABASE_ANON_KEY`·`ADMIN_EMAILS`를 추가한 뒤 **재배포**.
+4. **확인** — 계약 목록이 그대로 보이고, 세움os 계정으로 로그인되는지 확인. (문제가 있어도 소스 데이터는 남아 있으니 되돌릴 수 있습니다.)
+
+> ⚠️ `service_role` 키는 데이터베이스 전체 권한을 가진 **비밀 키**입니다. 스크립트 실행 시에만 쓰고, 화면·채팅·코드에 남기지 마세요. 노출이 우려되면 이전 후 Supabase에서 키를 재발급(rotate)하면 됩니다.
+
 ## 데이터 저장 / 백업
 
 - 모든 계약 데이터는 `data/contracts.db` (SQLite) 파일 하나에 저장됩니다.
@@ -75,6 +101,8 @@ npm start          # 또는: node --no-warnings server.js
 Contract-OS/
 ├── server.js          # HTTP 서버 + REST API (Node 내장 http)
 ├── lib/db.js          # 저장소 (Node 내장 node:sqlite)
+├── scripts/
+│   └── migrate-contracts.mjs  # 계약 데이터 이전(기존 Supabase → 세움os Supabase)
 ├── public/
 │   ├── index.html
 │   ├── css/app.css    # 화면 + 계약서 레이아웃

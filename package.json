@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node --no-warnings server.js",
-    "dev": "node --no-warnings --watch server.js"
+    "dev": "node --no-warnings --watch server.js",
+    "migrate:contracts": "node scripts/migrate-contracts.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0"
