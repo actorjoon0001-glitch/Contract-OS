@@ -63,7 +63,7 @@ export async function handle(req, idParam, supa) {
         const deleted = url.searchParams.get('deleted') === '1';
         let query = supa
           .from(TABLE)
-          .select('id, contract_no, status, stage:data->>stage, approval_at:data->signatures->approval->>signedAt, deleted_at:data->>deletedAt, client_name, site_address, showroom, salesperson, contract_date, total_amount, updated_at')
+          .select('id, contract_no, status, stage:data->>stage, approval_at:data->signatures->approval->>signedAt, deleted_at:data->>deletedAt, id_count:data->>idCount, client_name, site_address, showroom, salesperson, contract_date, total_amount, updated_at')
           .order('updated_at', { ascending: false });
         // 휴지통 분리: deletedAt 값 유무로 정상/삭제됨 구분
         query = deleted ? query.not('data->>deletedAt', 'is', null) : query.is('data->>deletedAt', null);

@@ -59,7 +59,7 @@ function go(hash) {
 
 // ---------- 목록 화면 ----------
 let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터는 클라이언트에서 처리)
-const LIST_COLS = 11;
+const LIST_COLS = 12;
 
 async function renderList() {
   current = null; currentId = null; dirty = false;
@@ -83,7 +83,7 @@ async function renderList() {
         <thead>
           <tr>
             <th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
-            <th class="right">제품합계(만원)</th><th>계약일자</th><th>진행상태</th><th>대표이사 승인</th><th>수정일</th><th></th>
+            <th class="right">제품합계(만원)</th><th>계약일자</th><th>신분증</th><th>진행상태</th><th>대표이사 승인</th><th>수정일</th><th></th>
           </tr>
         </thead>
         <tbody id="list-body"><tr><td colspan="${LIST_COLS}" class="muted center">불러오는 중...</td></tr></tbody>
@@ -152,6 +152,9 @@ function renderListRows(rows) {
       <td class="ellipsis">${esc(r.site_address || '-')}</td>
       <td class="right">${fmtMan(r.total_amount) || '-'}</td>
       <td>${esc(r.contract_date || '-')}</td>
+      <td class="center">${r.is_sample ? '' : (Number(r.id_count) > 0
+        ? `<span class="id-badge" title="신분증 ${Number(r.id_count)}매 첨부됨">📎 ${Number(r.id_count)}</span>`
+        : '<span class="muted small">—</span>')}</td>
       <td>${r.is_sample
         ? '<span class="badge">샘플</span>'
         : `<select class="row-stage stage-${stageOf(r)}" data-stage-id="${r.id}" title="진행상태 변경">
@@ -435,6 +438,18 @@ function renderEditor() {
       <label>전시장 <span class="req">*</span> ${field('showroom', c.showroom, 'manage')}</label>
       <label>영업사원 <span class="req">*</span> ${field('salesperson', c.salesperson, 'manage')}</label>
       <span class="mb-hint muted small">※ 목록 분류·검색용 (계약서 인쇄에는 표시 안 됨) · <b>전시장·영업사원·현장주소는 필수</b></span>
+    </div>
+
+    <div class="idcard-bar no-print">
+      <div class="ic-head">
+        <span class="mb-title">신분증 첨부</span>
+        <span class="ic-hint muted small">계약금 입금 고객의 신분증 사진·스캔 보관용 (내부 자료 · 계약서 인쇄에는 표시 안 됨)</span>
+        <span class="grow"></span>
+        <label class="btn tiny primary ic-add-btn">＋ 신분증 추가
+          <input type="file" id="idcard-input" accept="image/*" multiple hidden />
+        </label>
+      </div>
+      <div id="idcard-grid" class="ic-grid"></div>
     </div>
 
     <div id="contract" class="contract">
@@ -760,6 +775,131 @@ function bindSign(scope) {
   });
 }
 
+// ---------- 신분증 첨부 ----------
+// 신분증은 계약금 입금 후 받는 내부 보관 자료 → 확정(잠금) 여부와 무관하게 언제든 추가/삭제 가능,
+// 무결성 봉인 해시에서도 제외됨(model.js computeIntegrityHash). 인쇄에는 나오지 않음(no-print).
+const ID_MAX_DIM = 1600;   // 저장 시 이미지 최대 가로/세로 픽셀 (신분증 판독에 충분)
+const ID_QUALITY = 0.82;   // JPEG 압축 품질
+
+function renderIdCards() {
+  const grid = document.getElementById('idcard-grid');
+  if (!grid) return;
+  const cards = current.idCards || [];
+  if (!cards.length) {
+    grid.innerHTML = `<p class="ic-empty muted small">첨부된 신분증이 없습니다. <b>＋ 신분증 추가</b>로 앞면·뒷면 등을 올려 보관하세요.</p>`;
+    return;
+  }
+  grid.innerHTML = cards.map((card, i) => `
+    <div class="ic-card" data-ic="${i}">
+      <img class="ic-thumb" src="${esc(card.image)}" alt="신분증 ${i + 1}" data-ic-view="${i}" title="클릭하면 크게 보기" />
+      <input class="ic-label" data-ic-label="${i}" value="${esc(card.label || '')}" placeholder="라벨(예: 앞면)" />
+      <div class="ic-meta muted small">${esc(card.uploadedAt ? fmtSignDate(card.uploadedAt) : '')}</div>
+      <button type="button" class="btn tiny danger ic-del" data-ic-del="${i}">삭제</button>
+    </div>`).join('');
+}
+
+function bindIdCards() {
+  const input = document.getElementById('idcard-input');
+  const grid = document.getElementById('idcard-grid');
+  if (!input || !grid) return;
+
+  input.onchange = async () => {
+    const files = [...(input.files || [])].filter((f) => f.type.startsWith('image/'));
+    input.value = ''; // 같은 파일 다시 선택 가능하도록 초기화
+    if (!files.length) return;
+    const addBtn = document.querySelector('.ic-add-btn');
+    if (addBtn) addBtn.classList.add('busy');
+    try {
+      for (const file of files) {
+        try {
+          const image = await fileToIdImage(file);
+          (current.idCards ||= []).push({ image, label: '', uploadedAt: new Date().toISOString() });
+        } catch (err) {
+          alert(`"${file.name}" 처리 실패: ${err.message}`);
+        }
+      }
+      current.idCount = current.idCards.length;
+      renderIdCards();
+      bindIdCards();
+      markDirty();
+    } finally {
+      if (addBtn) addBtn.classList.remove('busy');
+    }
+  };
+
+  grid.querySelectorAll('[data-ic-view]').forEach((img) => {
+    img.onclick = () => {
+      const i = Number(img.dataset.icView);
+      const card = current.idCards?.[i];
+      if (card) openImageViewer(card.image, card.label || `신분증 ${i + 1}`);
+    };
+  });
+  grid.querySelectorAll('[data-ic-label]').forEach((inp) => {
+    inp.oninput = () => {
+      const i = Number(inp.dataset.icLabel);
+      if (current.idCards?.[i]) { current.idCards[i].label = inp.value; markDirty(); }
+    };
+  });
+  grid.querySelectorAll('[data-ic-del]').forEach((b) => {
+    b.onclick = () => {
+      const i = Number(b.dataset.icDel);
+      if (!confirm('이 신분증 첨부를 삭제할까요?')) return;
+      current.idCards.splice(i, 1);
+      current.idCount = current.idCards.length;
+      renderIdCards();
+      bindIdCards();
+      markDirty();
+    };
+  });
+}
+
+// 업로드 이미지 → 최대 크기로 축소한 JPEG data URL (용량 절감 · 판독 가능 유지)
+function fileToIdImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('파일을 읽을 수 없습니다.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('이미지 형식이 아닙니다.'));
+      img.onload = () => {
+        const scale = Math.min(1, ID_MAX_DIM / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; // 투명 배경(PNG) 대비 흰 바탕
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', ID_QUALITY));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// 첨부 이미지 크게 보기 (오버레이)
+function openImageViewer(src, title = '신분증') {
+  const overlay = document.createElement('div');
+  overlay.className = 'img-viewer-overlay no-print';
+  overlay.innerHTML = `
+    <div class="img-viewer">
+      <div class="iv-head">
+        <span class="iv-title">${esc(title)}</span>
+        <a class="btn tiny" href="${esc(src)}" download="${esc(title)}.jpg">내려받기</a>
+        <button class="btn tiny iv-x" type="button" aria-label="닫기">✕</button>
+      </div>
+      <img class="iv-img" src="${esc(src)}" alt="${esc(title)}" />
+    </div>`;
+  document.body.appendChild(overlay);
+  const close = () => { window.removeEventListener('keydown', onKey); overlay.remove(); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  window.addEventListener('keydown', onKey);
+  overlay.querySelector('.iv-x').onclick = close;
+  overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) close(); });
+}
+
 // ---------- 편집 이벤트 ----------
 function bindEditor() {
   document.getElementById('save-btn').onclick = saveContract;
@@ -790,6 +930,7 @@ function bindEditor() {
     preset.status = current.status;
     preset.contractNo = current.contractNo;
     preset.extraNotes = current.extraNotes;
+    preset.idCards = current.idCards; // 첨부한 신분증은 모델 전환과 무관하게 유지
     if (!id) preset.showroom = current.showroom; // 통합 선택 시 기존 전시장 유지
     current = preset;
     normalizeContract(current);
@@ -816,6 +957,8 @@ function bindEditor() {
   };
 
   bindSign(app);
+  renderIdCards();
+  bindIdCards();
   updateSealBanner();
 
   app.querySelectorAll('input.f[data-path], textarea.f[data-path]').forEach((inp) => {
