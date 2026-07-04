@@ -32,6 +32,9 @@ const SRC_URL = need('SRC_SUPABASE_URL');
 const SRC_KEY = need('SRC_SERVICE_ROLE_KEY');
 const DST_URL = need('DST_SUPABASE_URL');
 const DST_KEY = need('DST_SERVICE_ROLE_KEY');
+// 테이블명: 소스(기존)는 contracts, 대상(세움os)은 이름 충돌을 피해 econtracts 를 기본으로.
+const SRC_TABLE = process.env.SRC_TABLE || 'contracts';
+const DST_TABLE = process.env.DST_TABLE || 'econtracts';
 const COMMIT = process.argv.includes('--commit');
 
 if (SRC_URL === DST_URL) {
@@ -50,7 +53,7 @@ async function fetchAllSource() {
   const all = [];
   const size = 100;
   for (let from = 0; ; from += size) {
-    const { data, error } = await src.from('contracts').select('*').order('id', { ascending: true }).range(from, from + size - 1);
+    const { data, error } = await src.from(SRC_TABLE).select('*').order('id', { ascending: true }).range(from, from + size - 1);
     if (error) throw new Error(`소스 읽기 실패: ${error.message}`);
     all.push(...data);
     if (data.length < size) break;
@@ -59,7 +62,7 @@ async function fetchAllSource() {
 }
 
 async function main() {
-  console.log(`\n소스: ${SRC_URL}\n대상: ${DST_URL}\n모드: ${COMMIT ? '★ 실제 이전(--commit)' : '미리보기(dry-run)'}\n`);
+  console.log(`\n소스: ${SRC_URL}  (테이블: ${SRC_TABLE})\n대상: ${DST_URL}  (테이블: ${DST_TABLE})\n모드: ${COMMIT ? '★ 실제 이전(--commit)' : '미리보기(dry-run)'}\n`);
 
   const rows = await fetchAllSource();
   console.log(`소스에서 계약 ${rows.length}건을 찾았습니다.`);
@@ -83,12 +86,12 @@ async function main() {
     const payload = {};
     for (const c of COLS) payload[c] = r[c];
     const opts = r.contract_no ? { onConflict: 'contract_no' } : undefined;
-    const { error } = await dst.from('contracts').upsert(payload, opts);
+    const { error } = await dst.from(DST_TABLE).upsert(payload, opts);
     if (error) { fail++; console.error(`  ✗ ${r.contract_no || r.client_name}: ${error.message}`); }
     else { ok++; if (ok % 10 === 0) console.log(`  ...${ok}/${rows.length}`); }
   }
 
-  const { count, error: cErr } = await dst.from('contracts').select('*', { count: 'exact', head: true });
+  const { count, error: cErr } = await dst.from(DST_TABLE).select('*', { count: 'exact', head: true });
   console.log(`\n이전 완료 — 성공 ${ok}건, 실패 ${fail}건.`);
   if (!cErr) console.log(`대상 프로젝트의 현재 계약 수: ${count}건`);
   console.log(fail ? '\n⚠ 실패한 건이 있습니다. 위 로그를 확인하세요. (소스는 그대로 있으니 재실행 가능)' : '\n✅ 모든 계약이 안전하게 이전되었습니다. 소스 데이터는 그대로 남아 있습니다.');

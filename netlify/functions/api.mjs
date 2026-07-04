@@ -9,7 +9,9 @@
 //   ADMIN_EMAILS                 (선택) 전체 계약 열람 관리자 이메일, 쉼표로 구분 (예: ceo@seum.com,office@seum.com)
 import { createClient } from '@supabase/supabase-js';
 
-const TABLE = 'contracts';
+// 계약 저장 테이블명. 세움os처럼 이미 `contracts` 테이블이 있는 프로젝트와 통합할 때는
+// 충돌을 피하려고 SUPABASE_TABLE=econtracts 로 지정한다. (미설정이면 기존처럼 contracts)
+const TABLE = process.env.SUPABASE_TABLE || 'contracts';
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
