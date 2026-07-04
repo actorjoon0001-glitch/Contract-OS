@@ -102,7 +102,7 @@ function renderLogin(msg = '') {
     try {
       await login(email, pw);
       try { me = await api.me(); } catch { me = null; }
-      location.hash = '#/';
+      // 딥링크(#/edit/{id})로 들어와 로그인한 경우 원래 목적지로 이동, 그 외엔 현재 해시(기본 목록)
       route();
     } catch (err) {
       msgEl.textContent = err.message || '로그인에 실패했습니다.';
