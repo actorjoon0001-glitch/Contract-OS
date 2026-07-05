@@ -1,26 +1,26 @@
 // 계약 데이터 이전 스크립트 — 기존(별도) Supabase → 세움os Supabase(같은 프로젝트로 통합)
 //
+// 외부 라이브러리 '없이' Supabase REST API(fetch)만 사용합니다. (Node 20/22+ 내장 fetch)
+//  → npm install 불필요. 이 파일 하나만 있으면 실행됩니다.
+//
 // 안전장치:
 //  - 소스(원본)는 '읽기만' 한다. 절대 지우거나 바꾸지 않는다.
 //  - 기본은 '미리보기(dry-run)' 모드. 실제 이전은 반드시 --commit 을 붙여야 실행된다.
 //  - 대상에는 contract_no(계약번호) 기준 upsert → 여러 번 실행해도 중복 안 생김(재실행 안전).
 //  - id(내부 PK)는 대상에서 새로 부여된다. 계약번호·내용·작성/수정일시는 그대로 보존된다.
 //
-// 사용법:
-//   1) 먼저 대상(세움os) 프로젝트에서 supabase/schema.sql 을 실행해 contracts 테이블을 만든다.
-//   2) 아래 4개 환경변수를 넣고 실행한다.
-//
-//   SRC_SUPABASE_URL=...        기존 전자계약서용 프로젝트 URL
-//   SRC_SERVICE_ROLE_KEY=...    기존 프로젝트 service_role 키
-//   DST_SUPABASE_URL=...        세움os 프로젝트 URL
-//   DST_SERVICE_ROLE_KEY=...    세움os 프로젝트 service_role 키
-//
-//   # 미리보기(아무것도 안 옮김, 건수·목록만 확인)
+// 사용법 (터미널):
+//   # 1) 미리보기 — 아무것도 안 옮기고 건수·목록만 확인
+//   SRC_SUPABASE_URL=https://기존.supabase.co \
+//   SRC_SERVICE_ROLE_KEY=기존_service_role_키 \
+//   DST_SUPABASE_URL=https://세움os.supabase.co \
+//   DST_SERVICE_ROLE_KEY=세움os_service_role_키 \
 //   node scripts/migrate-contracts.mjs
-//   # 실제 이전
-//   node scripts/migrate-contracts.mjs --commit
-
-import { createClient } from '@supabase/supabase-js';
+//
+//   # 2) 실제 이전 — 위 명령 끝에 --commit 추가
+//   ... node scripts/migrate-contracts.mjs --commit
+//
+//   (기본 테이블: 소스 contracts → 대상 econtracts. 필요 시 SRC_TABLE / DST_TABLE 로 변경)
 
 function need(key) {
   const v = process.env[key];
@@ -28,37 +28,59 @@ function need(key) {
   return v;
 }
 
-const SRC_URL = need('SRC_SUPABASE_URL');
+const SRC_URL = need('SRC_SUPABASE_URL').replace(/\/+$/, '');
 const SRC_KEY = need('SRC_SERVICE_ROLE_KEY');
-const DST_URL = need('DST_SUPABASE_URL');
+const DST_URL = need('DST_SUPABASE_URL').replace(/\/+$/, '');
 const DST_KEY = need('DST_SERVICE_ROLE_KEY');
-// 테이블명: 소스(기존)는 contracts, 대상(세움os)은 이름 충돌을 피해 econtracts 를 기본으로.
 const SRC_TABLE = process.env.SRC_TABLE || 'contracts';
 const DST_TABLE = process.env.DST_TABLE || 'econtracts';
 const COMMIT = process.argv.includes('--commit');
 
-if (SRC_URL === DST_URL) {
-  console.error('✗ 소스와 대상 URL이 같습니다. 서로 다른 프로젝트여야 합니다.');
+if (SRC_URL === DST_URL && SRC_TABLE === DST_TABLE) {
+  console.error('✗ 소스와 대상이 완전히 같습니다. 서로 다른 프로젝트/테이블이어야 합니다.');
   process.exit(1);
 }
-
-const src = createClient(SRC_URL, SRC_KEY, { auth: { persistSession: false } });
-const dst = createClient(DST_URL, DST_KEY, { auth: { persistSession: false } });
 
 // id 는 대상에서 새로 부여 → 이전 대상 컬럼에서 제외. 계약번호·내용·시각은 보존.
 const COLS = ['contract_no', 'status', 'client_name', 'site_address', 'showroom', 'salesperson', 'contract_date', 'total_amount', 'data', 'created_at', 'updated_at'];
 
-// 소스 전체 읽기 (페이지네이션 — 이미지 포함 대용량 대비 100건씩)
+const authHeaders = (key, extra = {}) => ({ apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', ...extra });
+
+// 소스 전체 읽기 (REST, 100건씩 페이지네이션 — 이미지 포함 대용량 대비)
 async function fetchAllSource() {
   const all = [];
   const size = 100;
-  for (let from = 0; ; from += size) {
-    const { data, error } = await src.from(SRC_TABLE).select('*').order('id', { ascending: true }).range(from, from + size - 1);
-    if (error) throw new Error(`소스 읽기 실패: ${error.message}`);
+  for (let offset = 0; ; offset += size) {
+    const url = `${SRC_URL}/rest/v1/${SRC_TABLE}?select=*&order=id.asc&offset=${offset}&limit=${size}`;
+    const res = await fetch(url, { headers: authHeaders(SRC_KEY) });
+    if (!res.ok) throw new Error(`소스 읽기 실패 (${res.status}): ${await res.text()}`);
+    const data = await res.json();
     all.push(...data);
     if (data.length < size) break;
   }
   return all;
+}
+
+// 대상에 한 건 upsert (contract_no 충돌 시 갱신 → 재실행 안전)
+async function upsertRow(row) {
+  const payload = {};
+  for (const c of COLS) payload[c] = row[c];
+  const q = row.contract_no ? '?on_conflict=contract_no' : '';
+  const url = `${DST_URL}/rest/v1/${DST_TABLE}${q}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(DST_KEY, { Prefer: 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+}
+
+// 대상 현재 건수 (확인용)
+async function countDest() {
+  const url = `${DST_URL}/rest/v1/${DST_TABLE}?select=id`;
+  const res = await fetch(url, { headers: authHeaders(DST_KEY, { Prefer: 'count=exact', Range: '0-0' }) });
+  const cr = res.headers.get('content-range') || '';
+  return cr.includes('/') ? cr.split('/')[1] : '?';
 }
 
 async function main() {
@@ -76,24 +98,25 @@ async function main() {
 
   if (!COMMIT) {
     console.log('\n[미리보기 모드] 실제로는 아무것도 옮기지 않았습니다.');
-    console.log('내용이 맞으면 다음으로 실제 이전하세요:  node scripts/migrate-contracts.mjs --commit\n');
+    console.log('내용이 맞으면 위 명령 끝에 --commit 을 붙여 다시 실행하세요.\n');
     return;
   }
 
   console.log('\n이전을 시작합니다... (contract_no 기준 upsert, 재실행 안전)');
   let ok = 0, fail = 0;
   for (const r of rows) {
-    const payload = {};
-    for (const c of COLS) payload[c] = r[c];
-    const opts = r.contract_no ? { onConflict: 'contract_no' } : undefined;
-    const { error } = await dst.from(DST_TABLE).upsert(payload, opts);
-    if (error) { fail++; console.error(`  ✗ ${r.contract_no || r.client_name}: ${error.message}`); }
-    else { ok++; if (ok % 10 === 0) console.log(`  ...${ok}/${rows.length}`); }
+    try {
+      await upsertRow(r);
+      ok++;
+      if (ok % 10 === 0) console.log(`  ...${ok}/${rows.length}`);
+    } catch (err) {
+      fail++;
+      console.error(`  ✗ ${r.contract_no || r.client_name}: ${err.message}`);
+    }
   }
 
-  const { count, error: cErr } = await dst.from(DST_TABLE).select('*', { count: 'exact', head: true });
   console.log(`\n이전 완료 — 성공 ${ok}건, 실패 ${fail}건.`);
-  if (!cErr) console.log(`대상 프로젝트의 현재 계약 수: ${count}건`);
+  try { console.log(`대상 테이블(${DST_TABLE})의 현재 계약 수: ${await countDest()}건`); } catch { /* 확인용, 실패해도 무시 */ }
   console.log(fail ? '\n⚠ 실패한 건이 있습니다. 위 로그를 확인하세요. (소스는 그대로 있으니 재실행 가능)' : '\n✅ 모든 계약이 안전하게 이전되었습니다. 소스 데이터는 그대로 남아 있습니다.');
 }
 

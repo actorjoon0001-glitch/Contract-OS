@@ -71,6 +71,7 @@ npm start          # 또는: node --no-warnings server.js
 
 1. **대상(세움os) 프로젝트에 테이블 생성** — 세움os Supabase의 SQL Editor에서 **`supabase/schema-seumos.sql`** 실행 → `econtracts` 테이블 생성.
 2. **데이터 이전** — 아래 값을 넣고 이전 스크립트 실행. **소스(기존)는 읽기만 하고 절대 건드리지 않습니다.**
+   외부 라이브러리 없이 동작하므로 **`npm install` 없이 Node만 있으면** 됩니다. (`scripts/migrate-contracts.mjs` 파일 하나만 있으면 실행 가능)
    (대상 테이블 기본값은 `econtracts`, 소스는 `contracts` — 필요 시 `DST_TABLE`·`SRC_TABLE`로 변경)
 
    ```bash
@@ -78,10 +79,10 @@ npm start          # 또는: node --no-warnings server.js
    SRC_SERVICE_ROLE_KEY=기존_service_role_키 \
    DST_SUPABASE_URL=https://세움os.supabase.co \
    DST_SERVICE_ROLE_KEY=세움os_service_role_키 \
-   npm run migrate:contracts            # 미리보기(건수·목록만 확인, 아무것도 안 옮김)
+   node scripts/migrate-contracts.mjs            # 미리보기(건수·목록만 확인, 아무것도 안 옮김)
 
-   # 내용이 맞으면 실제 이전:
-   ... npm run migrate:contracts -- --commit
+   # 내용이 맞으면 실제 이전 (끝에 --commit):
+   ...  node scripts/migrate-contracts.mjs --commit
    ```
 
    - 계약번호(`contract_no`) 기준 **upsert**라 여러 번 실행해도 중복이 안 생깁니다(재실행 안전).
