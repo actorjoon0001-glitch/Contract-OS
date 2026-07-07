@@ -258,9 +258,17 @@ function renderListRows(rows) {
       go(`#/edit/${tr.dataset.id}`);
     };
   });
-  // 직원 메모: 목록에서 바로 입력 (입력 후 포커스 아웃 시 저장)
+  // 직원 메모: 목록에서 바로 입력 (엔터 또는 포커스 아웃 시 저장, Esc는 취소)
   body.querySelectorAll('.row-memo').forEach((inp) => {
     inp.onclick = (e) => e.stopPropagation();
+    inp.onkeydown = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }          // 엔터 → 저장(blur가 onchange 유발)
+      else if (e.key === 'Escape') {                                       // Esc → 원래 값으로 되돌리고 취소
+        const cached = listRows.find((r) => String(r.id) === String(inp.dataset.memoId));
+        inp.value = cached ? (cached.memo || '') : '';
+        inp.blur();
+      }
+    };
     inp.onchange = async () => {
       const id = inp.dataset.memoId;
       const val = inp.value;
