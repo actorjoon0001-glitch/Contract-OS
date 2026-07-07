@@ -39,9 +39,10 @@ async function authContext(req, supa) {
     const { data, error } = await supa.auth.getUser(token);
     if (error || !data?.user) return { enabled: true, user: null, isAdmin: false };
     const email = (data.user.email || '').toLowerCase();
-    const meta = data.user.user_metadata || {};
-    const name = meta.name || meta.full_name || meta.username || '';
-    return { enabled: true, user: { id: data.user.id, email, name }, isAdmin: adminEmails().includes(email) };
+    const meta = { ...(data.user.app_metadata || {}), ...(data.user.user_metadata || {}) };
+    const name = meta.name || meta.full_name || meta.username || meta.displayName || '';
+    const showroom = meta.showroom || meta['전시장'] || meta.branch || meta.store || meta.office || ''; // 계정에 전시장 정보가 있으면 사용
+    return { enabled: true, user: { id: data.user.id, email, name, showroom }, isAdmin: adminEmails().includes(email) };
   } catch {
     return { enabled: true, user: null, isAdmin: false };
   }
@@ -236,7 +237,7 @@ export default async (req, context) => {
   // 현재 로그인 사용자 정보 (계정 표시·관리자 여부)
   if (path === '/api/me') {
     if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
-    return json({ email: auth.user?.email || '', name: auth.user?.name || '', isAdmin: !!auth.isAdmin, authEnabled: auth.enabled });
+    return json({ email: auth.user?.email || '', name: auth.user?.name || '', showroom: auth.user?.showroom || '', isAdmin: !!auth.isAdmin, authEnabled: auth.enabled });
   }
 
   return handle(req, context.params?.id, supa, auth);
