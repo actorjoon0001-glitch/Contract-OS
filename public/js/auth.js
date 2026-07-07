@@ -25,7 +25,10 @@ function loadSession() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch { return null; }
 }
 export function currentUser() { return loadSession()?.user || null; }
-export function logout() { localStorage.removeItem(LS_KEY); }
+export function logout() {
+  localStorage.removeItem(LS_KEY);
+  try { sessionStorage.setItem('contractos.ssoSkip', '1'); } catch { /* ignore */ } // 로그아웃 후 자동 재로그인 방지
+}
 
 function storeToken(data, prevUser) {
   const user = data.user
@@ -42,6 +45,58 @@ function storeToken(data, prevUser) {
     user,
   });
   return user;
+}
+
+// ── 자동 로그인(SSO) ────────────────────────────────────────────────
+// 세움os(부모창)에 임베드(iframe)돼 있을 때, 부모가 넘겨주는 로그인 세션으로
+// 자동 로그인한다. 세움os와 같은 Supabase 프로젝트라 그 토큰이 그대로 유효하다.
+// 프로토콜: (자식) 'seum-sso:ready' 전송 → (부모) 'seum-sso:token' 응답.
+const SSO_SKIP_KEY = 'contractos.ssoSkip'; // 명시적 로그아웃 후 자동 재로그인 방지(탭 한정)
+
+// JWT 페이로드 디코드 (검증은 서버가 함 — 여기선 사용자/만료 표시용)
+function decodeJwt(token) {
+  const part = token.split('.')[1] || '';
+  const b64 = part.replace(/-/g, '+').replace(/_/g, '/').padEnd(part.length + (4 - (part.length % 4)) % 4, '=');
+  const json = decodeURIComponent(escape(atob(b64))); // UTF-8(한글 이름) 대응
+  return JSON.parse(json);
+}
+
+// 부모가 넘겨준 토큰으로 세션 저장
+export function storeExternalSession(access_token, refresh_token) {
+  const p = decodeJwt(access_token);
+  const user = {
+    id: p.sub,
+    email: p.email || '',
+    name: p.user_metadata?.name || p.user_metadata?.full_name || p.user_metadata?.username || '',
+  };
+  saveSession({
+    access_token,
+    refresh_token: refresh_token || '',
+    expires_at: p.exp ? p.exp * 1000 : Date.now() + 3600 * 1000,
+    user,
+  });
+  return user;
+}
+
+// 임베드 상태면 부모에게 세션을 요청해 자동 로그인 시도. 성공 true / 실패·비임베드 false.
+export function trySSO(timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    if (window.parent === window) return resolve(false);           // 임베드 아님
+    if (sessionStorage.getItem(SSO_SKIP_KEY)) return resolve(false); // 방금 로그아웃함
+    let done = false;
+    const finish = (ok) => { if (done) return; done = true; window.removeEventListener('message', onMsg); resolve(ok); };
+    function onMsg(e) {
+      if (e.source !== window.parent) return;                       // 우리를 감싼 부모창만 신뢰
+      const d = e.data || {};
+      if (d.type === 'seum-sso:token' && d.access_token) {
+        try { storeExternalSession(d.access_token, d.refresh_token); finish(true); }
+        catch { finish(false); }
+      }
+    }
+    window.addEventListener('message', onMsg);
+    try { window.parent.postMessage({ type: 'seum-sso:ready' }, '*'); } catch { /* ignore */ }
+    setTimeout(() => finish(false), timeoutMs);
+  });
 }
 
 // 이메일 + 비밀번호 로그인 (세움os 계정 그대로)
