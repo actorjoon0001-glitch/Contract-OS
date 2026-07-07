@@ -1048,7 +1048,7 @@ function renderDrawings() {
     <div class="ic-card" data-dw="${i}">
       ${d.kind === 'image'
         ? `<img class="ic-thumb" src="${esc(d.data)}" alt="도면 ${i + 1}" data-dw-view="${i}" title="클릭하면 크게 보기" />`
-        : `<div class="ic-thumb ic-file" data-dw-view="${i}" title="클릭하면 내려받기"><span class="ic-file-ic">📄</span><span class="ic-file-ext">${esc(((d.name || '').split('.').pop() || 'FILE').toUpperCase())}</span></div>`}
+        : `<div class="ic-thumb ic-file" data-dw-view="${i}" title="클릭하면 ${isPdfDrawing(d) ? '미리보기' : '내려받기'}"><span class="ic-file-ic">${isPdfDrawing(d) ? '📕' : '📄'}</span><span class="ic-file-ext">${esc(((d.name || '').split('.').pop() || 'FILE').toUpperCase())}</span></div>`}
       <input class="ic-label" data-dw-label="${i}" value="${esc(d.label || '')}" placeholder="라벨(예: 1층 평면도)" />
       <div class="ic-meta muted small">${esc(d.name || '')}${d.uploadedAt ? ` · ${esc(fmtSignDate(d.uploadedAt))}` : ''}</div>
       <button type="button" class="btn tiny danger ic-del" data-dw-del="${i}">삭제</button>
@@ -1089,8 +1089,10 @@ function bindDrawings() {
       const i = Number(el.dataset.dwView);
       const d = current.drawings?.[i];
       if (!d) return;
-      if (d.kind === 'image') openImageViewer(d.data, d.label || d.name || `도면 ${i + 1}`);
-      else downloadData(d.data, d.name || `도면_${i + 1}`);
+      const title = d.label || d.name || `도면 ${i + 1}`;
+      if (d.kind === 'image') openImageViewer(d.data, title);
+      else if (isPdfDrawing(d)) openPdfViewer(d.data, title);   // PDF는 앱 내 미리보기
+      else downloadData(d.data, d.name || `도면_${i + 1}`);      // 그 외 파일은 내려받기
     };
   });
   grid.querySelectorAll('[data-dw-label]').forEach((inp) => {
@@ -1145,6 +1147,45 @@ function fileToDrawing(file) {
     };
     reader.readAsDataURL(file);
   });
+}
+
+// PDF 여부 판별 (data URL 프리픽스 또는 파일명 확장자)
+function isPdfDrawing(d) {
+  return String(d?.data || '').startsWith('data:application/pdf') || /\.pdf$/i.test(d?.name || '');
+}
+
+// PDF 앱 내 미리보기 (data URL → Blob URL 로 iframe 렌더 — 브라우저 호환성↑)
+function openPdfViewer(dataUrl, title = '도면') {
+  let blobUrl = '';
+  try {
+    const b64 = dataUrl.split(',')[1] || '';
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    blobUrl = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }));
+  } catch { blobUrl = dataUrl; }
+  const overlay = document.createElement('div');
+  overlay.className = 'img-viewer-overlay no-print';
+  overlay.innerHTML = `
+    <div class="img-viewer pdf-viewer">
+      <div class="iv-head">
+        <span class="iv-title">${esc(title)}</span>
+        <a class="btn tiny" href="${esc(dataUrl)}" download="${esc(title.endsWith('.pdf') ? title : title + '.pdf')}">내려받기</a>
+        <button class="btn tiny iv-x" type="button" aria-label="닫기">✕</button>
+      </div>
+      <iframe class="iv-pdf" title="${esc(title)}"></iframe>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('.iv-pdf').src = blobUrl; // 안전하게 프로퍼티로 지정
+  const close = () => {
+    window.removeEventListener('keydown', onKey);
+    if (blobUrl.startsWith('blob:')) URL.revokeObjectURL(blobUrl);
+    overlay.remove();
+  };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  window.addEventListener('keydown', onKey);
+  overlay.querySelector('.iv-x').onclick = close;
+  overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) close(); });
 }
 
 // data URL 파일 내려받기

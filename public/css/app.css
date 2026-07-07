@@ -339,6 +339,9 @@ input.f.date.m, input.f.date.d { width: 36px; }
 .img-viewer .iv-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #eef0f2; }
 .img-viewer .iv-title { font-weight: 700; flex: 1; }
 .img-viewer .iv-img { max-width: 90vw; max-height: 80vh; object-fit: contain; display: block; background: #f4f6f8; }
+/* PDF 미리보기: 화면을 크게 채워 도면을 읽기 쉽게 */
+.img-viewer.pdf-viewer { width: 92vw; height: 92vh; }
+.img-viewer .iv-pdf { flex: 1; width: 100%; border: 0; background: #f4f6f8; display: block; }
 
 /* 목록: 신분증 첨부 표시 */
 .list-table td.center { text-align: center; }
