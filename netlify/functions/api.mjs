@@ -108,7 +108,8 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
         let query = supa
           .from(TABLE)
           .select('id, contract_no, status, stage:data->>stage, approval_at:data->signatures->approval->>signedAt, deleted_at:data->>deletedAt, id_count:data->>idCount, drawing_count:data->>drawingCount, memo:data->>memo, owner_email:data->>ownerEmail, client_name, site_address, showroom, salesperson, contract_date, total_amount, updated_at')
-          .order('updated_at', { ascending: false });
+          .order('created_at', { ascending: false })  // 작성(생성) 순 — 최근 계약이 위로 고정(수정해도 안 바뀜)
+          .order('contract_no', { ascending: false }); // 동일 시각 대비 결정적 정렬
         // 휴지통 분리: deletedAt 값 유무로 정상/삭제됨 구분
         query = deleted ? query.not('data->>deletedAt', 'is', null) : query.is('data->>deletedAt', null);
         if (q) {
