@@ -24,6 +24,9 @@ export const STAGES = [
   { key: 'canceled', label: '취소' },
 ];
 export const DEFAULT_STAGE = 'negotiating';
+
+// 전시장 목록 (계약서 작성 시 드롭다운 선택지)
+export const SHOWROOMS = ['본사 전시장', '1전시장', '3전시장', '강화전시장', '안동전시장', '광주전시장'];
 export function stageLabel(key) {
   return (STAGES.find((s) => s.key === key) || {}).label || '협의중';
 }
