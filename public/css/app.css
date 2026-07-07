@@ -345,6 +345,13 @@ input.f.date.m, input.f.date.d { width: 36px; }
 .id-badge { font-size: 12px; font-weight: 700; color: #1c7d3c; background: #dff3e4; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
 .dw-badge { font-size: 12px; font-weight: 700; color: #3a4fa0; background: #dde2fb; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
 
+/* 목록: 직원 메모 입력 */
+.memo-cell { min-width: 150px; }
+.row-memo { width: 150px; border: 1px solid #dfe3e8; border-radius: 6px; padding: 5px 8px; font-size: 12.5px; background: #fcfdff; outline: none; color: #222; }
+.row-memo:focus { border-color: var(--brand); background: #fff; box-shadow: 0 0 0 2px rgba(28,90,153,.12); }
+.row-memo.saved { border-color: #7bc99a; background: #f1fbf4; }
+.row-memo:disabled { opacity: .6; }
+
 /* 부팅/자동로그인 확인 중 */
 .boot-loading { min-height: 60vh; display: flex; align-items: center; justify-content: center; color: #9aa2ac; font-size: 15px; }
 
