@@ -563,11 +563,11 @@ function renderEditor() {
 
     <div class="idcard-bar no-print">
       <div class="ic-head">
-        <span class="mb-title">신분증 첨부</span>
-        <span class="ic-hint muted small">계약금 입금 고객의 신분증 사진·스캔 보관용 (내부 자료 · 계약서 인쇄에는 표시 안 됨)</span>
+        <span class="mb-title">신분증 · 사업자등록증 첨부</span>
+        <span class="ic-hint muted small">개인 고객은 신분증, 사업자 고객은 사업자등록증 첨부 (이미지·PDF · 내부 자료 · 계약서 인쇄에는 표시 안 됨)</span>
         <span class="grow"></span>
-        <label class="btn tiny primary ic-add-btn">＋ 신분증 추가
-          <input type="file" id="idcard-input" accept="image/*" multiple hidden />
+        <label class="btn tiny primary ic-add-btn">＋ 첨부 추가
+          <input type="file" id="idcard-input" accept="image/*,application/pdf,.pdf" multiple hidden />
         </label>
       </div>
       <div id="idcard-grid" class="ic-grid"></div>
@@ -919,16 +919,23 @@ function renderIdCards() {
   if (!grid) return;
   const cards = current.idCards || [];
   if (!cards.length) {
-    grid.innerHTML = `<p class="ic-empty muted small">첨부된 신분증이 없습니다. <b>＋ 신분증 추가</b>로 앞면·뒷면 등을 올려 보관하세요.</p>`;
+    grid.innerHTML = `<p class="ic-empty muted small">첨부된 신분증·사업자등록증이 없습니다. <b>＋ 첨부 추가</b>로 이미지·PDF를 올려 보관하세요.</p>`;
     return;
   }
-  grid.innerHTML = cards.map((card, i) => `
+  grid.innerHTML = cards.map((card, i) => {
+    const src = card.data || card.image || '';               // 신버전(data)·구버전(image) 호환
+    const isImg = card.kind ? card.kind === 'image' : !!card.image;
+    const pdf = !isImg && isPdfAttachment(card);
+    return `
     <div class="ic-card" data-ic="${i}">
-      <img class="ic-thumb" src="${esc(card.image)}" alt="신분증 ${i + 1}" data-ic-view="${i}" title="클릭하면 크게 보기" />
-      <input class="ic-label" data-ic-label="${i}" value="${esc(card.label || '')}" placeholder="라벨(예: 앞면)" />
-      <div class="ic-meta muted small">${esc(card.uploadedAt ? fmtSignDate(card.uploadedAt) : '')}</div>
+      ${isImg
+        ? `<img class="ic-thumb" src="${esc(src)}" alt="첨부 ${i + 1}" data-ic-view="${i}" title="클릭하면 크게 보기" />`
+        : `<div class="ic-thumb ic-file" data-ic-view="${i}" title="클릭하면 ${pdf ? '미리보기' : '내려받기'}"><span class="ic-file-ic">${pdf ? '📕' : '📄'}</span><span class="ic-file-ext">${esc(((card.name || '').split('.').pop() || 'FILE').toUpperCase())}</span></div>`}
+      <input class="ic-label" data-ic-label="${i}" value="${esc(card.label || '')}" placeholder="라벨(예: 신분증 앞면 / 사업자등록증)" />
+      <div class="ic-meta muted small">${esc(card.name || '')}${card.uploadedAt ? `${card.name ? ' · ' : ''}${esc(fmtSignDate(card.uploadedAt))}` : ''}</div>
       <button type="button" class="btn tiny danger ic-del" data-ic-del="${i}">삭제</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function bindIdCards() {
@@ -937,7 +944,7 @@ function bindIdCards() {
   if (!input || !grid) return;
 
   input.onchange = async () => {
-    const files = [...(input.files || [])].filter((f) => f.type.startsWith('image/'));
+    const files = [...(input.files || [])]; // 이미지 + PDF(사업자등록증) 모두 허용
     input.value = ''; // 같은 파일 다시 선택 가능하도록 초기화
     if (!files.length) return;
     const addBtn = document.querySelector('.ic-add-btn');
@@ -945,8 +952,8 @@ function bindIdCards() {
     try {
       for (const file of files) {
         try {
-          const image = await fileToIdImage(file);
-          (current.idCards ||= []).push({ image, label: '', uploadedAt: new Date().toISOString() });
+          const item = await fileToAttachment(file, ID_MAX_DIM, ID_QUALITY);
+          (current.idCards ||= []).push({ ...item, label: '', uploadedAt: new Date().toISOString() });
         } catch (err) {
           alert(`"${file.name}" 처리 실패: ${err.message}`);
         }
@@ -960,11 +967,17 @@ function bindIdCards() {
     }
   };
 
-  grid.querySelectorAll('[data-ic-view]').forEach((img) => {
-    img.onclick = () => {
-      const i = Number(img.dataset.icView);
+  grid.querySelectorAll('[data-ic-view]').forEach((el) => {
+    el.onclick = () => {
+      const i = Number(el.dataset.icView);
       const card = current.idCards?.[i];
-      if (card) openImageViewer(card.image, card.label || `신분증 ${i + 1}`);
+      if (!card) return;
+      const src = card.data || card.image || '';
+      const isImg = card.kind ? card.kind === 'image' : !!card.image;
+      const title = card.label || card.name || `첨부 ${i + 1}`;
+      if (isImg) openImageViewer(src, title);
+      else if (isPdfAttachment(card)) openPdfViewer(src, title);
+      else downloadData(src, card.name || `첨부_${i + 1}`);
     };
   });
   grid.querySelectorAll('[data-ic-label]').forEach((inp) => {
@@ -976,7 +989,7 @@ function bindIdCards() {
   grid.querySelectorAll('[data-ic-del]').forEach((b) => {
     b.onclick = () => {
       const i = Number(b.dataset.icDel);
-      if (!confirm('이 신분증 첨부를 삭제할까요?')) return;
+      if (!confirm('이 첨부를 삭제할까요?')) return;
       current.idCards.splice(i, 1);
       current.idCount = current.idCards.length;
       renderIdCards();
@@ -986,16 +999,32 @@ function bindIdCards() {
   });
 }
 
-// 업로드 이미지 → 최대 크기로 축소한 JPEG data URL (용량 절감 · 판독 가능 유지)
-function fileToIdImage(file) {
+// 첨부 최대 파일 크기 (비이미지 원본 저장 시) 및 첨부 판별 유틸
+const ATTACH_FILE_MAX = 5 * 1024 * 1024; // 5MB
+function isPdfAttachment(x) {
+  return String(x?.data || '').startsWith('data:application/pdf') || /\.pdf$/i.test(x?.name || '');
+}
+
+// 업로드 파일 → 저장용 항목 {data,name,kind}. 이미지는 축소 JPEG, 그 외(PDF 등)는 원본(용량 제한).
+// 신분증·사업자등록증·협의도면 첨부에서 공통으로 사용.
+function fileToAttachment(file, maxDim, quality) {
   return new Promise((resolve, reject) => {
+    const isImage = (file.type || '').startsWith('image/');
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('파일을 읽을 수 없습니다.'));
+    if (!isImage) {
+      if (file.size > ATTACH_FILE_MAX) {
+        return reject(new Error(`파일이 너무 큽니다(${(file.size / 1048576).toFixed(1)}MB). 5MB 이하로 줄여 주세요.`));
+      }
+      reader.onload = () => resolve({ data: reader.result, name: file.name, kind: 'file' });
+      reader.readAsDataURL(file);
+      return;
+    }
     reader.onload = () => {
       const img = new Image();
-      img.onerror = () => reject(new Error('이미지 형식이 아닙니다.'));
+      img.onerror = () => reject(new Error('이미지를 열 수 없습니다.'));
       img.onload = () => {
-        const scale = Math.min(1, ID_MAX_DIM / Math.max(img.width, img.height));
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
         const w = Math.max(1, Math.round(img.width * scale));
         const h = Math.max(1, Math.round(img.height * scale));
         const canvas = document.createElement('canvas');
@@ -1004,7 +1033,7 @@ function fileToIdImage(file) {
         ctx.fillStyle = '#fff'; // 투명 배경(PNG) 대비 흰 바탕
         ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', ID_QUALITY));
+        resolve({ data: canvas.toDataURL('image/jpeg', quality), name: file.name, kind: 'image' });
       };
       img.src = reader.result;
     };
@@ -1037,7 +1066,6 @@ function openImageViewer(src, title = '신분증') {
 // 신분증과 동일하게 내부 보관 자료(확정 여부 무관·봉인 제외·인쇄 제외). 이미지는 축소 저장, PDF 등은 원본 저장.
 const DRAW_MAX_DIM = 2200;               // 도면 이미지 최대 픽셀 (신분증보다 크게 — 세부 판독)
 const DRAW_QUALITY = 0.85;               // JPEG 압축 품질
-const DRAW_FILE_MAX = 5 * 1024 * 1024;   // 비이미지(PDF 등) 최대 5MB
 
 function renderDrawings() {
   const grid = document.getElementById('drawing-grid');
@@ -1051,7 +1079,7 @@ function renderDrawings() {
     <div class="ic-card" data-dw="${i}">
       ${d.kind === 'image'
         ? `<img class="ic-thumb" src="${esc(d.data)}" alt="도면 ${i + 1}" data-dw-view="${i}" title="클릭하면 크게 보기" />`
-        : `<div class="ic-thumb ic-file" data-dw-view="${i}" title="클릭하면 ${isPdfDrawing(d) ? '미리보기' : '내려받기'}"><span class="ic-file-ic">${isPdfDrawing(d) ? '📕' : '📄'}</span><span class="ic-file-ext">${esc(((d.name || '').split('.').pop() || 'FILE').toUpperCase())}</span></div>`}
+        : `<div class="ic-thumb ic-file" data-dw-view="${i}" title="클릭하면 ${isPdfAttachment(d) ? '미리보기' : '내려받기'}"><span class="ic-file-ic">${isPdfAttachment(d) ? '📕' : '📄'}</span><span class="ic-file-ext">${esc(((d.name || '').split('.').pop() || 'FILE').toUpperCase())}</span></div>`}
       <input class="ic-label" data-dw-label="${i}" value="${esc(d.label || '')}" placeholder="라벨(예: 1층 평면도)" />
       <div class="ic-meta muted small">${esc(d.name || '')}${d.uploadedAt ? ` · ${esc(fmtSignDate(d.uploadedAt))}` : ''}</div>
       <button type="button" class="btn tiny danger ic-del" data-dw-del="${i}">삭제</button>
@@ -1094,8 +1122,8 @@ function bindDrawings() {
       if (!d) return;
       const title = d.label || d.name || `도면 ${i + 1}`;
       if (d.kind === 'image') openImageViewer(d.data, title);
-      else if (isPdfDrawing(d)) openPdfViewer(d.data, title);   // PDF는 앱 내 미리보기
-      else downloadData(d.data, d.name || `도면_${i + 1}`);      // 그 외 파일은 내려받기
+      else if (isPdfAttachment(d)) openPdfViewer(d.data, title);   // PDF는 앱 내 미리보기
+      else downloadData(d.data, d.name || `도면_${i + 1}`);        // 그 외 파일은 내려받기
     };
   });
   grid.querySelectorAll('[data-dw-label]').forEach((inp) => {
@@ -1117,44 +1145,9 @@ function bindDrawings() {
   });
 }
 
-// 업로드 파일 → 저장용 항목. 이미지는 축소 JPEG, 그 외(PDF 등)는 원본 data URL(용량 제한).
+// 협의도면 업로드 → 공통 fileToAttachment 사용(도면은 세부 판독 위해 더 큰 해상도)
 function fileToDrawing(file) {
-  return new Promise((resolve, reject) => {
-    const isImage = (file.type || '').startsWith('image/');
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('파일을 읽을 수 없습니다.'));
-    if (!isImage) {
-      if (file.size > DRAW_FILE_MAX) {
-        return reject(new Error(`파일이 너무 큽니다(${(file.size / 1048576).toFixed(1)}MB). 5MB 이하로 줄여 주세요.`));
-      }
-      reader.onload = () => resolve({ data: reader.result, name: file.name, kind: 'file' });
-      reader.readAsDataURL(file);
-      return;
-    }
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('이미지를 열 수 없습니다.'));
-      img.onload = () => {
-        const scale = Math.min(1, DRAW_MAX_DIM / Math.max(img.width, img.height));
-        const w = Math.max(1, Math.round(img.width * scale));
-        const h = Math.max(1, Math.round(img.height * scale));
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve({ data: canvas.toDataURL('image/jpeg', DRAW_QUALITY), name: file.name, kind: 'image' });
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-// PDF 여부 판별 (data URL 프리픽스 또는 파일명 확장자)
-function isPdfDrawing(d) {
-  return String(d?.data || '').startsWith('data:application/pdf') || /\.pdf$/i.test(d?.name || '');
+  return fileToAttachment(file, DRAW_MAX_DIM, DRAW_QUALITY);
 }
 
 // PDF 앱 내 미리보기 (data URL → Blob URL 로 iframe 렌더 — 브라우저 호환성↑)
