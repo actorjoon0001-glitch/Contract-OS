@@ -340,6 +340,9 @@ input.f.date.m, input.f.date.d { width: 36px; }
 .list-table td.center { text-align: center; }
 .id-badge { font-size: 12px; font-weight: 700; color: #1c7d3c; background: #dff3e4; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
 
+/* 부팅/자동로그인 확인 중 */
+.boot-loading { min-height: 60vh; display: flex; align-items: center; justify-content: center; color: #9aa2ac; font-size: 15px; }
+
 /* 로그인 화면 */
 .login-wrap { min-height: 80vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .login-card {

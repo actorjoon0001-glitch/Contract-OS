@@ -8,7 +8,7 @@ import {
   MODELS, modelContract,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
-import { loadAuthConfig, authEnabled, currentUser, login, logout, setOnAuthLost } from './auth.js';
+import { loadAuthConfig, authEnabled, currentUser, login, logout, setOnAuthLost, trySSO } from './auth.js';
 
 let editorLocked = false; // 확정 상태이면 true (입력·서명 잠금)
 let me = null;            // 로그인 사용자 정보 { email, name, isAdmin }
@@ -44,6 +44,11 @@ window.addEventListener('DOMContentLoaded', boot);
 async function boot() {
   await loadAuthConfig();
   setOnAuthLost(() => { me = null; renderLogin(); });
+  // 자동 로그인(SSO): 세움os에 임베드된 경우, 부모창이 넘겨주는 세션으로 로그인 시도
+  if (authEnabled() && !currentUser()) {
+    app.innerHTML = '<div class="boot-loading no-print">로그인 확인 중…</div>';
+    await trySSO();
+  }
   if (authEnabled() && currentUser() && !me) { try { me = await api.me(); } catch { /* 401이면 authLost가 처리 */ } }
   guardedRoute();
 }
