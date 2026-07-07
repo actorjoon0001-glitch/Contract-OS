@@ -22,7 +22,7 @@ html, body {
 .topbar {
   position: sticky; top: 0; z-index: 10;
   display: flex; align-items: center; gap: 16px;
-  padding: 10px 18px;
+  padding: 10px 24px;
   background: #fff; border-bottom: 1px solid #d0d4d9;
   box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
@@ -69,7 +69,9 @@ html, body {
 input.f.manage { min-width: 130px; font-weight: 600; }
 
 /* ---------- 목록 ---------- */
-.list-wrap { max-width: 1100px; margin: 22px auto; padding: 0 18px; }
+/* 목록: 화면 폭을 꽉 채워 표를 넓게 (좁은 화면에선 가로 스크롤) */
+.list-wrap { max-width: none; margin: 18px 0; padding: 0 24px; overflow-x: auto; }
+.list-wrap .list-table { min-width: 1080px; } /* 너무 좁아지면 스크롤 (칸 겹침 방지) */
 .list-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,.07); }
 .list-table th, .list-table td { padding: 11px 12px; text-align: left; border-bottom: 1px solid #eef0f2; word-break: keep-all; }
 /* 건축주·영업사원 등 이름 칸이 좁아서 글자 중간에 줄바꿈되지 않도록 (한글은 공백에서만 줄바꿈) */
