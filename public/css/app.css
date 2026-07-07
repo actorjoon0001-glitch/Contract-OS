@@ -322,6 +322,10 @@ input.f.date.m, input.f.date.d { width: 36px; }
   width: 100%; height: 104px; object-fit: cover; border-radius: 5px;
   border: 1px solid #dfe3e8; background: #fff; cursor: zoom-in; display: block;
 }
+/* 협의도면: 이미지 아닌 파일(PDF 등) 카드 */
+.ic-thumb.ic-file { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; color: #5b6472; cursor: pointer; }
+.ic-file-ic { font-size: 34px; line-height: 1; }
+.ic-file-ext { font-size: 11px; font-weight: 800; letter-spacing: .5px; color: #7a8494; }
 .ic-card .ic-label { border: 1px solid #d5dae0; border-radius: 5px; padding: 3px 6px; font-size: 12px; background: #fff; }
 .ic-card .ic-meta { line-height: 1.2; }
 .ic-card .ic-del { align-self: flex-end; }
@@ -339,6 +343,7 @@ input.f.date.m, input.f.date.d { width: 36px; }
 /* 목록: 신분증 첨부 표시 */
 .list-table td.center { text-align: center; }
 .id-badge { font-size: 12px; font-weight: 700; color: #1c7d3c; background: #dff3e4; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+.dw-badge { font-size: 12px; font-weight: 700; color: #3a4fa0; background: #dde2fb; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
 
 /* 부팅/자동로그인 확인 중 */
 .boot-loading { min-height: 60vh; display: flex; align-items: center; justify-content: center; color: #9aa2ac; font-size: 15px; }

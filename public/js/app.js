@@ -138,7 +138,7 @@ function bindAccount(scope) {
 
 // ---------- 목록 화면 ----------
 let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터는 클라이언트에서 처리)
-const LIST_COLS = 12;
+const LIST_COLS = 13;
 
 async function renderList() {
   current = null; currentId = null; dirty = false;
@@ -163,7 +163,7 @@ async function renderList() {
         <thead>
           <tr>
             <th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
-            <th class="right">제품합계(만원)</th><th>계약일자</th><th>신분증</th><th>진행상태</th><th>대표이사 승인</th><th>수정일</th><th></th>
+            <th class="right">제품합계(만원)</th><th>계약일자</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th><th>수정일</th><th></th>
           </tr>
         </thead>
         <tbody id="list-body"><tr><td colspan="${LIST_COLS}" class="muted center">불러오는 중...</td></tr></tbody>
@@ -235,6 +235,9 @@ function renderListRows(rows) {
       <td>${esc(r.contract_date || '-')}</td>
       <td class="center">${r.is_sample ? '' : (Number(r.id_count) > 0
         ? `<span class="id-badge" title="신분증 ${Number(r.id_count)}매 첨부됨">📎 ${Number(r.id_count)}</span>`
+        : '<span class="muted small">—</span>')}</td>
+      <td class="center">${r.is_sample ? '' : (Number(r.drawing_count) > 0
+        ? `<span class="dw-badge" title="협의도면 ${Number(r.drawing_count)}건 첨부됨">📐 ${Number(r.drawing_count)}</span>`
         : '<span class="muted small">—</span>')}</td>
       <td>${r.is_sample
         ? '<span class="badge">샘플</span>'
@@ -532,6 +535,18 @@ function renderEditor() {
         </label>
       </div>
       <div id="idcard-grid" class="ic-grid"></div>
+    </div>
+
+    <div class="idcard-bar no-print">
+      <div class="ic-head">
+        <span class="mb-title">협의도면 첨부</span>
+        <span class="ic-hint muted small">협의 도면(평면도 등) 이미지·PDF 보관용 (내부 자료 · 계약서 인쇄에는 표시 안 됨)</span>
+        <span class="grow"></span>
+        <label class="btn tiny primary dw-add-btn">＋ 도면 추가
+          <input type="file" id="drawing-input" accept="image/*,application/pdf,.pdf" multiple hidden />
+        </label>
+      </div>
+      <div id="drawing-grid" class="ic-grid"></div>
     </div>
 
     <div id="contract" class="contract">
@@ -982,6 +997,133 @@ function openImageViewer(src, title = '신분증') {
   overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) close(); });
 }
 
+// ---------- 협의도면 첨부 ----------
+// 신분증과 동일하게 내부 보관 자료(확정 여부 무관·봉인 제외·인쇄 제외). 이미지는 축소 저장, PDF 등은 원본 저장.
+const DRAW_MAX_DIM = 2200;               // 도면 이미지 최대 픽셀 (신분증보다 크게 — 세부 판독)
+const DRAW_QUALITY = 0.85;               // JPEG 압축 품질
+const DRAW_FILE_MAX = 5 * 1024 * 1024;   // 비이미지(PDF 등) 최대 5MB
+
+function renderDrawings() {
+  const grid = document.getElementById('drawing-grid');
+  if (!grid) return;
+  const items = current.drawings || [];
+  if (!items.length) {
+    grid.innerHTML = `<p class="ic-empty muted small">첨부된 협의도면이 없습니다. <b>＋ 도면 추가</b>로 이미지·PDF를 올려 보관하세요.</p>`;
+    return;
+  }
+  grid.innerHTML = items.map((d, i) => `
+    <div class="ic-card" data-dw="${i}">
+      ${d.kind === 'image'
+        ? `<img class="ic-thumb" src="${esc(d.data)}" alt="도면 ${i + 1}" data-dw-view="${i}" title="클릭하면 크게 보기" />`
+        : `<div class="ic-thumb ic-file" data-dw-view="${i}" title="클릭하면 내려받기"><span class="ic-file-ic">📄</span><span class="ic-file-ext">${esc(((d.name || '').split('.').pop() || 'FILE').toUpperCase())}</span></div>`}
+      <input class="ic-label" data-dw-label="${i}" value="${esc(d.label || '')}" placeholder="라벨(예: 1층 평면도)" />
+      <div class="ic-meta muted small">${esc(d.name || '')}${d.uploadedAt ? ` · ${esc(fmtSignDate(d.uploadedAt))}` : ''}</div>
+      <button type="button" class="btn tiny danger ic-del" data-dw-del="${i}">삭제</button>
+    </div>`).join('');
+}
+
+function bindDrawings() {
+  const input = document.getElementById('drawing-input');
+  const grid = document.getElementById('drawing-grid');
+  if (!input || !grid) return;
+
+  input.onchange = async () => {
+    const files = [...(input.files || [])];
+    input.value = '';
+    if (!files.length) return;
+    const addBtn = document.querySelector('.dw-add-btn');
+    if (addBtn) addBtn.classList.add('busy');
+    try {
+      for (const file of files) {
+        try {
+          const item = await fileToDrawing(file);
+          (current.drawings ||= []).push({ ...item, label: '', uploadedAt: new Date().toISOString() });
+        } catch (err) {
+          alert(`"${file.name}" 처리 실패: ${err.message}`);
+        }
+      }
+      current.drawingCount = current.drawings.length;
+      renderDrawings();
+      bindDrawings();
+      markDirty();
+    } finally {
+      if (addBtn) addBtn.classList.remove('busy');
+    }
+  };
+
+  grid.querySelectorAll('[data-dw-view]').forEach((el) => {
+    el.onclick = () => {
+      const i = Number(el.dataset.dwView);
+      const d = current.drawings?.[i];
+      if (!d) return;
+      if (d.kind === 'image') openImageViewer(d.data, d.label || d.name || `도면 ${i + 1}`);
+      else downloadData(d.data, d.name || `도면_${i + 1}`);
+    };
+  });
+  grid.querySelectorAll('[data-dw-label]').forEach((inp) => {
+    inp.oninput = () => {
+      const i = Number(inp.dataset.dwLabel);
+      if (current.drawings?.[i]) { current.drawings[i].label = inp.value; markDirty(); }
+    };
+  });
+  grid.querySelectorAll('[data-dw-del]').forEach((b) => {
+    b.onclick = () => {
+      const i = Number(b.dataset.dwDel);
+      if (!confirm('이 협의도면 첨부를 삭제할까요?')) return;
+      current.drawings.splice(i, 1);
+      current.drawingCount = current.drawings.length;
+      renderDrawings();
+      bindDrawings();
+      markDirty();
+    };
+  });
+}
+
+// 업로드 파일 → 저장용 항목. 이미지는 축소 JPEG, 그 외(PDF 등)는 원본 data URL(용량 제한).
+function fileToDrawing(file) {
+  return new Promise((resolve, reject) => {
+    const isImage = (file.type || '').startsWith('image/');
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('파일을 읽을 수 없습니다.'));
+    if (!isImage) {
+      if (file.size > DRAW_FILE_MAX) {
+        return reject(new Error(`파일이 너무 큽니다(${(file.size / 1048576).toFixed(1)}MB). 5MB 이하로 줄여 주세요.`));
+      }
+      reader.onload = () => resolve({ data: reader.result, name: file.name, kind: 'file' });
+      reader.readAsDataURL(file);
+      return;
+    }
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('이미지를 열 수 없습니다.'));
+      img.onload = () => {
+        const scale = Math.min(1, DRAW_MAX_DIM / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve({ data: canvas.toDataURL('image/jpeg', DRAW_QUALITY), name: file.name, kind: 'image' });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// data URL 파일 내려받기
+function downloadData(dataUrl, filename) {
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 // ---------- 편집 이벤트 ----------
 function bindEditor() {
   document.getElementById('save-btn').onclick = saveContract;
@@ -1014,6 +1156,7 @@ function bindEditor() {
     preset.contractNo = current.contractNo;
     preset.extraNotes = current.extraNotes;
     preset.idCards = current.idCards; // 첨부한 신분증은 모델 전환과 무관하게 유지
+    preset.drawings = current.drawings; // 첨부한 협의도면도 유지
     if (!id) preset.showroom = current.showroom; // 통합 선택 시 기존 전시장 유지
     current = preset;
     normalizeContract(current);
@@ -1042,6 +1185,8 @@ function bindEditor() {
   bindSign(app);
   renderIdCards();
   bindIdCards();
+  renderDrawings();
+  bindDrawings();
   updateSealBanner();
 
   app.querySelectorAll('input.f[data-path], textarea.f[data-path]').forEach((inp) => {
