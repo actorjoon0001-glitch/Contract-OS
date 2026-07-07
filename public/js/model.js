@@ -134,6 +134,7 @@ export function emptyContract() {
     siteAddress: '',
     showroom: '',     // 전시장 (목록 분류·관리용)
     salesperson: '',  // 영업사원 (목록 분류·관리용)
+    memo: '',         // 직원 메모 (목록에서 자유 입력 — 인쇄·봉인 제외)
     items: defaultItems(),
     extraCosts: [], // 기타 비용(어닝 등 추가 옵션) — { name, amount } 목록
     terms: defaultTerms(),
@@ -285,6 +286,7 @@ export function normalizeContract(contract) {
   if (typeof contract.extraNotes !== 'string') contract.extraNotes = contract.extraNotes || '';
   if (typeof contract.showroom !== 'string') contract.showroom = contract.showroom || '';
   if (typeof contract.salesperson !== 'string') contract.salesperson = contract.salesperson || '';
+  if (typeof contract.memo !== 'string') contract.memo = contract.memo || '';
   normalizeStage(contract); // 진행상태 기본값 보정
 
   if (!Array.isArray(contract.extraCosts)) contract.extraCosts = []; // 기타 비용 목록 보정
@@ -320,7 +322,7 @@ function stableStringify(v) {
 
 // 계약 내용(integrity 필드 제외)의 SHA-256 지문 — 브라우저 Web Crypto 사용
 export async function computeIntegrityHash(contract) {
-  const { integrity, contractNo, stage, deletedAt, modelId, modelName, idCards, idCount, drawings, drawingCount, ...rest } = contract; // 봉인값·채번·진행상태·휴지통·모델표시·신분증·협의도면(계약 후 보관자료)은 내용 변경과 무관하므로 제외
+  const { integrity, contractNo, stage, deletedAt, modelId, modelName, idCards, idCount, drawings, drawingCount, memo, ...rest } = contract; // 봉인값·채번·진행상태·휴지통·모델표시·신분증·협의도면·직원메모(관리용)는 내용 변경과 무관하므로 제외
   // '대표이사 승인'은 내부 결재용 메타데이터 → 봉인 해시에서 항상 제외 (승인해도 기존 봉인 안 깨짐, 기존 계약 호환)
   if (rest.signatures && 'approval' in rest.signatures) {
     const { approval, ...sigRest } = rest.signatures;

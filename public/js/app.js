@@ -138,7 +138,7 @@ function bindAccount(scope) {
 
 // ---------- 목록 화면 ----------
 let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터는 클라이언트에서 처리)
-const LIST_COLS = 13;
+const LIST_COLS = 14;
 
 async function renderList() {
   current = null; currentId = null; dirty = false;
@@ -163,7 +163,7 @@ async function renderList() {
         <thead>
           <tr>
             <th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
-            <th class="right">제품합계(만원)</th><th>계약일자</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th><th>수정일</th><th></th>
+            <th class="right">제품합계(만원)</th><th>계약일자</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th><th>메모</th><th>수정일</th><th></th>
           </tr>
         </thead>
         <tbody id="list-body"><tr><td colspan="${LIST_COLS}" class="muted center">불러오는 중...</td></tr></tbody>
@@ -247,14 +247,39 @@ function renderListRows(rows) {
       <td>${r.is_sample ? '' : (r.approval_at
         ? `<button class="row-approve approved" data-approve-id="${r.id}" title="${esc(fmtSignDate(r.approval_at))} 승인됨 · 다시 서명">✅ 승인됨</button>`
         : `<button class="row-approve" data-approve-id="${r.id}" title="대표이사 승인 전자서명">✎ 승인</button>`)}</td>
+      <td class="memo-cell">${r.is_sample ? '' : `<input class="row-memo" data-memo-id="${r.id}" value="${esc(r.memo || '')}" placeholder="메모..." title="직원 메모 · 입력 후 다른 곳을 클릭하면 저장됩니다" />`}</td>
       <td class="muted small">${esc((r.updated_at || '').slice(0, 16))}</td>
       <td>${r.is_sample ? '' : `<button class="btn tiny danger" data-del="${r.id}">삭제</button>`}</td>
     </tr>`).join('');
 
   body.querySelectorAll('.row').forEach((tr) => {
     tr.onclick = (e) => {
-      if (e.target.dataset.del || e.target.closest('.row-stage') || e.target.closest('.row-approve')) return; // 삭제·진행상태·승인 조작은 행 이동 제외
+      if (e.target.dataset.del || e.target.closest('.row-stage') || e.target.closest('.row-approve') || e.target.closest('.row-memo')) return; // 삭제·진행상태·승인·메모 조작은 행 이동 제외
       go(`#/edit/${tr.dataset.id}`);
+    };
+  });
+  // 직원 메모: 목록에서 바로 입력 (입력 후 포커스 아웃 시 저장)
+  body.querySelectorAll('.row-memo').forEach((inp) => {
+    inp.onclick = (e) => e.stopPropagation();
+    inp.onchange = async () => {
+      const id = inp.dataset.memoId;
+      const val = inp.value;
+      inp.disabled = true;
+      inp.classList.remove('saved');
+      try {
+        const rec = await api.get(id);
+        const data = rec.data || {};
+        data.memo = val;
+        await api.update(id, data);
+        const cached = listRows.find((r) => String(r.id) === String(id));
+        if (cached) cached.memo = val;
+        inp.classList.add('saved'); // 저장 표시(잠깐 초록 테두리)
+        setTimeout(() => inp.classList.remove('saved'), 1200);
+      } catch (err) {
+        alert('메모 저장 실패: ' + err.message);
+      } finally {
+        inp.disabled = false;
+      }
     };
   });
   // 대표이사 승인: 목록에서 바로 전자서명 결재 (이미 승인된 건은 기존 서명을 미리보기로 띄워 수정 가능)
