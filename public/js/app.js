@@ -6,6 +6,7 @@ import {
   SAMPLE_ID, sampleContract, sampleListRow,
   STAGES, stageLabel,
   MODELS, modelContract,
+  SHOWROOMS,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
 import { loadAuthConfig, authEnabled, currentUser, login, logout, setOnAuthLost, trySSO } from './auth.js';
@@ -556,7 +557,7 @@ function renderEditor() {
           ${MODELS.map((m) => `<option value="${m.id}" ${c.modelId === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
         </select>
       </label>
-      <label>전시장 <span class="req">*</span> ${field('showroom', c.showroom, 'manage')}</label>
+      <label>전시장 <span class="req">*</span> ${showroomSelect(c.showroom)}</label>
       <label>영업사원 <span class="req">*</span> ${field('salesperson', c.salesperson, 'manage')}</label>
       <span class="mb-hint muted small">※ 목록 분류·검색용 (계약서 인쇄에는 표시 안 됨) · <b>전시장·영업사원·현장주소는 필수</b></span>
     </div>
@@ -776,6 +777,15 @@ function field(path, value, cls = '', align = '') {
   const lock = editorLocked ? 'readonly' : '';
   const lc = editorLocked ? 'locked' : '';
   return `<input class="f ${cls} ${align} ${lc}" data-path="${path}" value="${esc(value)}" ${lock} />`;
+}
+// 전시장 선택 드롭다운 (고정 목록). 목록에 없는 기존 값은 보존해서 그대로 표시.
+function showroomSelect(value) {
+  const v = value || '';
+  const dis = editorLocked ? 'disabled' : '';
+  const opts = [`<option value="" ${v ? '' : 'selected'}>전시장 선택</option>`]
+    .concat(SHOWROOMS.map((s) => `<option value="${esc(s)}" ${v === s ? 'selected' : ''}>${esc(s)}</option>`));
+  if (v && !SHOWROOMS.includes(v)) opts.push(`<option value="${esc(v)}" selected>${esc(v)} (기존)</option>`); // 레거시 값 보존
+  return `<select id="showroom-select" class="mb-stage ${editorLocked ? 'locked' : ''}" data-path="showroom" ${dis}>${opts.join('')}</select>`;
 }
 // 비고/설명: 여러 줄로 줄바꿈되는 textarea (높이는 내용에 맞춰 자동 조절)
 function noteField(path, value) {
@@ -1206,6 +1216,9 @@ function bindEditor() {
     e.target.className = `mb-stage stage-${current.stage}`; // 색상 갱신
     markDirty();
   };
+  // 전시장: 드롭다운 선택 → current.showroom 반영
+  const showroomSel = document.getElementById('showroom-select');
+  if (showroomSel) showroomSel.onchange = (e) => { current.showroom = e.target.value; markDirty(); };
   // 모델 전환: 주문내용 옵션·금액을 새 모델 기준으로 재설정 (고객/현장/일자 등 입력값은 유지)
   const modelSel = document.getElementById('model-select');
   if (modelSel) modelSel.onchange = (e) => {
