@@ -513,6 +513,9 @@ async function openEditor(id, modelId = null) {
     }
   } else {
     current = modelId ? modelContract(modelId) : emptyContract();
+    // 새 계약: 로그인한 직원의 이름·전시장을 기본값으로 채움 (그대로 수정 가능)
+    if (me?.name && !current.salesperson) current.salesperson = me.name;
+    if (me?.showroom && !current.showroom) current.showroom = me.showroom;
   }
   normalizeContract(current);
   recalc(current);
