@@ -22,7 +22,6 @@ function stageOf(row) {
 
 const app = document.getElementById('app');
 let current = null;     // 편집 중인 계약 객체
-let pickedShowroom = null; // 모델 선택 화면에서 고른 전시장 (새 계약에 자동 설정)
 let currentId = null;   // 저장된 계약 id (신규는 null)
 let dirty = false;      // 미저장 변경 여부
 
@@ -462,16 +461,19 @@ function bindTrashActions() {
 // ---------- 새 계약: 모델 선택 화면 ----------
 function renderModelPicker() {
   current = null; currentId = null; dirty = false;
-  // 전시장 구역마다 전체 모델 카드 (전시장은 카드에 data-showroom으로 기록 → 선택 시 계약서에 자동 설정)
-  const modelCards = (showroom) => MODELS.map((m) => `
-    <button class="mp-card" data-model="${m.id}" data-showroom="${esc(showroom)}">
+  // 전시장별로 그 전시장 소속 모델만 표시 (모델을 고르면 전시장이 함께 자동 설정됨)
+  const modelCard = (m) => `
+    <button class="mp-card" data-model="${m.id}">
       <span class="mp-name">${esc(m.name)}</span>
       <span class="mp-meta">${esc(m.category)} · ${m.area}평</span>
       <span class="mp-price">시작가 ${fmtMan(m.startPrice)}만</span>
-    </button>`).join('');
-  const showroomSections = SHOWROOMS.map((sr) => `
-    <h3 class="mp-cat mp-showroom">🏢 ${esc(sr)}</h3>
-    <div class="mp-grid">${modelCards(sr)}</div>`).join('');
+    </button>`;
+  const showroomSections = SHOWROOMS.map((sr) => {
+    const models = MODELS.filter((m) => m.showroom === sr);
+    if (!models.length) return '';
+    return `<h3 class="mp-cat mp-showroom">🏢 ${esc(sr)} <span class="muted small">${models.length}개 모델</span></h3>
+      <div class="mp-grid">${models.map(modelCard).join('')}</div>`;
+  }).join('');
   app.innerHTML = `
     <div class="topbar no-print">
       <div class="brand"><a href="#/" class="back">← 목록</a></div>
@@ -481,7 +483,7 @@ function renderModelPicker() {
     <div class="model-picker no-print">
       <h2 class="mp-title">어떤 계약서로 만들까요?</h2>
       <div class="mp-grid mp-basic-grid">
-        <button class="mp-card mp-basic" data-model="blank" data-showroom="">
+        <button class="mp-card mp-basic" data-model="blank">
           <span class="mp-name">📄 기본 계약서</span>
           <span class="mp-meta">통합(전체 옵션) 빈 양식 · 모델 없이 모든 옵션 표시</span>
         </button>
@@ -491,10 +493,7 @@ function renderModelPicker() {
       ${showroomSections}
     </div>`;
   app.querySelectorAll('.mp-card').forEach((b) => {
-    b.onclick = () => {
-      pickedShowroom = b.dataset.showroom || ''; // 전시장 구역이면 그 전시장, 기본 계약서면 빈 값
-      go(`#/new/${b.dataset.model}`);
-    };
+    b.onclick = () => go(`#/new/${b.dataset.model}`); // 모델이 전시장을 알고 있어 자동 설정됨
   });
 }
 
@@ -517,11 +516,9 @@ async function openEditor(id, modelId = null) {
     }
   } else {
     current = modelId ? modelContract(modelId) : emptyContract();
-    // 새 계약: 전시장 구역에서 고른 값 우선, 없으면 로그인 전시장. 영업사원은 로그인 이름.
-    if (pickedShowroom) current.showroom = pickedShowroom;
-    else if (me?.showroom && !current.showroom) current.showroom = me.showroom;
+    // 새 계약: 전시장은 모델에 따라 이미 설정됨(모델). 없으면(기본 계약서) 로그인 전시장. 영업사원은 로그인 이름.
+    if (me?.showroom && !current.showroom) current.showroom = me.showroom;
     if (me?.name && !current.salesperson) current.salesperson = me.name;
-    pickedShowroom = null; // 사용 후 초기화
   }
   normalizeContract(current);
   recalc(current);
@@ -559,7 +556,7 @@ function renderEditor() {
       <label>모델
         <select id="model-select" class="mb-stage">
           <option value="" ${c.modelId ? '' : 'selected'}>통합(전체 옵션)</option>
-          ${MODELS.map((m) => `<option value="${m.id}" ${c.modelId === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
+          ${MODELS.map((m) => `<option value="${m.id}" ${c.modelId === m.id ? 'selected' : ''}>${esc(m.showroom)} · ${esc(m.name)} (${fmtMan(m.startPrice)}만)</option>`).join('')}
         </select>
       </label>
       <label>전시장 <span class="req">*</span> ${showroomSelect(c.showroom)}</label>
