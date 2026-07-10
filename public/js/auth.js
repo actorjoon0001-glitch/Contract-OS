@@ -79,12 +79,20 @@ export function storeExternalSession(access_token, refresh_token) {
 }
 
 // 임베드 상태면 부모에게 세션을 요청해 자동 로그인 시도. 성공 true / 실패·비임베드 false.
-export function trySSO(timeoutMs = 1500) {
+// 부모(통합플랫폼) 리스너가 늦게 붙어도 잡히도록 'ready' 신호를 타임아웃까지 반복 전송한다.
+export function trySSO(timeoutMs = 2500) {
   return new Promise((resolve) => {
-    if (window.parent === window) return resolve(false);           // 임베드 아님
+    if (window.parent === window) return resolve(false);           // 임베드 아님(새 탭 등)
     if (sessionStorage.getItem(SSO_SKIP_KEY)) return resolve(false); // 방금 로그아웃함
     let done = false;
-    const finish = (ok) => { if (done) return; done = true; window.removeEventListener('message', onMsg); resolve(ok); };
+    let pinger = null;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      if (pinger) clearInterval(pinger);
+      window.removeEventListener('message', onMsg);
+      resolve(ok);
+    };
     function onMsg(e) {
       if (e.source !== window.parent) return;                       // 우리를 감싼 부모창만 신뢰
       const d = e.data || {};
@@ -94,7 +102,9 @@ export function trySSO(timeoutMs = 1500) {
       }
     }
     window.addEventListener('message', onMsg);
-    try { window.parent.postMessage({ type: 'seum-sso:ready' }, '*'); } catch { /* ignore */ }
+    const askParent = () => { try { window.parent.postMessage({ type: 'seum-sso:ready' }, '*'); } catch { /* ignore */ } };
+    askParent();
+    pinger = setInterval(askParent, 400);                           // 부모 준비될 때까지 재요청
     setTimeout(() => finish(false), timeoutMs);
   });
 }
