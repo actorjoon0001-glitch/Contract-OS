@@ -227,25 +227,56 @@ export function sampleListRow() {
 }
 
 // ──────────────────────────────────────────────────────────────
-// 모델 프리셋 카탈로그 — 카테고리·모델별 기본 평수/시작가 (코드에서 관리)
-//  id/name: 모델 네이밍, category: 분류(체류형쉼터/전원주택/특별모델),
-//  area: 기본 평수, startPrice: 시작가(모델 기본 총액, 만원),
-//  hideItems(선택): 이 모델에서 숨길 주문내용 항목명 일부 배열
-// ※ 모델 추가/수정은 이 배열만 바꾸면 새 계약 선택·편집기 드롭다운에 자동 반영됩니다.
+// 모델 프리셋 카탈로그 — 전시장별 모델·시작가 (온라인 카탈로그 기준, 총 39종)
+//  id: 고유값, showroom: 소속 전시장, name: 모델명, category: 분류,
+//  area: 기본 평수, startPrice: 시작가(모델 기본 총액, 만원 · 원가÷10,000)
+// ※ 모델 추가/수정/가격변경은 이 배열만 바꾸면 새 계약 선택·편집기에 자동 반영됩니다.
 export const MODELS = [
-  // 체류형 쉼터
-  { id: 'FOREST10G',  name: 'FOREST10G',  category: '체류형쉼터', area: 10, startPrice: 2980 },
-  { id: 'FOREST10WB', name: 'FOREST10WB', category: '체류형쉼터', area: 10, startPrice: 3600 },
-  { id: 'FOREST13WB', name: 'FOREST13WB', category: '체류형쉼터', area: 13, startPrice: 3500 },
-  // 전원주택
-  { id: 'STAY15BB', name: 'STAY15BB', category: '전원주택', area: 15, startPrice: 5800 },
-  { id: 'STAY16GB', name: 'STAY16GB', category: '전원주택', area: 16, startPrice: 5920 },
-  { id: 'STAY18WB', name: 'STAY18WB', category: '전원주택', area: 18, startPrice: 6300 },
-  { id: 'STAY19RB', name: 'STAY19RB', category: '전원주택', area: 19, startPrice: 6840 },
-  // 특별모델
-  { id: 'CUBE4B',      name: 'CUBE4B',      category: '특별모델', area: 4,  startPrice: 980 },
-  { id: 'FOREST-P10W', name: 'FOREST-P10W', category: '특별모델', area: 10, startPrice: 4700 },
-  { id: 'CUBE-G10W',   name: 'CUBE-G10W',   category: '특별모델', area: 10, startPrice: 5980 },
+  // ── 본사 전시장 (8) ──
+  { id: 'md01', showroom: '본사 전시장', name: 'STAY18WB',   category: '전원주택',   area: 18, startPrice: 6840 },
+  { id: 'md02', showroom: '본사 전시장', name: 'STAY19RB',   category: '전원주택',   area: 19, startPrice: 7220 },
+  { id: 'md03', showroom: '본사 전시장', name: 'FOREST10M',  category: '체류형쉼터', area: 10, startPrice: 2800 },
+  { id: 'md04', showroom: '본사 전시장', name: 'FOREST10BB', category: '체류형쉼터', area: 10, startPrice: 3700 },
+  { id: 'md05', showroom: '본사 전시장', name: 'FOREST10WB', category: '체류형쉼터', area: 10, startPrice: 3900 },
+  { id: 'md06', showroom: '본사 전시장', name: 'FOREST13WB', category: '체류형쉼터', area: 13, startPrice: 5200 },
+  { id: 'md07', showroom: '본사 전시장', name: 'CUBE4B',     category: '특별모델',   area: 4,  startPrice: 1280 },
+  { id: 'md08', showroom: '본사 전시장', name: 'CUBE-G10W',  category: '특별모델',   area: 10, startPrice: 5980 },
+  // ── 1전시장 (8) ──
+  { id: 'md09', showroom: '1전시장', name: 'STAY15C',           category: '전원주택',   area: 15, startPrice: 5700 },
+  { id: 'md10', showroom: '1전시장', name: 'STAY15W',           category: '전원주택',   area: 15, startPrice: 5700 },
+  { id: 'md11', showroom: '1전시장', name: 'STAY18W',           category: '전원주택',   area: 18, startPrice: 6360 },
+  { id: 'md12', showroom: '1전시장', name: 'STAY16W',           category: '전원주택',   area: 16, startPrice: 6600 },
+  { id: 'md13', showroom: '1전시장', name: 'STAY24W',           category: '전원주택',   area: 24, startPrice: 8400 },
+  { id: 'md14', showroom: '1전시장', name: 'FOREST10W',         category: '체류형쉼터', area: 10, startPrice: 3400 },
+  { id: 'md15', showroom: '1전시장', name: 'FOREST10W (다락4평)', category: '체류형쉼터', area: 10, startPrice: 4000 },
+  { id: 'md16', showroom: '1전시장', name: 'STAY24WB',          category: '체류형쉼터', area: 24, startPrice: 8400 },
+  // ── 3전시장 (8) ──
+  { id: 'md17', showroom: '3전시장', name: 'CUBE-H4O',          category: '특별모델',   area: 4,  startPrice: 1350 },
+  { id: 'md18', showroom: '3전시장', name: 'FOREST10W',         category: '체류형쉼터', area: 10, startPrice: 2750 },
+  { id: 'md19', showroom: '3전시장', name: 'STAY14',            category: '세컨하우스', area: 14, startPrice: 3300 },
+  { id: 'md20', showroom: '3전시장', name: 'STAY13W',           category: '세컨하우스', area: 13, startPrice: 6500 },
+  { id: 'md21', showroom: '3전시장', name: 'STAY20R',           category: '전원주택',   area: 20, startPrice: 7600 },
+  { id: 'md22', showroom: '3전시장', name: 'FOREST10W (실속형)',  category: '체류형쉼터', area: 10, startPrice: 3300 },
+  { id: 'md23', showroom: '3전시장', name: 'FOREST13',          category: '체류형쉼터', area: 13, startPrice: 4000 },
+  { id: 'md24', showroom: '3전시장', name: 'FOREST10W (다락형)',  category: '체류형쉼터', area: 10, startPrice: 5200 },
+  // ── 강화전시장 (4) ──
+  { id: 'md25', showroom: '강화전시장', name: 'STAY15(B)', category: '전원주택',   area: 15, startPrice: 6500 },
+  { id: 'md26', showroom: '강화전시장', name: 'STAY18K',   category: '전원주택',   area: 18, startPrice: 6840 },
+  { id: 'md27', showroom: '강화전시장', name: 'CUBE10W',   category: '체류형쉼터', area: 10, startPrice: 2000 },
+  { id: 'md28', showroom: '강화전시장', name: 'CUBE9O',    category: '체류형쉼터', area: 9,  startPrice: 2850 },
+  // ── 안동전시장 (6) ──
+  { id: 'md29', showroom: '안동전시장', name: 'STAY12B',   category: '전원주택',   area: 12, startPrice: 4560 },
+  { id: 'md30', showroom: '안동전시장', name: 'STAY16DG',  category: '전원주택',   area: 16, startPrice: 6080 },
+  { id: 'md31', showroom: '안동전시장', name: 'STAY19WB',  category: '전원주택',   area: 19, startPrice: 7220 },
+  { id: 'md32', showroom: '안동전시장', name: 'STAY20WB',  category: '전원주택',   area: 20, startPrice: 7600 },
+  { id: 'md33', showroom: '안동전시장', name: 'FOREST10G', category: '체류형쉼터', area: 10, startPrice: 2980 },
+  { id: 'md34', showroom: '안동전시장', name: 'FOREST10WB', category: '체류형쉼터', area: 10, startPrice: 3900 },
+  // ── 광주전시장 (5) ──
+  { id: 'md35', showroom: '광주전시장', name: 'STAY16GB',  category: '전원주택',   area: 16, startPrice: 6080 },
+  { id: 'md36', showroom: '광주전시장', name: 'STAY19RB',  category: '전원주택',   area: 19, startPrice: 7220 },
+  { id: 'md37', showroom: '광주전시장', name: 'FOREST10W', category: '체류형쉼터', area: 10, startPrice: 1880 },
+  { id: 'md38', showroom: '광주전시장', name: 'FOREST8W',  category: '체류형쉼터', area: 8,  startPrice: 2800 },
+  { id: 'md39', showroom: '광주전시장', name: 'FOREST9O',  category: '체류형쉼터', area: 9,  startPrice: 3200 },
 ];
 
 export function getModel(id) {
@@ -259,6 +290,7 @@ export function modelContract(id) {
   if (!m) return c;
   c.modelId = m.id;
   c.modelName = m.name;
+  if (m.showroom) c.showroom = m.showroom; // 모델 소속 전시장 자동 설정
   // 이 모델에서 숨길 옵션 항목 제거
   if (Array.isArray(m.hideItems) && m.hideItems.length) {
     c.items = c.items.filter((it) => !m.hideItems.some((h) => it.name.includes(h)));
