@@ -105,6 +105,14 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 .mp-card .mp-price { font-size: 13px; font-weight: 700; color: var(--brand); }
 .mp-card.mp-blank { border-style: dashed; background: #f7f9fc; }
 .mp-card.mp-blank .mp-name { color: #4a5260; font-weight: 700; }
+/* 기본 계약서 (맨 위, 강조) */
+.mp-basic-grid { grid-template-columns: 1fr; margin-top: 12px; }
+.mp-card.mp-basic { border: 2px solid var(--brand); background: #eef5fd; }
+.mp-card.mp-basic:hover { background: #e6f0fb; }
+.mp-card.mp-basic .mp-name { color: var(--brand); }
+/* 전시장별 모델 구역 */
+.mp-section-title { margin: 30px 0 2px; font-size: 16px; font-weight: 800; color: #1c2533; }
+.mp-cat.mp-showroom { color: var(--brand); font-weight: 700; }
 /* 편집기 모델 배지 */
 .model-badge { display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 999px; background: #e7f0ff; color: var(--brand); font-size: 12px; font-weight: 700; border: 1px solid #cfe0fb; }
 /* 휴지통 */
