@@ -463,10 +463,13 @@ function renderModelPicker() {
   current = null; currentId = null; dirty = false;
   // 전시장별로 그 전시장 소속 모델만 표시 (모델을 고르면 전시장이 함께 자동 설정됨)
   const modelCard = (m) => `
-    <button class="mp-card" data-model="${m.id}">
-      <span class="mp-name">${esc(m.name)}</span>
-      <span class="mp-meta">${esc(m.category)} · ${m.area}평</span>
-      <span class="mp-price">시작가 ${fmtMan(m.startPrice)}만</span>
+    <button class="mp-card mp-model" data-model="${m.id}">
+      <img class="mp-photo" src="/img/models/${m.id}.jpg" alt="${esc(m.name)} 대표사진" loading="lazy" onerror="this.remove()" />
+      <span class="mp-body">
+        <span class="mp-name">${esc(m.name)}</span>
+        <span class="mp-meta">${esc(m.category)} · ${m.area}평</span>
+        <span class="mp-price">시작가 ${fmtMan(m.startPrice)}만</span>
+      </span>
     </button>`;
   const showroomSections = SHOWROOMS.map((sr) => {
     const models = MODELS.filter((m) => m.showroom === sr);
