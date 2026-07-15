@@ -219,6 +219,16 @@ function applyListFilters() {
   renderListRows(rows);
 }
 
+// 관리자만: 목록에서 전시장을 바로 바꿔 다른 전시장으로 넘기기
+function canManageList() { return !authEnabled() || !!me?.isAdmin; }
+function listShowroomSelect(r) {
+  const v = r.showroom || '';
+  const opts = [`<option value="" ${v ? '' : 'selected'}>- 미지정</option>`]
+    .concat(SHOWROOMS.map((s) => `<option value="${esc(s)}" ${v === s ? 'selected' : ''}>${esc(s)}</option>`));
+  if (v && !SHOWROOMS.includes(v)) opts.push(`<option value="${esc(v)}" selected>${esc(v)}</option>`); // 레거시 값 보존
+  return `<select class="row-showroom" data-showroom-id="${r.id}" title="전시장 변경 → 그 전시장 직원에게 넘김">${opts.join('')}</select>`;
+}
+
 function renderListRows(rows) {
   const body = document.getElementById('list-body');
   if (!rows.length) {
@@ -228,7 +238,7 @@ function renderListRows(rows) {
   body.innerHTML = rows.map((r) => `
     <tr data-id="${r.id}" class="row">
       <td>${esc(r.contract_no || '-')}</td>
-      <td>${esc(r.showroom || '-')}</td>
+      <td>${(r.is_sample || !canManageList()) ? esc(r.showroom || '-') : listShowroomSelect(r)}</td>
       <td>${esc(r.salesperson || '-')}</td>
       <td>${esc(r.client_name || '-')}</td>
       <td class="ellipsis">${esc(r.site_address || '-')}</td>
@@ -255,7 +265,7 @@ function renderListRows(rows) {
 
   body.querySelectorAll('.row').forEach((tr) => {
     tr.onclick = (e) => {
-      if (e.target.dataset.del || e.target.closest('.row-stage') || e.target.closest('.row-approve') || e.target.closest('.row-memo')) return; // 삭제·진행상태·승인·메모 조작은 행 이동 제외
+      if (e.target.dataset.del || e.target.closest('.row-stage') || e.target.closest('.row-approve') || e.target.closest('.row-memo') || e.target.closest('.row-showroom')) return; // 삭제·진행상태·승인·메모·전시장 조작은 행 이동 제외
       go(`#/edit/${tr.dataset.id}`);
     };
   });
@@ -346,6 +356,28 @@ function renderListRows(rows) {
         if (cached) cached.stage = stage; // 캐시 동기화 (필터 정확도)
       } catch (err) {
         alert('진행상태 변경 실패: ' + err.message);
+        loadList();
+      } finally {
+        sel.disabled = false;
+      }
+    };
+  });
+  // 전시장 인라인 변경 (관리자): 다른 전시장으로 넘기기
+  body.querySelectorAll('.row-showroom').forEach((sel) => {
+    sel.onclick = (e) => e.stopPropagation();
+    sel.onchange = async () => {
+      const id = sel.dataset.showroomId;
+      const val = sel.value;
+      sel.disabled = true;
+      try {
+        const rec = await api.get(id);
+        const data = rec.data || {};
+        data.showroom = val;
+        await api.update(id, data);
+        const cached = listRows.find((r) => String(r.id) === String(id));
+        if (cached) cached.showroom = val; // 캐시 동기화
+      } catch (err) {
+        alert('전시장 변경 실패: ' + err.message);
         loadList();
       } finally {
         sel.disabled = false;

@@ -361,6 +361,8 @@ input.f.date.m, input.f.date.d { width: 36px; }
 .list-table td.center { text-align: center; }
 .id-badge { font-size: 12px; font-weight: 700; color: #1c7d3c; background: #dff3e4; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
 .dw-badge { font-size: 12px; font-weight: 700; color: #3a4fa0; background: #dde2fb; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+.row-showroom { border: 1px solid #d2d7dd; border-radius: 6px; padding: 3px 6px; font-size: 12px; background: #fff; cursor: pointer; max-width: 130px; }
+.row-showroom:hover { border-color: var(--brand); }
 
 /* 목록: 직원 메모 입력 */
 .memo-cell { min-width: 150px; }
