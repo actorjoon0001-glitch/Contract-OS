@@ -139,7 +139,8 @@ function bindAccount(scope) {
 
 // ---------- 목록 화면 ----------
 let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터는 클라이언트에서 처리)
-const LIST_COLS = 14;
+let employeeList = [];  // 직원 목록(관리자 담당자 지정용) — 로드 시 1회 채움
+const listCols = () => (canManageList() ? 15 : 14); // 관리자면 '담당자' 열 추가
 
 async function renderList() {
   current = null; currentId = null; dirty = false;
@@ -164,10 +165,10 @@ async function renderList() {
         <thead>
           <tr>
             <th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
-            <th class="right">제품합계(만원)</th><th>계약일자</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th><th>메모</th><th>수정일</th><th></th>
+            <th class="right">제품합계(만원)</th><th>계약일자</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th>${canManageList() ? '<th>담당자</th>' : ''}<th>메모</th><th>수정일</th><th></th>
           </tr>
         </thead>
-        <tbody id="list-body"><tr><td colspan="${LIST_COLS}" class="muted center">불러오는 중...</td></tr></tbody>
+        <tbody id="list-body"><tr><td colspan="${listCols()}" class="muted center">불러오는 중...</td></tr></tbody>
       </table>
     </div>`;
 
@@ -184,6 +185,10 @@ async function renderList() {
 async function loadList() {
   const body = document.getElementById('list-body');
   try {
+    // 관리자면 직원 목록 1회 로드(담당자 지정 드롭다운용)
+    if (canManageList() && !employeeList.length) {
+      try { employeeList = await api.employees(); } catch { /* 직원 목록 실패 시 담당자 지정만 비활성 */ }
+    }
     const rows = await api.list('');
     // 필터 드롭다운은 실제 계약서 기준으로 채우고(샘플 값 제외), 샘플 행은 목록 맨 아래에 고정
     populateFilter('filter-showroom', '전시장 전체', rows.map((r) => r.showroom));
@@ -191,7 +196,7 @@ async function loadList() {
     listRows = [...rows, sampleListRow()];
     applyListFilters();
   } catch (err) {
-    body.innerHTML = `<tr><td colspan="${LIST_COLS}" class="center danger">목록을 불러오지 못했습니다: ${esc(err.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="${listCols()}" class="center danger">목록을 불러오지 못했습니다: ${esc(err.message)}</td></tr>`;
   }
 }
 
@@ -228,11 +233,19 @@ function listShowroomSelect(r) {
   if (v && !SHOWROOMS.includes(v)) opts.push(`<option value="${esc(v)}" selected>${esc(v)}</option>`); // 레거시 값 보존
   return `<select class="row-showroom" data-showroom-id="${r.id}" title="전시장 변경 → 그 전시장 직원에게 넘김">${opts.join('')}</select>`;
 }
+// 관리자: 계약 담당자(소유자)를 특정 직원으로 지정 → 그 직원에게 넘김
+function rowOwnerSelect(r) {
+  const cur = String(r.owner_email || '').toLowerCase();
+  const opts = [`<option value="" ${cur ? '' : 'selected'}>- 담당 지정</option>`]
+    .concat(employeeList.map((e) => `<option value="${esc(e.email)}" ${cur === e.email ? 'selected' : ''}>${esc(e.name || e.email)}${e.showroom ? ` (${esc(e.showroom)})` : ''}</option>`));
+  if (cur && !employeeList.some((e) => e.email === cur)) opts.push(`<option value="${esc(cur)}" selected>${esc(cur)}</option>`); // 목록에 없는 기존 담당자 보존
+  return `<select class="row-owner" data-owner-id="${r.id}" title="담당자 지정 → 그 직원에게 넘김(그 직원이 보게 됨)">${opts.join('')}</select>`;
+}
 
 function renderListRows(rows) {
   const body = document.getElementById('list-body');
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="${LIST_COLS}" class="muted center">조건에 맞는 계약서가 없습니다.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="${listCols()}" class="muted center">조건에 맞는 계약서가 없습니다.</td></tr>`;
     return;
   }
   body.innerHTML = rows.map((r) => `
@@ -258,6 +271,7 @@ function renderListRows(rows) {
       <td>${r.is_sample ? '' : (r.approval_at
         ? `<button class="row-approve approved" data-approve-id="${r.id}" title="${esc(fmtSignDate(r.approval_at))} 승인됨 · 다시 서명">✅ 승인됨</button>`
         : `<button class="row-approve" data-approve-id="${r.id}" title="대표이사 승인 전자서명">✎ 승인</button>`)}</td>
+      ${canManageList() ? `<td>${r.is_sample ? '' : rowOwnerSelect(r)}</td>` : ''}
       <td class="memo-cell">${r.is_sample ? '' : `<input class="row-memo" data-memo-id="${r.id}" value="${esc(r.memo || '')}" placeholder="메모..." title="직원 메모 · 입력 후 다른 곳을 클릭하면 저장됩니다" />`}</td>
       <td class="muted small">${esc((r.updated_at || '').slice(0, 16))}</td>
       <td>${r.is_sample ? '' : `<button class="btn tiny danger" data-del="${r.id}">삭제</button>`}</td>
@@ -265,7 +279,7 @@ function renderListRows(rows) {
 
   body.querySelectorAll('.row').forEach((tr) => {
     tr.onclick = (e) => {
-      if (e.target.dataset.del || e.target.closest('.row-stage') || e.target.closest('.row-approve') || e.target.closest('.row-memo') || e.target.closest('.row-showroom')) return; // 삭제·진행상태·승인·메모·전시장 조작은 행 이동 제외
+      if (e.target.dataset.del || e.target.closest('.row-stage') || e.target.closest('.row-approve') || e.target.closest('.row-memo') || e.target.closest('.row-showroom') || e.target.closest('.row-owner')) return; // 인라인 조작은 행 이동 제외
       go(`#/edit/${tr.dataset.id}`);
     };
   });
@@ -378,6 +392,30 @@ function renderListRows(rows) {
         if (cached) cached.showroom = val; // 캐시 동기화
       } catch (err) {
         alert('전시장 변경 실패: ' + err.message);
+        loadList();
+      } finally {
+        sel.disabled = false;
+      }
+    };
+  });
+  // 담당자 지정 (관리자): 계약 소유자를 특정 직원으로 → 그 직원에게 넘김
+  body.querySelectorAll('.row-owner').forEach((sel) => {
+    sel.onclick = (e) => e.stopPropagation();
+    sel.onchange = async () => {
+      const id = sel.dataset.ownerId;
+      const email = sel.value;
+      const emp = employeeList.find((e) => e.email === email);
+      sel.disabled = true;
+      try {
+        const rec = await api.get(id);
+        const data = rec.data || {};
+        data.ownerEmail = email;
+        data.ownerName = emp?.name || '';
+        await api.update(id, data);
+        const cached = listRows.find((r) => String(r.id) === String(id));
+        if (cached) cached.owner_email = email; // 캐시 동기화
+      } catch (err) {
+        alert('담당자 지정 실패: ' + err.message);
         loadList();
       } finally {
         sel.disabled = false;
