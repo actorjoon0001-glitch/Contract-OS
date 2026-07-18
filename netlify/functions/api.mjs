@@ -47,6 +47,15 @@ function normShowroom(v) {
   if (!s) return '';
   return SHOWROOM_KEY[s] || SHOWROOM_KEY[s.toLowerCase()] || s.toLowerCase();
 }
+// 개인전용 전시장(본인 것만 보임) — 그 외 전시장은 같은 전시장끼리 공유.
+// PRIVATE_SHOWROOMS 미설정 시 기본값: headquarters(본사). 전부 공유로 하려면 빈 값('')으로 설정.
+function privateShowroomKeys() {
+  const raw = process.env.PRIVATE_SHOWROOMS;
+  const val = raw === undefined ? 'headquarters' : raw;
+  return new Set(val.split(',').map((s) => normShowroom(s)).filter(Boolean));
+}
+// 이 전시장이 '공유' 전시장인가 (같은 전시장 계약을 서로 볼 수 있는지)
+function isSharedShowroom(key) { return !!key && !privateShowroomKeys().has(key); }
 
 // 요청의 Bearer 토큰을 검증해 로그인 사용자 컨텍스트를 만든다.
 // 인증 미설정(익명키 없음)이면 기존처럼 개방(모두 관리자처럼 전체 접근) — 배포 전 호환/로컬용.
@@ -79,13 +88,13 @@ async function authContext(req, supa) {
 }
 
 // 한 계약(row)을 이 사용자가 볼/수정할 수 있는가?
-// 관리자·개방모드는 전체 허용. 그 외에는 '같은 전시장' 계약 + 본인이 만든 계약.
-// (전시장 정보가 없으면 폴백: 본인 소유/영업사원명 일치)
+// 관리자·개방모드는 전체 허용. 공유 전시장 직원은 '같은 전시장' 계약 + 본인 것.
+// 개인전용 전시장(예: 본사) 직원은 '본인 것만'. (전시장 정보 없으면 본인 것만)
 function canAccess(rowData, salesperson, auth) {
   if (!auth.enabled || auth.isAdmin) return true;
   if (!auth.user) return false;
-  const vsr = normShowroom(auth.user.showroom);
-  if (vsr && normShowroom(rowData?.showroom) === vsr) return true; // 같은 전시장
+  const vkey = normShowroom(auth.user.showroom);
+  if (isSharedShowroom(vkey) && normShowroom(rowData?.showroom) === vkey) return true; // 공유 전시장: 같은 전시장
   const owner = String(rowData?.ownerEmail || '').toLowerCase();
   if (owner) return owner === auth.user.email;
   const sp = String(rowData?.salesperson ?? salesperson ?? '').trim();
@@ -154,17 +163,19 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
         const { data, error } = await query;
         if (error) throw error;
         let rows = data || [];
-        // 권한: 관리자·개방모드가 아니면 '같은 전시장' 계약만 (+ 본인 소유는 항상 포함)
+        // 권한: 공유 전시장은 같은 전시장 전체, 개인전용 전시장(본사)은 본인 것만 (+ 본인 소유는 항상)
         if (auth.enabled && !auth.isAdmin) {
-          const vsr = normShowroom(auth.user.showroom);
+          const vkey = normShowroom(auth.user.showroom);
+          const shared = isSharedShowroom(vkey);
           rows = rows.filter((r) => {
-            if (vsr && normShowroom(r.showroom) === vsr) return true;   // 같은 전시장
+            if (shared && normShowroom(r.showroom) === vkey) return true;  // 공유 전시장: 같은 전시장
             const owner = String(r.owner_email || '').toLowerCase();
-            if (owner) return owner === auth.user.email;               // 폴백: 본인 소유
+            if (owner) return owner === auth.user.email;                   // 본인 소유
             return !!auth.user.name && String(r.salesperson || '') === auth.user.name;
           });
         }
-        rows = rows.map(({ owner_email, ...rest }) => rest); // 이메일은 목록 응답에서 제거
+        if (!(auth.enabled && !auth.isAdmin)) { /* 관리자·개방모드는 owner_email 유지(담당자 표시용) */ }
+        else rows = rows.map(({ owner_email, ...rest }) => rest); // 일반 직원 응답에선 이메일 제거
         return json(rows);
       }
 
@@ -274,9 +285,27 @@ export default async (req, context) => {
     return json({ email: auth.user?.email || '', name: auth.user?.name || '', showroom: auth.user?.showroom || '', isAdmin: !!auth.isAdmin, authEnabled: auth.enabled });
   }
 
+  // 직원 목록 (관리자 전용) — 목록에서 계약을 특정 직원 담당으로 넘길 때 사용
+  if (path === '/api/employees') {
+    if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
+    if (auth.enabled && !auth.isAdmin) return json({ error: '권한이 없습니다.' }, 403);
+    try {
+      const { data, error } = await supa.from('employees').select('name, email, showroom, status').order('showroom').order('name');
+      if (error) throw error;
+      const list = (data || []).filter((e) => e.email).map((e) => ({
+        name: e.name || '',
+        email: String(e.email).toLowerCase(),
+        showroom: SHOWROOM_CODE_TO_KR[String(e.showroom || '').trim()] || e.showroom || '',
+      }));
+      return json(list);
+    } catch (err) {
+      return json({ error: '직원 목록 조회 실패', detail: String(err?.message || err) }, 500);
+    }
+  }
+
   return handle(req, context.params?.id, supa, auth);
 };
 
 export const config = {
-  path: ['/api/config', '/api/me', '/api/contracts', '/api/contracts/:id'],
+  path: ['/api/config', '/api/me', '/api/employees', '/api/contracts', '/api/contracts/:id'],
 };

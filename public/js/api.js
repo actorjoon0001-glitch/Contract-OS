@@ -36,4 +36,5 @@ export const api = {
   update: (id, data) => req(`${BASE}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   remove: (id) => req(`${BASE}/${id}`, { method: 'DELETE' }),
   me: () => req('/api/me'),
+  employees: () => req('/api/employees'),
 };
