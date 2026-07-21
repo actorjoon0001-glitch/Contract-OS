@@ -242,6 +242,52 @@ function rowOwnerSelect(r) {
   return `<select class="row-owner" data-owner-id="${r.id}" title="담당자 지정 → 그 직원에게 넘김(그 직원이 보게 됨)">${opts.join('')}</select>`;
 }
 
+// 오늘 날짜 YYYY-MM-DD
+function todayYmd() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+// 계약금 입금(금액·날짜) 입력 모달 — '계약완료' 처리 시 사용
+function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
+  const overlay = document.createElement('div');
+  overlay.className = 'sign-modal-overlay no-print';
+  overlay.innerHTML = `
+    <div class="sign-modal dep-modal" role="dialog" aria-modal="true" aria-label="계약금 입금 정보">
+      <div class="sign-modal-head"><h3>계약완료 — 계약금 입금 정보</h3><button class="sign-x" type="button" aria-label="닫기">✕</button></div>
+      <div class="dep-body">
+        <label class="dep-field">받은 계약금 <span class="muted small">(만원)</span>
+          <input id="dep-amount" class="dep-input" type="text" inputmode="numeric" value="${esc(initial.amount ?? '')}" placeholder="예: 500" />
+        </label>
+        <label class="dep-field">입금 날짜
+          <input id="dep-date" class="dep-input" type="date" value="${esc(initial.date || todayYmd())}" />
+        </label>
+      </div>
+      <div class="sign-modal-actions"><span class="grow"></span>
+        <button class="btn" data-act="cancel" type="button">취소</button>
+        <button class="btn primary" data-act="save" type="button">저장</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const amountEl = overlay.querySelector('#dep-amount');
+  const dateEl = overlay.querySelector('#dep-date');
+  amountEl.addEventListener('input', () => { amountEl.value = amountEl.value.replace(/[^\d.,]/g, ''); });
+  let settled = false;
+  const done = (result) => {
+    if (settled) return; settled = true;
+    window.removeEventListener('keydown', onKey);
+    overlay.remove();
+    if (result) onSave?.(result); else onCancel?.();
+  };
+  const onKey = (e) => { if (e.key === 'Escape') done(null); };
+  window.addEventListener('keydown', onKey);
+  overlay.querySelector('.sign-x').onclick = () => done(null);
+  overlay.querySelector('[data-act="cancel"]').onclick = () => done(null);
+  overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) done(null); });
+  overlay.querySelector('[data-act="save"]').onclick = () => done({ amount: amountEl.value.trim(), date: dateEl.value });
+  setTimeout(() => amountEl.focus(), 0);
+}
+
 function renderListRows(rows) {
   const body = document.getElementById('list-body');
   if (!rows.length) {
@@ -359,21 +405,34 @@ function renderListRows(rows) {
       e.stopPropagation();
       const id = sel.dataset.stageId;
       const stage = sel.value;
-      sel.disabled = true;
-      try {
-        const rec = await api.get(id);
-        const data = rec.data || {};
-        data.stage = stage;
-        await api.update(id, data);
-        sel.className = `row-stage stage-${stage}`; // 색상 갱신
-        const cached = listRows.find((r) => String(r.id) === String(id));
-        if (cached) cached.stage = stage; // 캐시 동기화 (필터 정확도)
-      } catch (err) {
-        alert('진행상태 변경 실패: ' + err.message);
-        loadList();
-      } finally {
-        sel.disabled = false;
+      const cached = listRows.find((r) => String(r.id) === String(id));
+      const prevStage = cached ? stageOf(cached) : '';
+      const applyStage = async (deposit) => {
+        sel.disabled = true;
+        try {
+          const rec = await api.get(id);
+          const data = rec.data || {};
+          data.stage = stage;
+          if (deposit) data.deposit = deposit;
+          await api.update(id, data);
+          sel.className = `row-stage stage-${stage}`; // 색상 갱신
+          if (cached) cached.stage = stage; // 캐시 동기화 (필터 정확도)
+        } catch (err) {
+          alert('진행상태 변경 실패: ' + err.message);
+          loadList();
+        } finally {
+          sel.disabled = false;
+        }
+      };
+      // '계약완료'로 바꿀 때 계약금 입금(금액·날짜) 입력받기 (취소 시 원복)
+      if (stage === 'completed') {
+        openDepositDialog({
+          onSave: (dep) => applyStage({ ...dep, at: new Date().toISOString() }),
+          onCancel: () => { sel.value = prevStage; sel.className = `row-stage stage-${prevStage}`; },
+        });
+        return;
       }
+      applyStage();
     };
   });
   // 전시장 인라인 변경 (관리자): 다른 전시장으로 넘기기
@@ -626,6 +685,7 @@ function renderEditor() {
           ${STAGES.map((s) => `<option value="${s.key}" ${stageOf(c) === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
         </select>
       </label>
+      <span id="deposit-info" class="dep-info no-print"></span>
       <label>모델
         <select id="model-select" class="mb-stage">
           <option value="" ${c.modelId ? '' : 'selected'}>통합(전체 옵션)</option>
@@ -1279,6 +1339,23 @@ function downloadData(dataUrl, filename) {
   a.remove();
 }
 
+// 편집기 관리바에 계약금 입금 정보 표시(있으면) — 클릭하면 수정
+function renderDepositInfo() {
+  const el = document.getElementById('deposit-info');
+  if (!el) return;
+  const d = current.deposit;
+  if (d && (String(d.amount || '').trim() || d.date)) {
+    el.innerHTML = `<button type="button" class="dep-chip" id="deposit-edit" title="계약금 입금 정보 수정">💰 계약금 ${d.amount ? esc(d.amount) + '만' : '-'}${d.date ? ` · ${esc(d.date)}` : ''}</button>`;
+    const btn = document.getElementById('deposit-edit');
+    if (btn) btn.onclick = () => openDepositDialog({
+      initial: current.deposit,
+      onSave: (dep) => { current.deposit = { ...dep, at: new Date().toISOString() }; renderDepositInfo(); markDirty(); },
+    });
+  } else {
+    el.innerHTML = '';
+  }
+}
+
 // ---------- 편집 이벤트 ----------
 function bindEditor() {
   document.getElementById('save-btn').onclick = saveContract;
@@ -1287,10 +1364,27 @@ function bindEditor() {
   // 진행상태: '확정' 잠금과 무관하게 언제든 변경 가능 (관리용 라벨)
   const stageSel = document.getElementById('stage-select');
   if (stageSel) stageSel.onchange = (e) => {
-    current.stage = e.target.value;
+    const val = e.target.value;
+    if (val === 'completed') { // 계약완료 → 계약금 입금 정보 입력 (취소 시 원복)
+      const prev = current.stage;
+      openDepositDialog({
+        initial: current.deposit || {},
+        onSave: (dep) => {
+          current.deposit = { ...dep, at: new Date().toISOString() };
+          current.stage = 'completed';
+          e.target.className = 'mb-stage stage-completed';
+          renderDepositInfo();
+          markDirty();
+        },
+        onCancel: () => { e.target.value = prev; },
+      });
+      return;
+    }
+    current.stage = val;
     e.target.className = `mb-stage stage-${current.stage}`; // 색상 갱신
     markDirty();
   };
+  renderDepositInfo();
   // 전시장: 드롭다운 선택 → current.showroom 반영
   const showroomSel = document.getElementById('showroom-select');
   if (showroomSel) showroomSel.onchange = (e) => { current.showroom = e.target.value; markDirty(); };
