@@ -292,6 +292,15 @@ input.f.locked { background: transparent; border-bottom-color: transparent; colo
 .sign-baseline { position: absolute; left: 24px; right: 24px; bottom: 56px; border-bottom: 1.5px dashed #d8dde3; pointer-events: none; }
 .sign-modal-actions { display: flex; align-items: center; gap: 8px; padding: 0 18px 18px; }
 .sign-modal-actions .grow { flex: 1; }
+/* 계약금 입금 입력 모달 */
+.dep-modal { width: 400px; }
+.dep-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.dep-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #444; }
+.dep-input { border: 1px solid #c4c9d0; border-radius: 7px; padding: 9px 11px; font-size: 15px; font-weight: 400; outline: none; }
+.dep-input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(28,90,153,.12); }
+.dep-info { display: inline-flex; align-items: center; }
+.dep-chip { border: 1px solid #c2e6cd; background: #dff3e4; color: #1c7d3c; padding: 4px 10px; border-radius: 20px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.dep-chip:hover { background: #d1eddb; }
 
 /* 입력 필드 (편집 시 옅은 배경, 인쇄 시 사라짐) */
 input.f, textarea.f {
