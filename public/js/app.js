@@ -288,6 +288,16 @@ function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
   setTimeout(() => amountEl.focus(), 0);
 }
 
+// 계약 단계로 넘어간(입금된) 건인지 — 이 경우 날짜는 '계약금 입금일'
+const CONTRACTED_STAGES = new Set(['completed', 'design_3d', 'production', 'installing', 'delivered']);
+// 목록 날짜 칸: 계약된 건은 입금일(=계약일), 견적 단계 건은 견적일(견적 표시)
+function listDateCell(r) {
+  const contracted = CONTRACTED_STAGES.has(stageOf(r)) || !!r.deposit_date;
+  const d = (contracted && r.deposit_date) ? r.deposit_date : (r.contract_date || '');
+  if (!d) return '-';
+  return contracted ? esc(d) : `${esc(d)} <span class="quote-tag" title="견적 단계 (계약금 입금 전)">견적</span>`;
+}
+
 function renderListRows(rows) {
   const body = document.getElementById('list-body');
   if (!rows.length) {
@@ -302,7 +312,7 @@ function renderListRows(rows) {
       <td>${esc(r.client_name || '-')}</td>
       <td class="ellipsis">${esc(r.site_address || '-')}</td>
       <td class="right">${fmtMan(r.total_amount) || '-'}</td>
-      <td>${esc(r.contract_date || '-')}</td>
+      <td>${listDateCell(r)}</td>
       <td class="center">${r.is_sample ? '' : (Number(r.id_count) > 0
         ? `<span class="id-badge" title="신분증 ${Number(r.id_count)}매 첨부됨">📎 ${Number(r.id_count)}</span>`
         : '<span class="muted small">—</span>')}</td>
