@@ -290,12 +290,17 @@ function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
 
 // 계약 단계로 넘어간(입금된) 건인지 — 이 경우 날짜는 '계약금 입금일'
 const CONTRACTED_STAGES = new Set(['completed', 'design_3d', 'production', 'installing', 'delivered']);
-// 목록 날짜 칸: 계약된 건은 입금일(=계약일), 견적 단계 건은 견적일(견적 표시)
+// 목록 날짜 칸: 계약된 건은 입금일(=계약일)+받은 계약금, 견적 단계 건은 견적일(견적 표시)
 function listDateCell(r) {
   const contracted = CONTRACTED_STAGES.has(stageOf(r)) || !!r.deposit_date;
-  const d = (contracted && r.deposit_date) ? r.deposit_date : (r.contract_date || '');
-  if (!d) return '-';
-  return contracted ? esc(d) : `${esc(d)} <span class="quote-tag" title="견적 단계 (계약금 입금 전)">견적</span>`;
+  if (!contracted) {
+    const q = r.contract_date || '';
+    return q ? `${esc(q)} <span class="quote-tag" title="견적 단계 (계약금 입금 전)">견적</span>` : '-';
+  }
+  const d = r.deposit_date || r.contract_date || '';
+  const amt = String(r.deposit_amount || '').trim();
+  const chip = amt ? ` <span class="dep-mini" title="받은 계약금">💰${esc(amt)}만</span>` : '';
+  return (d ? esc(d) : '-') + chip;
 }
 
 function renderListRows(rows) {
