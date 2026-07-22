@@ -221,14 +221,18 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
       if (exErr) throw exErr;
       if (!existing) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
       if (!canAccess(existing.data, existing.salesperson, auth)) return json({ error: '이 계약을 수정할 권한이 없습니다.' }, 403);
-      // 소유자 정보는 최초 기록을 유지 (수정자가 소유권을 가로채지 못하도록). 없으면 이번 저장자로 귀속.
-      const existingOwner = existing.data?.ownerEmail;
-      if (existingOwner) {
-        data.ownerEmail = existingOwner;
-        if (existing.data?.ownerName) data.ownerName = existing.data.ownerName;
-      } else if (auth.enabled && auth.user) {
-        data.ownerEmail = auth.user.email;
-        if (auth.user.name && !data.ownerName) data.ownerName = auth.user.name;
+      // 소유자(담당자) 정보 규칙:
+      //  - 관리자(개방모드 포함): 요청에 담긴 ownerEmail/ownerName 그대로 저장 (담당자 지정·변경 허용)
+      //  - 일반 직원: 최초 소유자 유지(가로채기 방지), 없으면 이번 저장자로 귀속
+      if (!auth.isAdmin) {
+        const existingOwner = existing.data?.ownerEmail;
+        if (existingOwner) {
+          data.ownerEmail = existingOwner;
+          if (existing.data?.ownerName) data.ownerName = existing.data.ownerName;
+        } else if (auth.enabled && auth.user) {
+          data.ownerEmail = auth.user.email;
+          if (auth.user.name && !data.ownerName) data.ownerName = auth.user.name;
+        }
       }
       const patch = { ...summarize(data), data, updated_at: new Date().toISOString() };
       const { data: updated, error } = await supa.from(TABLE).update(patch).eq('id', id).select().maybeSingle();
