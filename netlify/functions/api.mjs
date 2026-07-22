@@ -72,16 +72,19 @@ async function authContext(req, supa) {
     let name = meta.name || meta.full_name || meta.username || meta.displayName || '';
     let showroom = '';
     // 세움os employees 테이블에서 직원의 전시장 조회 (auth_user_id 우선, 없으면 email)
+    let isEmployee = false;
     try {
-      let emp = (await supa.from('employees').select('showroom, name').eq('auth_user_id', data.user.id).maybeSingle()).data;
-      if (!emp && email) emp = (await supa.from('employees').select('showroom, name').eq('email', email).maybeSingle()).data;
+      let emp = (await supa.from('employees').select('showroom, name, status').eq('auth_user_id', data.user.id).maybeSingle()).data;
+      if (!emp && email) emp = (await supa.from('employees').select('showroom, name, status').eq('email', email).maybeSingle()).data;
       if (emp) {
         const code = String(emp.showroom || '').trim();
         showroom = SHOWROOM_CODE_TO_KR[code] || code; // 한글 전시장명으로(자동입력·표시용)
         if (!name && emp.name) name = emp.name;
+        const st = String(emp.status || '').toLowerCase();
+        isEmployee = !st || st === 'approved' || st === 'active'; // 승인된 직원만 사용 허용
       }
-    } catch { /* employees 조회 실패 시 전시장 없이 진행(폴백: 본인 것만) */ }
-    return { enabled: true, user: { id: data.user.id, email, name, showroom }, isAdmin: adminEmails().includes(email) };
+    } catch { /* employees 조회 실패 시 미확인 처리 */ }
+    return { enabled: true, user: { id: data.user.id, email, name, showroom }, isAdmin: adminEmails().includes(email), isEmployee };
   } catch {
     return { enabled: true, user: null, isAdmin: false };
   }
@@ -139,6 +142,10 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
 
   // 로그인 필수 모드인데 유효한 사용자가 없으면 차단
   if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
+  // 등록된(승인된) 직원 계정만 사용 허용 (관리자는 예외)
+  if (auth.enabled && auth.user && !auth.isAdmin && !auth.isEmployee) {
+    return json({ error: '등록된 직원 계정이 아닙니다. 관리자에게 문의하세요.', code: 'not_employee' }, 403);
+  }
 
   try {
     // ---- 목록 / 생성 (/api/contracts) ----
@@ -282,7 +289,7 @@ export default async (req, context) => {
   // 현재 로그인 사용자 정보 (계정 표시·관리자 여부)
   if (path === '/api/me') {
     if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
-    return json({ email: auth.user?.email || '', name: auth.user?.name || '', showroom: auth.user?.showroom || '', isAdmin: !!auth.isAdmin, authEnabled: auth.enabled });
+    return json({ email: auth.user?.email || '', name: auth.user?.name || '', showroom: auth.user?.showroom || '', isAdmin: !!auth.isAdmin, isEmployee: !!auth.isEmployee, authEnabled: auth.enabled });
   }
 
   // 직원 목록 (관리자 전용) — 목록에서 계약을 특정 직원 담당으로 넘길 때 사용
