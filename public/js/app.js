@@ -865,6 +865,7 @@ function leftCell(row) {
       <td colspan="2" class="amt">
         <input class="f amt right ${lc}" data-path="amounts.supplyManual" value="${esc(shown)}" title="주문내용 금액의 합계가 자동 입력됩니다. 직접 입력하면 그 값이 우선됩니다(지우면 다시 합계)." ${ro} />
         <span class="unit">만원</span>
+        <span class="pay-diff no-print" id="pay-diff"></span>
       </td>`;
   }
   if (row.type === 'pay') {
@@ -1640,6 +1641,18 @@ function updateTotals() {
     }
   } else {
     hint.innerHTML = '';
+  }
+  // 제품공급가 옆 빨간 표시 — 결제(계약금+중도금+잔금) 합계가 제품합계와 다르면 차이 금액 안내
+  const diffEl = document.getElementById('pay-diff');
+  if (diffEl) {
+    const remain = current.amounts.productTotal > 0 ? paymentRemaining(current) : 0;
+    if (Math.abs(remain) >= 0.5) {
+      diffEl.textContent = remain > 0 ? `⚠ 결제 ${fmtMan(remain)}만원 부족` : `⚠ 결제 ${fmtMan(-remain)}만원 초과`;
+      diffEl.classList.add('show');
+    } else {
+      diffEl.textContent = '';
+      diffEl.classList.remove('show');
+    }
   }
 }
 
