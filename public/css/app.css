@@ -171,6 +171,8 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 .main-grid .amt.strong { font-weight: 800; }
 .main-grid .auto { font-weight: 700; }
 .unit, .unit2, .unit3 { color: #555; font-size: 12px; }
+.pay-diff { display: none; margin-left: 8px; color: var(--danger); font-weight: 700; font-size: 12.5px; white-space: nowrap; }
+.pay-diff.show { display: inline; }
 .cond { white-space: normal; line-height: 1.2; }
 
 .item-name { line-height: 1.3; }
