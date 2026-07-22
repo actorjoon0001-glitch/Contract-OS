@@ -51,6 +51,11 @@ async function boot() {
     await trySSO();
   }
   if (authEnabled() && currentUser() && !me) { try { me = await api.me(); } catch { /* 401이면 authLost가 처리 */ } }
+  // 등록된 직원 계정이 아니면 차단(로그아웃 + 안내)
+  if (authEnabled() && me && !me.isAdmin && !me.isEmployee) {
+    logout(); me = null;
+    return renderLogin('등록된 직원 계정이 아닙니다. 관리자에게 문의하세요.');
+  }
   guardedRoute();
 }
 
@@ -108,6 +113,13 @@ function renderLogin(msg = '') {
     try {
       await login(email, pw);
       try { me = await api.me(); } catch { me = null; }
+      // 등록된 직원 계정이 아니면 차단
+      if (me && !me.isAdmin && !me.isEmployee) {
+        logout(); me = null;
+        msgEl.textContent = '등록된 직원 계정이 아닙니다. 관리자에게 문의하세요.';
+        btn.disabled = false; btn.textContent = '로그인';
+        return;
+      }
       // 딥링크(#/edit/{id})로 들어와 로그인한 경우 원래 목적지로 이동, 그 외엔 현재 해시(기본 목록)
       route();
     } catch (err) {
