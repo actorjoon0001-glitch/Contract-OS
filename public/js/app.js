@@ -329,8 +329,8 @@ function listDepositCell(r) {
 // 인허가 열 — 계약서에서 선택한 인허가 구분 (permit=준공용/인허가, temporary=가설축조신고, 미선택=—)
 function listPermitCell(r) {
   const v = r.permit_type;
-  if (v === 'permit') return '<span class="permit-badge yes" title="준공용(인허가) — 토목·건축 인허가 진행">인허가</span>';
-  if (v === 'temporary') return '<span class="permit-badge no" title="가설축조신고">가설축조</span>';
+  if (v === 'permit') return '<span class="permit-badge yes" title="주택 — 준공용 인허가">인허가</span>';
+  if (v === 'temporary') return '<span class="permit-badge no" title="컨테이너·체류형쉼터 — 가설건축물축조신고">가설축조</span>';
   return '<span class="muted small">—</span>';
 }
 
@@ -745,8 +745,8 @@ function renderEditor() {
       <label>인허가 구분 <span class="req">*</span>
         <select id="permit-select" class="mb-stage permit-${esc(c.permitType || 'none')}">
           <option value="" ${!c.permitType ? 'selected' : ''}>- 선택</option>
-          <option value="temporary" ${c.permitType === 'temporary' ? 'selected' : ''}>가설축조신고</option>
-          <option value="permit" ${c.permitType === 'permit' ? 'selected' : ''}>준공용(인허가)</option>
+          <option value="temporary" ${c.permitType === 'temporary' ? 'selected' : ''}>컨테이너·체류형쉼터 (가설건축물축조신고)</option>
+          <option value="permit" ${c.permitType === 'permit' ? 'selected' : ''}>주택 (준공용 인허가)</option>
         </select>
       </label>
       <span class="mb-hint muted small">※ 목록 분류·검색용 (계약서 인쇄에는 표시 안 됨) · <b>전시장·영업사원·현장주소·인허가 구분은 필수</b></span>
@@ -1708,7 +1708,7 @@ async function saveContract() {
   }
   // 인허가 구분(가설축조신고/준공용) 필수 — 선택 안 했으면 저장 막고 안내
   if (current.permitType !== 'temporary' && current.permitType !== 'permit') {
-    alert('인허가 구분을 선택해 주세요.\n\n· 가설축조신고\n· 준공용(인허가)\n\n둘 중 하나를 반드시 선택해야 저장됩니다.');
+    alert('인허가 구분을 선택해 주세요.\n\n· 컨테이너·체류형쉼터 (가설건축물축조신고)\n· 주택 (준공용 인허가)\n\n둘 중 하나를 반드시 선택해야 저장됩니다.');
     const sel = document.getElementById('permit-select');
     if (sel) { sel.focus(); sel.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     return;
