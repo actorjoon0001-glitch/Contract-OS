@@ -16,6 +16,7 @@ export const STAGES = [
   { key: 'prospect', label: '가망건' },
   { key: 'negotiating', label: '협의중' },
   { key: 'deposit_wait', label: '계약금 대기' },
+  { key: 'deposit_partial', label: '가계약금' },
   { key: 'completed', label: '계약완료' },
   { key: 'design_3d', label: '3D도면 작업중' },
   { key: 'production', label: '제작중' },
