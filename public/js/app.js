@@ -152,7 +152,7 @@ function bindAccount(scope) {
 // ---------- 목록 화면 ----------
 let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터는 클라이언트에서 처리)
 let employeeList = [];  // 직원 목록(관리자 담당자 지정용) — 로드 시 1회 채움
-const listCols = () => (canManageList() ? 15 : 14); // 관리자면 '담당자' 열 추가
+const listCols = () => (canManageList() ? 16 : 15); // 관리자면 '담당자' 열 추가
 
 async function renderList() {
   current = null; currentId = null; dirty = false;
@@ -177,7 +177,7 @@ async function renderList() {
         <thead>
           <tr>
             <th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
-            <th class="right">제품합계(만원)</th><th>계약일자</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th>${canManageList() ? '<th>담당자</th>' : ''}<th>메모</th><th>수정일</th><th></th>
+            <th class="right">제품합계(만원)</th><th>계약일자</th><th class="right">계약금(만원)</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th>${canManageList() ? '<th>담당자</th>' : ''}<th>메모</th><th>수정일</th><th></th>
           </tr>
         </thead>
         <tbody id="list-body"><tr><td colspan="${listCols()}" class="muted center">불러오는 중...</td></tr></tbody>
@@ -310,9 +310,15 @@ function listDateCell(r) {
     return q ? `${esc(q)} <span class="quote-tag" title="견적 단계 (계약금 입금 전)">견적</span>` : '-';
   }
   const d = r.deposit_date || r.contract_date || '';
+  return d ? esc(d) : '-';
+}
+
+// 계약금 열 — 받은 계약금 금액(만원)
+function listDepositCell(r) {
+  const contracted = CONTRACTED_STAGES.has(stageOf(r)) || !!r.deposit_date;
   const amt = String(r.deposit_amount || '').trim();
-  const chip = amt ? ` <span class="dep-mini" title="받은 계약금">💰${esc(amt)}만</span>` : '';
-  return (d ? esc(d) : '-') + chip;
+  if (!contracted || !amt) return '<span class="muted small">—</span>';
+  return `<span class="dep-mini" title="받은 계약금">💰${esc(amt)}</span>`;
 }
 
 function renderListRows(rows) {
@@ -330,6 +336,7 @@ function renderListRows(rows) {
       <td class="ellipsis">${esc(r.site_address || '-')}</td>
       <td class="right">${fmtMan(r.total_amount) || '-'}</td>
       <td>${listDateCell(r)}</td>
+      <td class="right">${listDepositCell(r)}</td>
       <td class="center">${r.is_sample ? '' : (Number(r.id_count) > 0
         ? `<span class="id-badge" title="신분증 ${Number(r.id_count)}매 첨부됨">📎 ${Number(r.id_count)}</span>`
         : '<span class="muted small">—</span>')}</td>
