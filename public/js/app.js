@@ -326,15 +326,12 @@ function listDepositCell(r) {
   return `<span class="dep-mini" title="받은 계약금">💰${shown}</span>`;
 }
 
-// 인허가 열 — 계약완료 시 선택한 인허가 필요 여부 (true=인허가, false=체류형쉼터, 미지정=—)
+// 인허가 열 — 계약서에서 선택한 인허가 구분 (permit=준공용/인허가, temporary=가설축조신고, 미선택=—)
 function listPermitCell(r) {
-  const contracted = CONTRACTED_STAGES.has(stageOf(r)) || !!r.deposit_date;
-  const v = r.permit_required;
-  if (!contracted || v === null || v === undefined || v === '') return '<span class="muted small">—</span>';
-  const yes = v === true || v === 'true' || v === 1 || v === '1';
-  return yes
-    ? '<span class="permit-badge yes" title="인허가 필요 (토목·건축 인허가 진행)">인허가</span>'
-    : '<span class="permit-badge no" title="체류형쉼터 (인허가 불필요)">체류형</span>';
+  const v = r.permit_type;
+  if (v === 'permit') return '<span class="permit-badge yes" title="준공용(인허가) — 토목·건축 인허가 진행">인허가</span>';
+  if (v === 'temporary') return '<span class="permit-badge no" title="가설축조신고">가설축조</span>';
+  return '<span class="muted small">—</span>';
 }
 
 function renderListRows(rows) {
@@ -745,7 +742,14 @@ function renderEditor() {
       </label>
       <label>전시장 <span class="req">*</span> ${showroomSelect(c.showroom)}</label>
       <label>영업사원 <span class="req">*</span> ${field('salesperson', c.salesperson, 'manage')}</label>
-      <span class="mb-hint muted small">※ 목록 분류·검색용 (계약서 인쇄에는 표시 안 됨) · <b>전시장·영업사원·현장주소는 필수</b></span>
+      <label>인허가 구분 <span class="req">*</span>
+        <select id="permit-select" class="mb-stage permit-${esc(c.permitType || 'none')}">
+          <option value="" ${!c.permitType ? 'selected' : ''}>- 선택</option>
+          <option value="temporary" ${c.permitType === 'temporary' ? 'selected' : ''}>가설축조신고</option>
+          <option value="permit" ${c.permitType === 'permit' ? 'selected' : ''}>준공용(인허가)</option>
+        </select>
+      </label>
+      <span class="mb-hint muted small">※ 목록 분류·검색용 (계약서 인쇄에는 표시 안 됨) · <b>전시장·영업사원·현장주소·인허가 구분은 필수</b></span>
     </div>
 
     <div class="idcard-bar no-print">
@@ -1437,6 +1441,13 @@ function bindEditor() {
     markDirty();
   };
   renderDepositInfo();
+  // 인허가 구분: 가설축조신고 / 준공용(인허가) — 저장 시 필수
+  const permitSel = document.getElementById('permit-select');
+  if (permitSel) permitSel.onchange = (e) => {
+    current.permitType = e.target.value; // '' | 'temporary' | 'permit'
+    e.target.className = `mb-stage permit-${current.permitType || 'none'}`;
+    markDirty();
+  };
   // 전시장: 드롭다운 선택 → current.showroom 반영
   const showroomSel = document.getElementById('showroom-select');
   if (showroomSel) showroomSel.onchange = (e) => { current.showroom = e.target.value; markDirty(); };
@@ -1693,6 +1704,13 @@ async function saveContract() {
     alert(`다음 항목을 작성해 주세요:\n\n· ${missing.map((m) => m.label).join('\n· ')}\n\n전시장·영업사원·현장주소는 필수 입력입니다.`);
     const first = app.querySelector(`[data-path="${missing[0].key}"]`);
     if (first) { first.focus(); first.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    return;
+  }
+  // 인허가 구분(가설축조신고/준공용) 필수 — 선택 안 했으면 저장 막고 안내
+  if (current.permitType !== 'temporary' && current.permitType !== 'permit') {
+    alert('인허가 구분을 선택해 주세요.\n\n· 가설축조신고\n· 준공용(인허가)\n\n둘 중 하나를 반드시 선택해야 저장됩니다.');
+    const sel = document.getElementById('permit-select');
+    if (sel) { sel.focus(); sel.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     return;
   }
   try {
