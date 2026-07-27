@@ -331,6 +331,8 @@ textarea.f.note {
   resize: none; overflow: hidden; display: block;
   box-sizing: border-box; white-space: pre-wrap; overflow-wrap: anywhere;
 }
+/* 별도 협의 필요 주의 문구 강조 (현장답사·협의 후 진행 등) */
+textarea.f.note.note-hl { color: #c0392b; font-weight: 700; }
 input.f.site, input.f.addr, input.f.name { width: 92%; }
 input.f.date { width: 56px; text-align: center; }
 input.f.date.m, input.f.date.d { width: 36px; }

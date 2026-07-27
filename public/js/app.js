@@ -982,7 +982,9 @@ function showroomSelect(value) {
 function noteField(path, value) {
   const lock = editorLocked ? 'readonly' : '';
   const lc = editorLocked ? 'locked' : '';
-  return `<textarea class="f note ${lc}" data-path="${path}" rows="1" ${lock}>${esc(value)}</textarea>`;
+  // 현장답사·협의 후 진행 등 '별도 협의 필요' 주의 문구는 다른 색으로 강조
+  const hl = /협의\s*후\s*진행|현장\s*답사|현장답사|정화조/.test(value || '') ? ' note-hl' : '';
+  return `<textarea class="f note ${lc}${hl}" data-path="${path}" rows="1" ${lock}>${esc(value)}</textarea>`;
 }
 // 내용 길이에 맞춰 textarea 높이 자동 조절
 function autoGrow(el) {
@@ -1522,6 +1524,10 @@ function bindEditor() {
         if (it) it.amountManual = im[2] === 'amount' ? String(v).trim() !== '' : false;
       }
       if (inp.tagName === 'TEXTAREA') autoGrow(inp);
+      // 비고: '협의 후 진행/현장답사' 등 주의 문구면 강조색 토글
+      if (inp.classList.contains('note')) {
+        inp.classList.toggle('note-hl', /협의\s*후\s*진행|현장\s*답사|현장답사|정화조/.test(v));
+      }
       if (path.startsWith('items.') || path.startsWith('amounts.') || path.startsWith('extraCosts.')) updateTotals();
       markDirty();
     });
