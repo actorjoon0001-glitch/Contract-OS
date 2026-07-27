@@ -275,11 +275,6 @@ function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
         <label class="dep-field">입금 날짜
           <input id="dep-date" class="dep-input" type="date" value="${esc(initial.date || todayYmd())}" />
         </label>
-        <label class="dep-check">
-          <input id="dep-permit" type="checkbox" ${initial.permitRequired ? 'checked' : ''} />
-          <span><b>인허가 필요한 건</b> (토목·건축 인허가 진행 필요)</span>
-        </label>
-        <span class="muted small dep-permit-hint">체크하지 않으면 <b>체류형쉼터</b>(인허가 불필요)로 분류됩니다.</span>
       </div>
       <div class="sign-modal-actions"><span class="grow"></span>
         <button class="btn" data-act="cancel" type="button">취소</button>
@@ -289,7 +284,6 @@ function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
   document.body.appendChild(overlay);
   const amountEl = overlay.querySelector('#dep-amount');
   const dateEl = overlay.querySelector('#dep-date');
-  const permitEl = overlay.querySelector('#dep-permit');
   amountEl.addEventListener('input', () => { amountEl.value = amountEl.value.replace(/[^\d.,]/g, ''); });
   let settled = false;
   const done = (result) => {
@@ -303,7 +297,7 @@ function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
   overlay.querySelector('.sign-x').onclick = () => done(null);
   overlay.querySelector('[data-act="cancel"]').onclick = () => done(null);
   overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) done(null); });
-  overlay.querySelector('[data-act="save"]').onclick = () => done({ amount: amountEl.value.trim(), date: dateEl.value, permitRequired: permitEl.checked });
+  overlay.querySelector('[data-act="save"]').onclick = () => done({ amount: amountEl.value.trim(), date: dateEl.value });
   setTimeout(() => amountEl.focus(), 0);
 }
 
@@ -470,11 +464,7 @@ function renderListRows(rows) {
           const rec = await api.get(id);
           const data = rec.data || {};
           data.stage = stage;
-          if (deposit) {
-            const { permitRequired, ...dep } = deposit;
-            data.deposit = dep;
-            data.permitRequired = !!permitRequired; // 인허가 필요 여부(미체크=체류형쉼터)
-          }
+          if (deposit) data.deposit = deposit;
           await api.update(id, data);
           sel.className = `row-stage stage-${stage}`; // 색상 갱신
           if (cached) cached.stage = stage; // 캐시 동기화 (필터 정확도)
@@ -1410,14 +1400,8 @@ function renderDepositInfo() {
     el.innerHTML = `<button type="button" class="dep-chip" id="deposit-edit" title="계약금 입금 정보 수정">💰 계약금 ${d.amount ? esc(d.amount) + '만' : '-'}${d.date ? ` · ${esc(d.date)}` : ''}</button>`;
     const btn = document.getElementById('deposit-edit');
     if (btn) btn.onclick = () => openDepositDialog({
-      initial: { ...current.deposit, permitRequired: current.permitRequired },
-      onSave: (dep) => {
-        const { permitRequired, ...rest } = dep;
-        current.deposit = { ...rest, at: new Date().toISOString() };
-        current.permitRequired = !!permitRequired;
-        renderDepositInfo();
-        markDirty();
-      },
+      initial: current.deposit,
+      onSave: (dep) => { current.deposit = { ...dep, at: new Date().toISOString() }; renderDepositInfo(); markDirty(); },
     });
   } else {
     el.innerHTML = '';
@@ -1436,11 +1420,9 @@ function bindEditor() {
     if (val === 'completed') { // 계약완료 → 계약금 입금 정보 입력 (취소 시 원복)
       const prev = current.stage;
       openDepositDialog({
-        initial: { ...(current.deposit || {}), permitRequired: current.permitRequired },
+        initial: current.deposit || {},
         onSave: (dep) => {
-          const { permitRequired, ...rest } = dep;
-          current.deposit = { ...rest, at: new Date().toISOString() };
-          current.permitRequired = !!permitRequired; // 인허가 필요 여부(미체크=체류형쉼터)
+          current.deposit = { ...dep, at: new Date().toISOString() };
           current.stage = 'completed';
           e.target.className = 'mb-stage stage-completed';
           renderDepositInfo();
