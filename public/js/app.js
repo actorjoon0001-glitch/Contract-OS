@@ -267,7 +267,7 @@ function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
   overlay.innerHTML = `
     <div class="sign-modal dep-modal" role="dialog" aria-modal="true" aria-label="계약금 입금 정보">
       <div class="sign-modal-head"><h3>계약완료 — 계약금 입금 정보</h3><button class="sign-x" type="button" aria-label="닫기">✕</button></div>
-      <p class="dep-note">아직 계약금을 받지 않았다면 <b>취소</b>를 누르고 진행상태를 <b>‘계약금 대기’</b>로 변경해 주세요.</p>
+      <p class="dep-note">계약완료는 <b>계약금(10%)을 전액 받은 경우에만</b> 변경해 주세요.<br>아직 계약금을 받지 않았다면 <b>취소</b>를 누르고 진행상태를 <b>‘계약금 대기’</b>로 변경해 주세요.</p>
       <div class="dep-body">
         <label class="dep-field">받은 계약금 <span class="muted small">(만원)</span>
           <input id="dep-amount" class="dep-input" type="text" inputmode="numeric" value="${esc(initial.amount ?? '')}" placeholder="예: 500" />
