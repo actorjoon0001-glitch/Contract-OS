@@ -152,7 +152,7 @@ function bindAccount(scope) {
 // ---------- 목록 화면 ----------
 let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터는 클라이언트에서 처리)
 let employeeList = [];  // 직원 목록(관리자 담당자 지정용) — 로드 시 1회 채움
-const listCols = () => (canManageList() ? 16 : 15); // 관리자면 '담당자' 열 추가
+const listCols = () => (canManageList() ? 17 : 16); // 관리자면 '담당자' 열 추가
 
 async function renderList() {
   current = null; currentId = null; dirty = false;
@@ -177,7 +177,7 @@ async function renderList() {
         <thead>
           <tr>
             <th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
-            <th class="right">제품합계(만원)</th><th>계약일자</th><th class="right">계약금(만원)</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th>${canManageList() ? '<th>담당자</th>' : ''}<th>메모</th><th>수정일</th><th></th>
+            <th class="right">제품합계(만원)</th><th>계약일자</th><th class="right">계약금(만원)</th><th class="center">인허가</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th>${canManageList() ? '<th>담당자</th>' : ''}<th>메모</th><th>수정일</th><th></th>
           </tr>
         </thead>
         <tbody id="list-body"><tr><td colspan="${listCols()}" class="muted center">불러오는 중...</td></tr></tbody>
@@ -275,6 +275,11 @@ function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
         <label class="dep-field">입금 날짜
           <input id="dep-date" class="dep-input" type="date" value="${esc(initial.date || todayYmd())}" />
         </label>
+        <label class="dep-check">
+          <input id="dep-permit" type="checkbox" ${initial.permitRequired ? 'checked' : ''} />
+          <span><b>인허가 필요한 건</b> (토목·건축 인허가 진행 필요)</span>
+        </label>
+        <span class="muted small dep-permit-hint">체크하지 않으면 <b>체류형쉼터</b>(인허가 불필요)로 분류됩니다.</span>
       </div>
       <div class="sign-modal-actions"><span class="grow"></span>
         <button class="btn" data-act="cancel" type="button">취소</button>
@@ -284,6 +289,7 @@ function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
   document.body.appendChild(overlay);
   const amountEl = overlay.querySelector('#dep-amount');
   const dateEl = overlay.querySelector('#dep-date');
+  const permitEl = overlay.querySelector('#dep-permit');
   amountEl.addEventListener('input', () => { amountEl.value = amountEl.value.replace(/[^\d.,]/g, ''); });
   let settled = false;
   const done = (result) => {
@@ -297,7 +303,7 @@ function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
   overlay.querySelector('.sign-x').onclick = () => done(null);
   overlay.querySelector('[data-act="cancel"]').onclick = () => done(null);
   overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) done(null); });
-  overlay.querySelector('[data-act="save"]').onclick = () => done({ amount: amountEl.value.trim(), date: dateEl.value });
+  overlay.querySelector('[data-act="save"]').onclick = () => done({ amount: amountEl.value.trim(), date: dateEl.value, permitRequired: permitEl.checked });
   setTimeout(() => amountEl.focus(), 0);
 }
 
@@ -326,6 +332,17 @@ function listDepositCell(r) {
   return `<span class="dep-mini" title="받은 계약금">💰${shown}</span>`;
 }
 
+// 인허가 열 — 계약완료 시 선택한 인허가 필요 여부 (true=인허가, false=체류형쉼터, 미지정=—)
+function listPermitCell(r) {
+  const contracted = CONTRACTED_STAGES.has(stageOf(r)) || !!r.deposit_date;
+  const v = r.permit_required;
+  if (!contracted || v === null || v === undefined || v === '') return '<span class="muted small">—</span>';
+  const yes = v === true || v === 'true' || v === 1 || v === '1';
+  return yes
+    ? '<span class="permit-badge yes" title="인허가 필요 (토목·건축 인허가 진행)">인허가</span>'
+    : '<span class="permit-badge no" title="체류형쉼터 (인허가 불필요)">체류형</span>';
+}
+
 function renderListRows(rows) {
   const body = document.getElementById('list-body');
   if (!rows.length) {
@@ -342,6 +359,7 @@ function renderListRows(rows) {
       <td class="right">${fmtMan(r.total_amount) || '-'}</td>
       <td>${listDateCell(r)}</td>
       <td class="right">${listDepositCell(r)}</td>
+      <td class="center">${r.is_sample ? '' : listPermitCell(r)}</td>
       <td class="center">${r.is_sample ? '' : (Number(r.id_count) > 0
         ? `<span class="id-badge" title="신분증 ${Number(r.id_count)}매 첨부됨">📎 ${Number(r.id_count)}</span>`
         : '<span class="muted small">—</span>')}</td>
@@ -452,7 +470,11 @@ function renderListRows(rows) {
           const rec = await api.get(id);
           const data = rec.data || {};
           data.stage = stage;
-          if (deposit) data.deposit = deposit;
+          if (deposit) {
+            const { permitRequired, ...dep } = deposit;
+            data.deposit = dep;
+            data.permitRequired = !!permitRequired; // 인허가 필요 여부(미체크=체류형쉼터)
+          }
           await api.update(id, data);
           sel.className = `row-stage stage-${stage}`; // 색상 갱신
           if (cached) cached.stage = stage; // 캐시 동기화 (필터 정확도)
@@ -1388,8 +1410,14 @@ function renderDepositInfo() {
     el.innerHTML = `<button type="button" class="dep-chip" id="deposit-edit" title="계약금 입금 정보 수정">💰 계약금 ${d.amount ? esc(d.amount) + '만' : '-'}${d.date ? ` · ${esc(d.date)}` : ''}</button>`;
     const btn = document.getElementById('deposit-edit');
     if (btn) btn.onclick = () => openDepositDialog({
-      initial: current.deposit,
-      onSave: (dep) => { current.deposit = { ...dep, at: new Date().toISOString() }; renderDepositInfo(); markDirty(); },
+      initial: { ...current.deposit, permitRequired: current.permitRequired },
+      onSave: (dep) => {
+        const { permitRequired, ...rest } = dep;
+        current.deposit = { ...rest, at: new Date().toISOString() };
+        current.permitRequired = !!permitRequired;
+        renderDepositInfo();
+        markDirty();
+      },
     });
   } else {
     el.innerHTML = '';
@@ -1408,9 +1436,11 @@ function bindEditor() {
     if (val === 'completed') { // 계약완료 → 계약금 입금 정보 입력 (취소 시 원복)
       const prev = current.stage;
       openDepositDialog({
-        initial: current.deposit || {},
+        initial: { ...(current.deposit || {}), permitRequired: current.permitRequired },
         onSave: (dep) => {
-          current.deposit = { ...dep, at: new Date().toISOString() };
+          const { permitRequired, ...rest } = dep;
+          current.deposit = { ...rest, at: new Date().toISOString() };
+          current.permitRequired = !!permitRequired; // 인허가 필요 여부(미체크=체류형쉼터)
           current.stage = 'completed';
           e.target.className = 'mb-stage stage-completed';
           renderDepositInfo();
