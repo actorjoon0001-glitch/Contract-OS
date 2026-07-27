@@ -134,6 +134,7 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 .row-stage.stage-prospect, .mb-stage.stage-prospect, .badge.stage-prospect { background: #e7eef7; color: #3a5a82; border-color: #cdd9e8; }
 .row-stage.stage-negotiating, .mb-stage.stage-negotiating, .badge.stage-negotiating { background: #fff3d6; color: #97700a; border-color: #f0e2b8; }
 .row-stage.stage-deposit_wait, .mb-stage.stage-deposit_wait, .badge.stage-deposit_wait { background: #ffe3cc; color: #b5560f; border-color: #f6d2b3; }
+.row-stage.stage-deposit_partial, .mb-stage.stage-deposit_partial, .badge.stage-deposit_partial { background: #fff6bf; color: #8a6d0a; border-color: #f0e39a; }
 .row-stage.stage-completed, .mb-stage.stage-completed, .badge.stage-completed { background: #dff3e4; color: #1c7d3c; border-color: #c2e6cd; }
 .row-stage.stage-design_3d, .mb-stage.stage-design_3d, .badge.stage-design_3d { background: #ede1fb; color: #6b3fa0; border-color: #ddc9f5; }
 .row-stage.stage-production, .mb-stage.stage-production, .badge.stage-production { background: #d4eef0; color: #0f6b73; border-color: #b8e2e6; }
