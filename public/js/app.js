@@ -314,11 +314,15 @@ function listDateCell(r) {
 }
 
 // 계약금 열 — 받은 계약금 금액(만원)
+// 계약완료 처리 시 입력한 금액(deposit_amount)이 있으면 우선, 없으면 본문 계약금(downPayment)으로 대체
 function listDepositCell(r) {
   const contracted = CONTRACTED_STAGES.has(stageOf(r)) || !!r.deposit_date;
-  const amt = String(r.deposit_amount || '').trim();
-  if (!contracted || !amt) return '<span class="muted small">—</span>';
-  return `<span class="dep-mini" title="받은 계약금">💰${esc(amt)}</span>`;
+  if (!contracted) return '<span class="muted small">—</span>';
+  const explicit = String(r.deposit_amount || '').trim();
+  const amt = explicit || String(r.down_payment || '').trim();
+  if (!amt || amt === '0') return '<span class="muted small">—</span>';
+  const shown = fmtMan(amt) || esc(amt);
+  return `<span class="dep-mini" title="받은 계약금">💰${shown}</span>`;
 }
 
 function renderListRows(rows) {
