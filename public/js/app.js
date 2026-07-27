@@ -915,7 +915,7 @@ function leftCell(row) {
       </td>`;
   }
   if (row.type === 'site') {
-    return `<td class="lbl">${row.label}</td>
+    return `<td class="lbl">${row.label} <span class="req no-print">*</span></td>
       <td colspan="2" class="sitecell">${field('siteAddress', c.siteAddress, 'site')}</td>`;
   }
   return `<td class="lbl empty"></td><td colspan="2" class="empty"></td>`;
