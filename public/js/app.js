@@ -826,15 +826,15 @@ function renderEditor() {
           <td rowspan="3" class="sign-label">공급자</td>
           <td class="sign-co">${esc(SUPPLIER.company)}</td>
           <td rowspan="3" class="sign-label">계약자<br><span class="muted small">(건축주)</span></td>
-          <td class="sign-field"><span class="fl">건축주</span> <span class="sign-name">${field('client.name', c.client.name, 'name')}</span> ${signSlot('client')}</td>
+          <td class="sign-field"><span class="fl">건축주 <span class="req no-print">*</span></span> <span class="sign-name">${field('client.name', c.client.name, 'name')}</span> ${signSlot('client')}</td>
         </tr>
         <tr>
           <td class="sign-co">사업자번호 : ${esc(SUPPLIER.bizNo)}</td>
-          <td class="sign-field"><span class="fl">생년월일</span> ${field('client.birth', c.client.birth)}</td>
+          <td class="sign-field"><span class="fl">생년월일 <span class="req no-print">*</span></span> ${field('client.birth', c.client.birth)}</td>
         </tr>
         <tr>
           <td class="sign-co sign-co-rep">대표 ${esc(SUPPLIER.ceo)} ${signSlot('supplier')}</td>
-          <td class="sign-field"><span class="fl">연락처</span> ${field('client.phone', c.client.phone)}</td>
+          <td class="sign-field"><span class="fl">연락처 <span class="req no-print">*</span></span> ${field('client.phone', c.client.phone)}</td>
         </tr>
         <tr>
           <td class="sign-label">　</td>
@@ -1693,15 +1693,19 @@ function updateTotals() {
 
 // ---------- 저장 ----------
 async function saveContract() {
-  // 필수 입력 확인: 전시장·영업사원·현장주소가 비어있으면 저장 막기
+  // 필수 입력 확인: 건축주 이름·생년월일·연락처, 전시장·영업사원·현장주소가 비어있으면 저장 막기
   const required = [
+    { key: 'client.name', label: '건축주 이름' },
+    { key: 'client.birth', label: '생년월일' },
+    { key: 'client.phone', label: '연락처' },
     { key: 'showroom', label: '전시장' },
     { key: 'salesperson', label: '영업사원' },
     { key: 'siteAddress', label: '현장주소' },
   ];
-  const missing = required.filter((r) => !String(current[r.key] || '').trim());
+  const getVal = (k) => k.split('.').reduce((o, p) => (o == null ? undefined : o[p]), current);
+  const missing = required.filter((r) => !String(getVal(r.key) ?? '').trim());
   if (missing.length) {
-    alert(`다음 항목을 작성해 주세요:\n\n· ${missing.map((m) => m.label).join('\n· ')}\n\n전시장·영업사원·현장주소는 필수 입력입니다.`);
+    alert(`다음 항목을 작성해 주세요:\n\n· ${missing.map((m) => m.label).join('\n· ')}\n\n건축주 이름·생년월일·연락처, 전시장·영업사원·현장주소는 필수 입력입니다.`);
     const first = app.querySelector(`[data-path="${missing[0].key}"]`);
     if (first) { first.focus(); first.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     return;
