@@ -385,6 +385,8 @@ input.f.date.m, input.f.date.d { width: 36px; }
 .list-table td.center { text-align: center; }
 .id-badge { font-size: 12px; font-weight: 700; color: #1c7d3c; background: #dff3e4; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
 .dw-badge { font-size: 12px; font-weight: 700; color: #3a4fa0; background: #dde2fb; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+.dw-3d-btn { text-decoration: none; color: #6b3fa0; border-color: #d3c2ef; background: #f3edfc; }
+.dw-3d-btn:hover { background: #e9ddfa; }
 .quote-tag { font-size: 10.5px; font-weight: 700; color: #97700a; background: #fff3d6; padding: 1px 6px; border-radius: 20px; margin-left: 2px; white-space: nowrap; }
 .dep-mini { font-size: 10.5px; font-weight: 700; color: #1c7d3c; background: #dff3e4; padding: 1px 6px; border-radius: 20px; margin-left: 2px; white-space: nowrap; }
 .row-showroom, .row-owner { border: 1px solid #d2d7dd; border-radius: 6px; padding: 3px 6px; font-size: 12px; background: #fff; cursor: pointer; max-width: 150px; }

@@ -769,6 +769,7 @@ function renderEditor() {
         <span class="mb-title">협의도면 첨부</span>
         <span class="ic-hint muted small">협의 도면(평면도 등) 이미지·PDF 보관용 (내부 자료 · 계약서 인쇄에는 표시 안 됨)</span>
         <span class="grow"></span>
+        <a class="btn tiny dw-3d-btn" href="https://seum-home-planner.netlify.app/" target="_blank" rel="noopener" title="3D 홈플래너에서 협의도면을 보고 만들 수 있습니다 (새 창)">🏠 3D도면 만들기</a>
         <label class="btn tiny primary dw-add-btn">＋ 도면 추가
           <input type="file" id="drawing-input" accept="image/*,application/pdf,.pdf" multiple hidden />
         </label>
