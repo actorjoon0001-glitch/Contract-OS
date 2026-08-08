@@ -37,12 +37,17 @@ function setPath(obj, path, value) {
 }
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+// 3D 홈플래너 연동 — 홈플래너에서 만든 도면을 협의도면으로 직접 받는다(postMessage)
+const PLANNER_ORIGIN = 'https://seum-home-planner.netlify.app';
+const PLANNER_URL = PLANNER_ORIGIN + '/';
+
 // ---------- 라우팅 ----------
 window.addEventListener('hashchange', guardedRoute);
 window.addEventListener('DOMContentLoaded', boot);
 
 // 앱 시작: 로그인 필요 여부 확인 → 필요하면 로그인 화면, 아니면 정상 라우팅
 async function boot() {
+  window.addEventListener('message', onPlannerMessage); // 3D 홈플래너 도면 수신
   await loadAuthConfig();
   setOnAuthLost(() => { me = null; renderLogin(); });
   // 자동 로그인(SSO): 세움os에 임베드된 경우, 부모창이 넘겨주는 세션으로 로그인 시도
@@ -769,7 +774,7 @@ function renderEditor() {
         <span class="mb-title">협의도면 첨부</span>
         <span class="ic-hint muted small">협의 도면(평면도 등) 이미지·PDF 보관용 (내부 자료 · 계약서 인쇄에는 표시 안 됨)</span>
         <span class="grow"></span>
-        <a class="btn tiny dw-3d-btn" href="https://seum-home-planner.netlify.app/" target="_blank" rel="noopener" title="3D 홈플래너에서 협의도면을 보고 만들 수 있습니다 (새 창)">🏠 3D도면 만들기</a>
+        <button type="button" id="dw-3d-btn" class="btn tiny dw-3d-btn" title="3D 홈플래너에서 도면을 만들고 '계약서로 보내기'를 누르면 이 협의도면에 바로 첨부됩니다 (새 창)">🏠 3D도면 만들기</button>
         <label class="btn tiny primary dw-add-btn">＋ 도면 추가
           <input type="file" id="drawing-input" accept="image/*,application/pdf,.pdf" multiple hidden />
         </label>
@@ -1293,6 +1298,8 @@ function renderDrawings() {
 function bindDrawings() {
   const input = document.getElementById('drawing-input');
   const grid = document.getElementById('drawing-grid');
+  const btn3d = document.getElementById('dw-3d-btn');
+  if (btn3d) btn3d.onclick = openPlanner;
   if (!input || !grid) return;
 
   input.onchange = async () => {
@@ -1352,6 +1359,42 @@ function bindDrawings() {
 // 협의도면 업로드 → 공통 fileToAttachment 사용(도면은 세부 판독 위해 더 큰 해상도)
 function fileToDrawing(file) {
   return fileToAttachment(file, DRAW_MAX_DIM, DRAW_QUALITY);
+}
+
+// 3D 홈플래너 열기 — 계약서 창을 opener로 유지해 도면을 되돌려 받을 수 있게 함
+function openPlanner() {
+  window.open(PLANNER_URL, 'seum3dPlanner');
+}
+
+// 3D 홈플래너가 postMessage로 보낸 도면을 협의도면에 자동 첨부
+// 메시지 형식: { type: 'seum-drawing', image: '<dataURL>', name?, label? }
+async function onPlannerMessage(e) {
+  if (e.origin !== PLANNER_ORIGIN) return;                 // 신뢰 출처만 허용
+  const msg = e.data;
+  if (!msg || msg.type !== 'seum-drawing' || !msg.image) return;
+  if (!current) { alert('먼저 계약서를 연 상태에서 3D도면을 보내 주세요.'); return; }
+  try {
+    const dataUrl = String(msg.image);
+    const isPdf = dataUrl.startsWith('data:application/pdf');
+    const name = msg.name || (isPdf ? '3D도면.pdf' : '3D도면.png');
+    let item;
+    if (isPdf) {
+      item = { data: dataUrl, name, kind: 'file' };        // PDF는 원본 그대로 보관
+    } else {
+      // 이미지는 파일 업로드와 동일하게 축소·압축 파이프라인 통과
+      const blob = await (await fetch(dataUrl)).blob();
+      item = await fileToDrawing(new File([blob], name, { type: blob.type || 'image/png' }));
+    }
+    (current.drawings ||= []).push({ ...item, label: msg.label || '3D 홈플래너', uploadedAt: new Date().toISOString(), source: '3d-planner' });
+    current.drawingCount = current.drawings.length;
+    renderDrawings();
+    bindDrawings();
+    markDirty();
+    window.focus();
+    alert('3D 홈플래너 도면이 협의도면에 첨부되었습니다. (저장을 눌러야 최종 보관됩니다)');
+  } catch (err) {
+    alert('3D도면 첨부 실패: ' + (err.message || err));
+  }
 }
 
 // PDF 앱 내 미리보기 (data URL → Blob URL 로 iframe 렌더 — 브라우저 호환성↑)
