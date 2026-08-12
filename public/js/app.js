@@ -170,6 +170,7 @@ async function renderList() {
           <option value="">진행상태 전체</option>
           ${STAGES.map((s) => `<option value="${s.key}">${s.label}</option>`).join('')}
         </select>
+        <select id="filter-month" class="filter-sel"><option value="">전체 기간</option></select>
         <select id="filter-showroom" class="filter-sel"><option value="">전시장 전체</option></select>
         <select id="filter-sales" class="filter-sel"><option value="">영업사원 전체</option></select>
         <button class="btn" id="trash-btn" title="삭제된 계약 보기/복원">🗑 휴지통</button>
@@ -194,6 +195,7 @@ async function renderList() {
   bindAccount(app);
   document.getElementById('search').oninput = applyListFilters;
   document.getElementById('filter-stage').onchange = applyListFilters;
+  document.getElementById('filter-month').onchange = applyListFilters;
   document.getElementById('filter-showroom').onchange = applyListFilters;
   document.getElementById('filter-sales').onchange = applyListFilters;
   loadList();
@@ -208,6 +210,7 @@ async function loadList() {
     }
     const rows = await api.list('');
     // 필터 드롭다운은 실제 계약서 기준으로 채우고(샘플 값 제외), 샘플 행은 목록 맨 아래에 고정
+    populateMonthFilter(rows);
     populateFilter('filter-showroom', '전시장 전체', rows.map((r) => r.showroom));
     populateFilter('filter-sales', '영업사원 전체', rows.map((r) => r.salesperson));
     listRows = [...rows, sampleListRow()];
@@ -215,6 +218,23 @@ async function loadList() {
   } catch (err) {
     body.innerHTML = `<tr><td colspan="${listCols()}" class="center danger">목록을 불러오지 못했습니다: ${esc(err.message)}</td></tr>`;
   }
+}
+
+// 목록 날짜(월별 필터·계약일자 칸 기준): 계약된 건은 입금일, 그 외는 견적/계약일
+function rowDateStr(r) { return r.deposit_date || r.contract_date || ''; }
+
+// 월별 필터 채우기 — 데이터에 존재하는 월(YYYY-MM)만, 최근 월이 위로
+function populateMonthFilter(rows) {
+  const sel = document.getElementById('filter-month');
+  if (!sel) return;
+  const prev = sel.value;
+  const months = [...new Set(rows.map((r) => rowDateStr(r).slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)))]
+    .sort((a, b) => b.localeCompare(a));
+  sel.innerHTML = `<option value="">전체 기간</option>` + months.map((m) => {
+    const [y, mo] = m.split('-');
+    return `<option value="${m}">${y}년 ${Number(mo)}월</option>`;
+  }).join('');
+  sel.value = prev; // 선택 유지
 }
 
 function populateFilter(id, allLabel, values) {
@@ -229,10 +249,12 @@ function populateFilter(id, allLabel, values) {
 function applyListFilters() {
   const q = (document.getElementById('search').value || '').toLowerCase().trim();
   const st = document.getElementById('filter-stage').value;
+  const mo = document.getElementById('filter-month')?.value || '';
   const sr = document.getElementById('filter-showroom').value;
   const sp = document.getElementById('filter-sales').value;
   let rows = listRows;
   if (st) rows = rows.filter((r) => stageOf(r) === st);
+  if (mo) rows = rows.filter((r) => rowDateStr(r).slice(0, 7) === mo);
   if (sr) rows = rows.filter((r) => (r.showroom || '') === sr);
   if (sp) rows = rows.filter((r) => (r.salesperson || '') === sp);
   if (q) rows = rows.filter((r) =>
