@@ -668,13 +668,19 @@ function renderModelPicker() {
   // 전시장별로 그 전시장 소속 모델만 표시 (모델을 고르면 전시장이 함께 자동 설정됨)
   const modelCard = (m) => `
     <button class="mp-card mp-model" data-model="${m.id}">
-      <img class="mp-photo" src="/img/models/${m.id}.jpg" alt="${esc(m.name)} 대표사진" loading="lazy" onerror="this.remove()" />
+      <img class="mp-photo" src="/img/models/${m.photoId || m.id}.jpg" alt="${esc(m.name)} 대표사진" loading="lazy" onerror="this.remove()" />
       <span class="mp-body">
         <span class="mp-name">${esc(m.name)}</span>
         <span class="mp-meta">${esc(m.category)} · ${m.area}평</span>
         <span class="mp-price">시작가 ${fmtMan(m.startPrice)}만</span>
       </span>
     </button>`;
+  // 일산 박람회 모델(전시장 없이 영업사원 본인 전시장으로 열림)
+  const expoModels = MODELS.filter((m) => m.expo);
+  const expoSection = expoModels.length ? `
+      <h3 class="mp-section-title">🎪 일산 박람회 모델</h3>
+      <p class="muted small">박람회 출품 모델 견적서 — 누르면 본인 전시장으로 자동 세팅된 견적서가 열립니다. (신모델 2개는 임시값, 상세 수정 예정)</p>
+      <div class="mp-grid">${expoModels.map(modelCard).join('')}</div>` : '';
   const showroomSections = SHOWROOMS.map((sr) => {
     const models = MODELS.filter((m) => m.showroom === sr);
     if (!models.length) return '';
@@ -695,6 +701,7 @@ function renderModelPicker() {
           <span class="mp-meta">통합(전체 옵션) 빈 양식 · 모델 없이 모든 옵션 표시</span>
         </button>
       </div>
+      ${expoSection}
       <h3 class="mp-section-title">전시장별 모델 계약서</h3>
       <p class="muted small">모델을 고르면 해당 전시장·시작가·기본 평수가 자동으로 세팅된 계약서가 열립니다.</p>
       ${showroomSections}
@@ -764,7 +771,7 @@ function renderEditor() {
       <label>모델
         <select id="model-select" class="mb-stage">
           <option value="" ${c.modelId ? '' : 'selected'}>통합(전체 옵션)</option>
-          ${MODELS.map((m) => `<option value="${m.id}" ${c.modelId === m.id ? 'selected' : ''}>${esc(m.showroom)} · ${esc(m.name)} (${fmtMan(m.startPrice)}만)</option>`).join('')}
+          ${MODELS.map((m) => `<option value="${m.id}" ${c.modelId === m.id ? 'selected' : ''}>${esc(m.showroom || (m.expo ? '일산박람회' : ''))} · ${esc(m.name)} (${fmtMan(m.startPrice)}만)</option>`).join('')}
         </select>
       </label>
       <label>전시장 <span class="req">*</span> ${showroomSelect(c.showroom)}</label>
