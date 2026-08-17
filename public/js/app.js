@@ -804,6 +804,7 @@ function renderEditor() {
         <span class="ic-hint muted small">협의 도면(평면도 등) 이미지·PDF 보관용 (내부 자료 · 계약서 인쇄에는 표시 안 됨)</span>
         <span class="grow"></span>
         <button type="button" id="dw-3d-btn" class="btn tiny dw-3d-btn" title="3D 홈플래너에서 도면을 만들고 '계약서로 보내기'를 누르면 이 협의도면에 바로 첨부됩니다 (새 창)">🏠 3D도면 만들기</button>
+        <button type="button" id="dw-mat-btn" class="btn tiny dw-mat-btn" title="자재 선택 페이지에서 항목별 자재를 고르고 '계약서로 보내기'를 누르면 선택표가 협의도면에 첨부됩니다 (새 창)">🎨 자재 선택</button>
         <label class="btn tiny primary dw-add-btn">＋ 도면 추가
           <input type="file" id="drawing-input" accept="image/*,application/pdf,.pdf" multiple hidden />
         </label>
@@ -1329,6 +1330,8 @@ function bindDrawings() {
   const grid = document.getElementById('drawing-grid');
   const btn3d = document.getElementById('dw-3d-btn');
   if (btn3d) btn3d.onclick = openPlanner;
+  const btnMat = document.getElementById('dw-mat-btn');
+  if (btnMat) btnMat.onclick = openMaterials;
   if (!input || !grid) return;
 
   input.onchange = async () => {
@@ -1396,34 +1399,54 @@ function openPlanner() {
   window.open(`${PLANNER_URL}?${params.toString()}`, 'seum3dPlanner');
 }
 
-// 3D 홈플래너가 postMessage로 보낸 도면(2D 평면도 + 3D 투시)을 협의도면에 자동 첨부
-// 홈플래너 전송 형식: { type: 'SEUM_DESIGN', name, planImage, view3d, cid, ts }
+// 자재 선택 페이지 열기 (계약서와 같은 사이트 내 페이지) — origin·cid 전달
+function openMaterials() {
+  const params = new URLSearchParams({ origin: location.origin, cid: String(currentId || 'new') });
+  window.open(`/materials.html?${params.toString()}`, 'seumMaterials');
+}
+
+// 이미지(dataURL) 여러 장을 협의도면에 첨부 (축소·압축 파이프라인 통과)
+async function attachDrawingImages(shots, source) {
+  for (const s of shots) {
+    const blob = await (await fetch(s.img)).blob();
+    const item = await fileToDrawing(new File([blob], `${s.label}.jpg`, { type: blob.type || 'image/jpeg' }));
+    (current.drawings ||= []).push({ ...item, label: s.label, uploadedAt: new Date().toISOString(), source });
+  }
+  current.drawingCount = current.drawings.length;
+  renderDrawings();
+  bindDrawings();
+  markDirty();
+  try { window.focus(); } catch { /* noop */ }
+}
+
+// 외부 창(홈플래너·자재선택)에서 postMessage로 보낸 이미지를 협의도면에 자동 첨부
+//  - 홈플래너: { type:'SEUM_DESIGN', planImage, view3d, name }  (출처: PLANNER_ORIGIN)
+//  - 자재선택: { type:'SEUM_MATERIALS', image, name }           (출처: 같은 사이트)
 async function onPlannerMessage(e) {
-  if (e.origin !== PLANNER_ORIGIN) return;                 // 신뢰 출처만 허용
   const msg = e.data;
-  if (!msg || msg.type !== 'SEUM_DESIGN') return;
-  if (!current) { alert('먼저 계약서를 연 상태에서 3D도면을 보내 주세요.'); return; }
-  const base = msg.name || '홈플래너 도면';
-  const shots = [
-    { img: msg.planImage, label: `${base} · 평면도` },
-    { img: msg.view3d, label: `${base} · 3D 투시` },
-  ].filter((s) => s.img && String(s.img).startsWith('data:image'));
-  if (!shots.length) { alert('받은 도면 이미지가 없습니다. 홈플래너에서 다시 시도해 주세요.'); return; }
+  if (!msg) return;
+  let shots, source, label;
+  if (msg.type === 'SEUM_DESIGN' && e.origin === PLANNER_ORIGIN) {
+    const base = msg.name || '홈플래너 도면';
+    shots = [
+      { img: msg.planImage, label: `${base} · 평면도` },
+      { img: msg.view3d, label: `${base} · 3D 투시` },
+    ].filter((s) => s.img && String(s.img).startsWith('data:image'));
+    source = '3d-planner'; label = '3D 홈플래너 도면';
+  } else if (msg.type === 'SEUM_MATERIALS' && e.origin === location.origin) {
+    shots = [{ img: msg.image, label: msg.name || '자재 선택표' }]
+      .filter((s) => s.img && String(s.img).startsWith('data:image'));
+    source = 'materials'; label = '자재 선택표';
+  } else {
+    return; // 알 수 없는 메시지·출처 무시
+  }
+  if (!current) { alert('먼저 계약서를 연 상태에서 보내 주세요.'); return; }
+  if (!shots.length) { alert('받은 이미지가 없습니다. 다시 시도해 주세요.'); return; }
   try {
-    for (const s of shots) {
-      // 이미지는 파일 업로드와 동일하게 축소·압축 파이프라인 통과
-      const blob = await (await fetch(s.img)).blob();
-      const item = await fileToDrawing(new File([blob], `${s.label}.jpg`, { type: blob.type || 'image/jpeg' }));
-      (current.drawings ||= []).push({ ...item, label: s.label, uploadedAt: new Date().toISOString(), source: '3d-planner' });
-    }
-    current.drawingCount = current.drawings.length;
-    renderDrawings();
-    bindDrawings();
-    markDirty();
-    window.focus();
-    alert(`3D 홈플래너 도면 ${shots.length}장이 협의도면에 첨부되었습니다. (저장을 눌러야 최종 보관됩니다)`);
+    await attachDrawingImages(shots, source);
+    alert(`${label} ${shots.length}장이 협의도면에 첨부되었습니다. (저장을 눌러야 최종 보관됩니다)`);
   } catch (err) {
-    alert('3D도면 첨부 실패: ' + (err.message || err));
+    alert('첨부 실패: ' + (err.message || err));
   }
 }
 
