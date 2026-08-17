@@ -17,21 +17,33 @@
     .btn:hover { background:#f1f3f5; }
     .btn.primary { background:var(--brand); border-color:var(--brand); color:#fff; }
     .btn.primary:hover { background:#18548f; }
-    .wrap { max-width:980px; margin:20px auto 120px; padding:0 16px; }
+    .wrap { max-width:1040px; margin:20px auto 120px; padding:0 16px; }
     .intro { color:#555; font-size:13.5px; margin:6px 2px 18px; }
     .cat { background:#fff; border:1px solid #e2e6ea; border-radius:12px; padding:14px 16px; margin-bottom:14px; box-shadow:0 1px 5px rgba(0,0,0,.05); }
-    .cat h3 { margin:0 0 10px; font-size:15px; color:#1c2533; display:flex; align-items:center; gap:8px; }
+    .cat h3 { margin:0 0 12px; font-size:15px; color:#1c2533; display:flex; align-items:center; gap:8px; }
     .cat h3 .pick { font-size:12px; font-weight:600; color:var(--brand); }
+    /* 텍스트 칩 */
     .opts { display:flex; flex-wrap:wrap; gap:8px; }
     .opt { border:1px solid #cdd4dd; background:#f8fafc; color:#333; padding:8px 14px; border-radius:20px; cursor:pointer; font-size:13.5px; user-select:none; }
     .opt:hover { border-color:var(--brand); }
     .opt.sel { background:var(--brand); border-color:var(--brand); color:#fff; font-weight:700; }
-    .memo { width:100%; margin-top:10px; border:1px solid #cdd4dd; border-radius:8px; padding:8px 10px; font-size:13px; resize:vertical; min-height:38px; font-family:inherit; }
+    /* 사진 카드 */
+    .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+    .card { border:2px solid #e2e6ea; border-radius:10px; overflow:hidden; cursor:pointer; background:#fff; transition:border-color .12s, box-shadow .12s; }
+    .card:hover { border-color:var(--brand); box-shadow:0 3px 10px rgba(30,80,160,.12); }
+    .card.sel { border-color:var(--brand); box-shadow:0 0 0 2px rgba(31,95,168,.25); }
+    .card .ph { width:100%; height:140px; object-fit:cover; display:block; background:#eef1f5; }
+    .card .cap { padding:8px 10px; font-size:12.5px; font-weight:600; color:#1c2533; line-height:1.3; }
+    .card.sel .cap { color:var(--brand); }
+    .card .chk { display:none; }
+    .card.sel .chk { display:inline; color:var(--ok); font-weight:800; margin-right:3px; }
+    .memo { width:100%; margin-top:6px; border:1px solid #cdd4dd; border-radius:8px; padding:8px 10px; font-size:13px; resize:vertical; min-height:38px; font-family:inherit; }
     .foot { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--line); box-shadow:0 -2px 8px rgba(0,0,0,.07); padding:12px 20px; display:flex; align-items:center; gap:12px; }
     .foot .sum { flex:1; font-size:13px; color:#444; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .foot .sum b { color:var(--brand); }
     .hint { font-size:12px; color:#8a8f96; }
     .banner { background:#fff7e6; border:1px solid #f0e0c0; color:#8a6d1a; font-size:12.5px; border-radius:8px; padding:9px 12px; margin-bottom:14px; }
+    .sec-title { margin:22px 2px 8px; font-size:14px; font-weight:800; color:#3a4250; border-bottom:1px solid #e2e7ee; padding-bottom:6px; }
   </style>
 </head>
 <body>
@@ -44,12 +56,12 @@
   </header>
 
   <main class="wrap">
-    <p class="intro">건축주와 협의하며 항목별 자재를 선택하세요. 다 고른 뒤 <b>계약서로 보내기</b>를 누르면 선택표가 계약서 협의도면에 자동 첨부됩니다.</p>
+    <p class="intro">건축주와 협의하며 항목별 자재를 선택하세요. 사진을 누르면 선택됩니다. 다 고른 뒤 <b>계약서로 보내기</b>를 누르면 선택표가 계약서 협의도면에 자동 첨부됩니다.</p>
     <div class="banner" id="ctx-banner">계약서의 <b>🎨 자재 선택</b> 버튼으로 열어야 계약서로 전송됩니다.</div>
     <div id="cats"></div>
     <div class="cat">
       <h3>기타 요청사항</h3>
-      <textarea class="memo" id="global-memo" placeholder="예: 외장 색상 화이트 계열, 창호 색상 블랙 등 추가 요청"></textarea>
+      <textarea class="memo" id="global-memo" placeholder="예: 외장 색상 화이트 계열, 창호 색상 블랙, 도면 참고사항 등"></textarea>
     </div>
   </main>
 
@@ -59,98 +71,137 @@
   </footer>
 
   <script>
-  // ── 자재 카테고리 (여기 배열만 수정하면 항목·선택지가 바뀝니다) ──
-  const CATEGORIES = [
-    { key:'exterior', label:'외장재', options:['세라믹사이딩','스타코플렉스','파벽돌(청고)','리얼징크','목재사이딩','벽돌타일'] },
-    { key:'roof',     label:'지붕재', options:['리얼징크','컬러강판','아스팔트슁글','오지기와'] },
-    { key:'window',   label:'창호',   options:['이중창(하이샤시)','시스템창호','독일식 시스템창','미국식 시스템창'] },
-    { key:'door',     label:'현관문', options:['단열 현관문','방화문','원목 도어'] },
-    { key:'floor',    label:'바닥재', options:['강마루','강화마루','SPC 타일','원목마루'] },
-    { key:'wall',     label:'벽 마감', options:['실크벽지','합지벽지','친환경 도장','아트월'] },
-    { key:'kitchen',  label:'주방',   options:['하이그로시','PET','무광 UV','인조대리석 상판'] },
-    { key:'bath',     label:'욕실',   options:['도기 일체형','젠다이 시공','건식','습식'] },
+  const IMG = '/img/materials/';
+  // ── 자재 목록 ──
+  //  section: 화면 구역, type:'chips'(텍스트) | 'cards'(사진)
+  //  cards 항목: { label, img } — img는 /img/materials/ 내 파일명
+  const GROUPS = [
+    { section:'외장 · 구조 자재', cats:[
+      { key:'exterior', label:'외장재', type:'chips', options:['세라믹사이딩','스타코플렉스','파벽돌(청고)','리얼징크','목재사이딩','벽돌타일'] },
+      { key:'roof',     label:'지붕재', type:'chips', options:['리얼징크','컬러강판','아스팔트슁글','오지기와'] },
+      { key:'window',   label:'창호',   type:'chips', options:['이중창(하이샤시)','시스템창호','독일식 시스템창','미국식 시스템창'] },
+      { key:'entrance', label:'현관문', type:'chips', options:['단열 현관문','방화문','원목 도어'] },
+    ]},
+    { section:'인테리어 마감재 (카탈로그)', cats:[
+      { key:'kitchen_tile', label:'주방타일', type:'cards', items:[
+        {label:'7001', img:'p1_1.jpg'}, {label:'7002', img:'p1_2.jpg'}, {label:'7003', img:'p1_3.jpg'} ]},
+      { key:'entrance_tile', label:'현관타일', type:'cards', items:[
+        {label:'33001-5', img:'p1_4.jpg'}, {label:'1115', img:'p1_5.jpg'} ]},
+      { key:'bath_tile', label:'화장실·다용도실 타일 (벽/바닥)', type:'cards', items:[
+        {label:'벽 3728 · 바닥 1128', img:'p2_1.jpg'}, {label:'벽 3729 · 바닥 33017-3', img:'p2_2.jpg'},
+        {label:'벽 3506 · 바닥 308', img:'p2_3.jpg'}, {label:'벽 37015 · 바닥 33017-3', img:'p2_4.jpg'},
+        {label:'벽 3728 · 바닥 1115', img:'p2_5.jpg'}, {label:'벽 3510 · 바닥 33001-5', img:'p2_6.jpg'} ]},
+      { key:'basin_toilet', label:'세면기 · 양변기', type:'cards', items:[
+        {label:'세면기 PB 167', img:'p3_2.jpg'}, {label:'양변기 WB 3000', img:'p3_1.jpg'} ]},
+      { key:'faucet', label:'수전', type:'cards', items:[
+        {label:'세면수전 ST 0150', img:'p3_3.jpg'}, {label:'해바라기수전 851W 3WAY', img:'p3_4.jpg'} ]},
+      { key:'bath_cabinet', label:'욕실장', type:'cards', items:[
+        {label:'댐퍼 슬라이드장 1200*800', img:'p4_2.jpg'}, {label:'누드장(앞면거울) 500*800', img:'p4_1.jpg'},
+        {label:'오픈누드장 500*800', img:'p4_3.jpg'}, {label:'PS장/우드무늬화이트 500*800', img:'p4_4.jpg'},
+        {label:'상*하단장 세트', img:'p5_1.jpg'}, {label:'3D 오픈장 600*800', img:'p5_2.jpg'} ]},
+      { key:'mirror', label:'거울', type:'cards', items:[
+        {label:'누드거울 600*800', img:'p6_1.jpg'}, {label:'LED 3색 원형 600*600', img:'p6_2.jpg'},
+        {label:'LED 3색 망고형(물방울)', img:'p6_3.jpg'} ]},
+      { key:'shelf', label:'코너선반', type:'cards', items:[
+        {label:'강화유리 코너선반', img:'p6_5.jpg'}, {label:'원형투명 코너선반', img:'p6_4.jpg'},
+        {label:'브론즈 코너선반', img:'p6_6.jpg'} ]},
+      { key:'jendai', label:'젠다이', type:'cards', items:[
+        {label:'크리스탈 화이트 젠다이', img:'p7_2.jpg'}, {label:'G22 블랙마블 젠다이', img:'p7_1.jpg'} ]},
+      { key:'bath_acc', label:'욕실 액세서리', type:'cards', items:[
+        {label:'휴지걸이/수건걸이 세트', img:'p7_4.jpg'}, {label:'청소건', img:'p7_3.jpg'} ]},
+      { key:'partition', label:'파티션', type:'cards', items:[
+        {label:'줄무늬 파티션', img:'p8_1.jpg'}, {label:'브론즈 파티션', img:'p8_2.jpg'} ]},
+    ]},
   ];
+  const CATS = GROUPS.flatMap((g) => g.cats);
 
   const params = new URLSearchParams(location.search);
   const targetOrigin = params.get('origin') || '*';
   const cid = params.get('cid') || '';
-  const state = {}; // { catKey: selectedOption }
+  const state = {}; // { catKey: selectedLabel }
 
   const catsEl = document.getElementById('cats');
-  CATEGORIES.forEach((c) => {
-    const card = document.createElement('div');
-    card.className = 'cat';
-    card.innerHTML = `<h3>${c.label} <span class="pick" id="pick-${c.key}"></span></h3>
-      <div class="opts">${c.options.map((o) => `<span class="opt" data-cat="${c.key}" data-opt="${o}">${o}</span>`).join('')}</div>`;
-    catsEl.appendChild(card);
+  GROUPS.forEach((g) => {
+    const sec = document.createElement('div');
+    sec.className = 'sec-title';
+    sec.textContent = g.section;
+    catsEl.appendChild(sec);
+    g.cats.forEach((c) => {
+      const card = document.createElement('div');
+      card.className = 'cat';
+      if (c.type === 'cards') {
+        card.innerHTML = `<h3>${c.label} <span class="pick" id="pick-${c.key}"></span></h3>
+          <div class="cards">${c.items.map((it) => `
+            <div class="card" data-cat="${c.key}" data-opt="${it.label}">
+              <img class="ph" src="${IMG}${it.img}" alt="${it.label}" loading="lazy" onerror="this.style.display='none'" />
+              <div class="cap"><span class="chk">✔</span>${it.label}</div>
+            </div>`).join('')}</div>`;
+      } else {
+        card.innerHTML = `<h3>${c.label} <span class="pick" id="pick-${c.key}"></span></h3>
+          <div class="opts">${c.options.map((o) => `<span class="opt" data-cat="${c.key}" data-opt="${o}">${o}</span>`).join('')}</div>`;
+      }
+      catsEl.appendChild(card);
+    });
   });
 
-  catsEl.querySelectorAll('.opt').forEach((el) => {
-    el.onclick = () => {
-      const cat = el.dataset.cat, opt = el.dataset.opt;
-      if (state[cat] === opt) { delete state[cat]; }      // 다시 누르면 해제
-      else { state[cat] = opt; }
-      // 같은 카테고리 내 선택 표시 갱신
-      catsEl.querySelectorAll(`.opt[data-cat="${cat}"]`).forEach((o) => o.classList.toggle('sel', o.dataset.opt === state[cat]));
-      document.getElementById('pick-' + cat).textContent = state[cat] ? `→ ${state[cat]}` : '';
-      renderSummary();
-    };
+  function selectOpt(cat, opt, scope) {
+    if (state[cat] === opt) delete state[cat]; else state[cat] = opt;
+    scope.querySelectorAll(`[data-cat="${cat}"]`).forEach((o) => o.classList.toggle('sel', o.dataset.opt === state[cat]));
+    document.getElementById('pick-' + cat).textContent = state[cat] ? `→ ${state[cat]}` : '';
+    renderSummary();
+  }
+  catsEl.querySelectorAll('.opt, .card').forEach((el) => {
+    el.onclick = () => selectOpt(el.dataset.cat, el.dataset.opt, catsEl);
   });
 
   document.getElementById('reset-btn').onclick = () => {
     for (const k in state) delete state[k];
-    catsEl.querySelectorAll('.opt.sel').forEach((o) => o.classList.remove('sel'));
+    catsEl.querySelectorAll('.sel').forEach((o) => o.classList.remove('sel'));
     catsEl.querySelectorAll('.pick').forEach((p) => p.textContent = '');
     document.getElementById('global-memo').value = '';
     renderSummary();
   };
 
   function selectedList() {
-    return CATEGORIES.filter((c) => state[c.key]).map((c) => ({ label: c.label, value: state[c.key] }));
+    return CATS.filter((c) => state[c.key]).map((c) => ({ label: c.label, value: state[c.key] }));
   }
   function renderSummary() {
     const list = selectedList();
-    const sum = document.getElementById('summary');
-    sum.innerHTML = list.length
+    document.getElementById('summary').innerHTML = list.length
       ? list.map((s) => `${s.label}: <b>${s.value}</b>`).join(' · ')
       : '선택된 자재가 없습니다.';
   }
 
-  // 선택 내용을 깔끔한 표 이미지(PNG)로 렌더 → 계약서 협의도면에 첨부
+  // 선택 내용을 표 이미지(PNG)로 렌더 → 계약서 협의도면에 첨부
   function buildImage() {
     const list = selectedList();
     const memo = document.getElementById('global-memo').value.trim();
-    const W = 1000, pad = 40, rowH = 52, headH = 120;
+    const W = 1040, pad = 40, rowH = 50, headH = 120;
     const rows = list.length + (memo ? 1 : 0);
     const H = headH + Math.max(1, rows) * rowH + pad;
-    const cv = document.createElement('canvas');
-    cv.width = W; cv.height = H;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const x = cv.getContext('2d');
-    x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H);
-    // 헤더
+    x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
     x.fillStyle = '#1f5fa8'; x.fillRect(0, 0, W, 8);
     x.fillStyle = '#1c2533'; x.font = 'bold 34px "Malgun Gothic",sans-serif';
     x.fillText('자재 선택표', pad, 62);
-    const today = new Date();
-    const ymd = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    const t = new Date();
+    const ymd = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
     x.fillStyle = '#888'; x.font = '18px "Malgun Gothic",sans-serif';
     x.fillText(`㈜세움디자인하우징 · ${ymd}`, pad, 92);
-    // 표
     let y = headH;
-    x.font = '20px "Malgun Gothic",sans-serif';
-    const drawRow = (label, value, i) => {
-      x.fillStyle = i % 2 ? '#f6f8fb' : '#ffffff';
-      x.fillRect(pad, y, W - pad*2, rowH);
+    const row = (label, value, i) => {
+      x.fillStyle = i % 2 ? '#f6f8fb' : '#fff'; x.fillRect(pad, y, W - pad*2, rowH);
       x.strokeStyle = '#e2e6ea'; x.strokeRect(pad, y, W - pad*2, rowH);
-      x.fillStyle = '#555'; x.font = '18px "Malgun Gothic",sans-serif';
-      x.fillText(label, pad + 18, y + 33);
-      x.fillStyle = '#1c2533'; x.font = 'bold 20px "Malgun Gothic",sans-serif';
-      x.fillText(value, pad + 230, y + 33);
+      x.fillStyle = '#555'; x.font = '17px "Malgun Gothic",sans-serif';
+      x.fillText(label, pad + 16, y + 32);
+      x.fillStyle = '#1c2533'; x.font = 'bold 19px "Malgun Gothic",sans-serif';
+      x.fillText(value, pad + 330, y + 32);
       y += rowH;
     };
-    if (!list.length && !memo) { drawRow('선택 없음', '-', 0); }
-    list.forEach((s, i) => drawRow(s.label, s.value, i));
-    if (memo) drawRow('기타 요청', memo, list.length);
+    if (!list.length && !memo) row('선택 없음', '-', 0);
+    list.forEach((s, i) => row(s.label, s.value, i));
+    if (memo) row('기타 요청', memo, list.length);
     return cv.toDataURL('image/png');
   }
 
@@ -158,20 +209,14 @@
     const list = selectedList();
     const memo = document.getElementById('global-memo').value.trim();
     if (!list.length && !memo) { alert('먼저 자재를 하나 이상 선택해 주세요.'); return; }
-    const image = buildImage();
-    const msg = { type: 'SEUM_MATERIALS', name: '자재 선택표', image, selections: list, memo, cid, ts: Date.now() };
+    const msg = { type: 'SEUM_MATERIALS', name: '자재 선택표', image: buildImage(), selections: list, memo, cid, ts: Date.now() };
     let sent = false;
     try { if (window.opener && !window.opener.closed) { window.opener.postMessage(msg, targetOrigin); sent = true; } } catch (e) {}
     try { if (!sent && window.parent && window.parent !== window) { window.parent.postMessage(msg, targetOrigin); sent = true; } } catch (e) {}
-    if (sent) {
-      alert('자재 선택표를 계약서로 보냈습니다. 계약서 창의 협의도면 첨부를 확인하세요.');
-      try { window.focus(); } catch (e) {}
-    } else {
-      alert('계약서 창을 찾지 못했습니다. 계약서의 "🎨 자재 선택" 버튼으로 열어야 전송됩니다.');
-    }
+    if (sent) { alert('자재 선택표를 계약서로 보냈습니다. 계약서 창의 협의도면 첨부를 확인하세요.'); try { window.focus(); } catch (e) {} }
+    else { alert('계약서 창을 찾지 못했습니다. 계약서의 "🎨 자재 선택" 버튼으로 열어야 전송됩니다.'); }
   };
 
-  // 컨텍스트 안내
   if (window.opener && !window.opener.closed) {
     document.getElementById('ctx-banner').style.display = 'none';
     document.getElementById('ctx-hint').textContent = cid && cid !== 'new' ? `계약 #${cid} 연결됨` : '새 계약서 연결됨';
