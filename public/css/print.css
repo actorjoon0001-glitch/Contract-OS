@@ -66,4 +66,17 @@
 
   /* 페이지 잘림 방지 */
   table, tr, td, th { page-break-inside: avoid; }
+
+  /* 관리자 통계 페이지 인쇄 */
+  .admin-wrap { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
+  .adm-report-head { font-size: 13px; margin-bottom: 10px; }
+  .kpi-row { grid-template-columns: repeat(6, 1fr) !important; gap: 6px !important; }
+  .kpi-card { padding: 8px 10px; break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .kpi-val { font-size: 17px; }
+  .adm-scroll { overflow: visible !important; box-shadow: none !important; border: none !important; }
+  .adm-table { font-size: 10.5px; }
+  .adm-table th, .adm-table td { padding: 4px 7px; }
+  .adm-table thead th, .adm-table tr.adm-show > td, .adm-table tfoot td {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
 }

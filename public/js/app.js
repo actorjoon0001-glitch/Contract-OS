@@ -591,14 +591,16 @@ async function renderAdmin() {
       <div class="brand"><span class="logo">SEUM</span> 관리자 페이지 <small>계약 통계 · KPI</small></div>
       <div class="actions">
         <select id="adm-month" class="filter-sel" title="조회할 월 선택"></select>
+        <button class="btn" id="adm-print-btn" title="이 통계를 인쇄 / PDF">🖨 인쇄</button>
         <button class="btn" id="back-btn">← 목록으로</button>
         ${accountChip()}
       </div>
     </div>
-    <div class="admin-wrap no-print" id="admin-wrap">
+    <div class="admin-wrap" id="admin-wrap">
       <p class="muted center" style="padding:48px">불러오는 중…</p>
     </div>`;
   document.getElementById('back-btn').onclick = () => go('#/');
+  document.getElementById('adm-print-btn').onclick = () => window.print();
   bindAccount(app);
   try {
     adminRows = (await api.list('')).filter((r) => !r.is_sample);
@@ -729,6 +731,7 @@ function renderAdminBody(period) {
   }
 
   wrap.innerHTML = `
+    <div class="adm-report-head">㈜세움디자인하우징 · 계약 통계 · KPI <b>${periodLabel}</b></div>
     <div class="kpi-row">${kpi.map((k) => `<div class="kpi-card"><div class="kpi-val ${k.cls || ''}">${k.val}</div><div class="kpi-label">${k.label}</div></div>`).join('')}</div>
     <h3 class="adm-h">전시장 · 영업사원별 실적 <span class="muted small">— ${periodLabel} · 개인 (계약완료 기준)</span></h3>
     ${table}
