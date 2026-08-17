@@ -644,12 +644,15 @@ function renderAdminBody(period) {
   ];
   // ── 전시장 → 영업사원 → 월별 계약(완료) 건수 ──
   const months = [...new Set(contracted.map((r) => admDateStr(r).slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)))].sort();
-  // 그룹: 전시장 → 영업사원
+  // 그룹: 전시장 → 영업사원 (개인). 2명 이상 함께 적힌 건은 별도 '공동 계약'으로 분리
   const groups = {}; // showroom -> salesperson -> { done, quotes, amt, dep }
+  const coop = {};   // "showroom|names" -> { sh, sp, done, quotes, amt, dep }
+  const isCoop = (sp) => sp.split(/[,\/]/).map((s) => s.trim()).filter(Boolean).length >= 2;
   for (const r of rows) {
-    const sh = admShowroom(r.showroom), sp = (r.salesperson || '미지정');
-    groups[sh] = groups[sh] || {};
-    const g = groups[sh][sp] = groups[sh][sp] || { done: 0, quotes: 0, amt: 0, dep: 0 };
+    const sh = admShowroom(r.showroom), sp = (r.salesperson || '미지정').trim();
+    let g;
+    if (isCoop(sp)) { g = coop[sh + '|' + sp] = coop[sh + '|' + sp] || { sh, sp, done: 0, quotes: 0, amt: 0, dep: 0 }; }
+    else { groups[sh] = groups[sh] || {}; g = groups[sh][sp] = groups[sh][sp] || { done: 0, quotes: 0, amt: 0, dep: 0 }; }
     if (admContracted(r)) { g.done += 1; g.amt += admNum(r.total_amount); g.dep += admNum(r.deposit_amount || r.down_payment); }
     else if (stageOf(r) !== 'canceled') { g.quotes += 1; }
   }
@@ -658,10 +661,12 @@ function renderAdminBody(period) {
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b, 'ko');
   });
 
-  // ── 전시장 → 영업사원 실적 표 (선택 기간) ──
+  // ── 전시장 → 영업사원(개인) 실적 표 (선택 기간) ──
   let table;
   if (!rows.length) {
     table = `<p class="muted center" style="padding:28px">${periodLabel}에 해당하는 계약이 없습니다.</p>`;
+  } else if (!showNames.length) {
+    table = `<p class="muted center" style="padding:28px">개인 영업사원 실적이 없습니다. (아래 공동 계약 참고)</p>`;
   } else {
     let gDone = 0, gQuote = 0, gAmt = 0, gDep = 0, body = '';
     for (const sh of showNames) {
@@ -688,14 +693,38 @@ function renderAdminBody(period) {
     table = `<div class="adm-scroll"><table class="adm-table">
       <thead><tr><th>전시장 / 영업사원</th><th class="right">계약완료</th><th class="right">견적·진행</th><th class="right">전환율</th><th class="right">계약금액(만)</th><th class="right">받은계약금(만)</th></tr></thead>
       <tbody>${body}</tbody>
-      <tfoot><tr><td>전체 합계</td><td class="right adm-tot">${gDone}</td><td class="right">${gQuote}</td><td class="right">·</td><td class="right">${fmtMan(gAmt) || '·'}</td><td class="right">${fmtMan(gDep) || '·'}</td></tr></tfoot>
+      <tfoot><tr><td>개인 합계</td><td class="right adm-tot">${gDone}</td><td class="right">${gQuote}</td><td class="right">·</td><td class="right">${fmtMan(gAmt) || '·'}</td><td class="right">${fmtMan(gDep) || '·'}</td></tr></tfoot>
     </table></div>`;
+  }
+
+  // ── 공동 계약(2인 이상) 별도 표 ──
+  const coopList = Object.values(coop).sort((a, b) => b.done - a.done || b.amt - a.amt || a.sp.localeCompare(b.sp, 'ko'));
+  let coopTable = '';
+  if (coopList.length) {
+    let cD = 0, cQ = 0, cA = 0, cP = 0;
+    const rowsHtml = coopList.map((g) => {
+      const denom = g.done + g.quotes; const conv = denom ? Math.round(g.done / denom * 100) : 0;
+      cD += g.done; cQ += g.quotes; cA += g.amt; cP += g.dep;
+      return `<tr>
+        <td class="adm-sp">${esc(g.sp)}</td><td class="muted">${esc(g.sh)}</td>
+        <td class="right adm-tot">${g.done || '·'}</td><td class="right muted">${g.quotes || '·'}</td>
+        <td class="right">${denom ? conv + '%' : '·'}</td>
+        <td class="right">${fmtMan(g.amt) || '·'}</td><td class="right">${fmtMan(g.dep) || '·'}</td></tr>`;
+    }).join('');
+    coopTable = `
+      <h3 class="adm-h">공동 계약 <span class="muted small">— 2인 이상 함께 진행한 건 (개인 실적과 분리)</span></h3>
+      <div class="adm-scroll"><table class="adm-table">
+        <thead><tr><th>공동 영업사원</th><th>전시장</th><th class="right">계약완료</th><th class="right">견적·진행</th><th class="right">전환율</th><th class="right">계약금액(만)</th><th class="right">받은계약금(만)</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+        <tfoot><tr><td colspan="2">공동 합계</td><td class="right adm-tot">${cD}</td><td class="right">${cQ}</td><td class="right">·</td><td class="right">${fmtMan(cA) || '·'}</td><td class="right">${fmtMan(cP) || '·'}</td></tr></tfoot>
+      </table></div>`;
   }
 
   wrap.innerHTML = `
     <div class="kpi-row">${kpi.map((k) => `<div class="kpi-card"><div class="kpi-val ${k.cls || ''}">${k.val}</div><div class="kpi-label">${k.label}</div></div>`).join('')}</div>
-    <h3 class="adm-h">전시장 · 영업사원별 실적 <span class="muted small">— ${periodLabel} (계약완료 기준)</span></h3>
-    ${table}`;
+    <h3 class="adm-h">전시장 · 영업사원별 실적 <span class="muted small">— ${periodLabel} · 개인 (계약완료 기준)</span></h3>
+    ${table}
+    ${coopTable}`;
 }
 
 // ---------- 휴지통 화면 ----------
