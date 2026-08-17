@@ -411,6 +411,12 @@ input.f.date.m, input.f.date.d { width: 36px; }
 .adm-table .adm-sp { padding-left: 26px; }
 .adm-table .adm-tot { font-weight: 800; color: var(--brand); }
 .adm-table tfoot td { background: #f3f5f8; font-weight: 800; border-top: 2px solid #d9dee4; }
+.adm-target { width: 70px; text-align: right; border: 1px solid #c4c9d0; border-radius: 6px; padding: 4px 7px; font-size: 12.5px; }
+.adm-target:focus { outline: none; border-color: var(--brand); }
+.adm-target-amt { width: 84px; }
+.ach-ok { color: var(--ok); }
+.ach-warn { color: #b8860b; }
+.ach-danger { color: var(--danger); }
 .dw-3d-btn { text-decoration: none; color: #6b3fa0; border-color: #d3c2ef; background: #f3edfc; }
 .dw-3d-btn:hover { background: #e9ddfa; }
 .dw-mat-btn { text-decoration: none; color: #0f6b73; border-color: #b8e2e6; background: #e8f6f7; }

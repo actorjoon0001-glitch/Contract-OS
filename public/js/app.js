@@ -583,6 +583,15 @@ function renderListRows(rows) {
 // ---------- 관리자 통계 페이지 (관리자 전용) ----------
 let adminRows = [];
 let adminEmps = [];
+let adminTargets = {}; // { 영업사원: { count, amount(만) } } — 월 목표(이 기기 저장)
+function loadTargets() { try { return JSON.parse(localStorage.getItem('seum_admin_targets') || '{}'); } catch { return {}; } }
+function saveTargets() { try { localStorage.setItem('seum_admin_targets', JSON.stringify(adminTargets)); } catch { /* 저장 실패 무시 */ } }
+function achHtml(actual, target) {
+  if (!target) return '<span class="muted">·</span>';
+  const p = Math.round(actual / target * 100);
+  const cls = p >= 100 ? 'ok' : (p >= 70 ? 'warn' : 'danger');
+  return `<b class="ach-${cls}">${p}%</b>`;
+}
 async function renderAdmin() {
   if (!canManageList()) return go('#/'); // 관리자 외 접근 차단
   current = null; currentId = null; dirty = false;
@@ -605,6 +614,7 @@ async function renderAdmin() {
   try {
     adminRows = (await api.list('')).filter((r) => !r.is_sample);
     try { adminEmps = await api.employees(); } catch { adminEmps = []; } // 세움os 직원 명부(전시장 소속)
+    adminTargets = loadTargets();
   } catch (err) {
     document.getElementById('admin-wrap').innerHTML = `<p class="center danger" style="padding:40px">통계를 불러오지 못했습니다: ${esc(err.message)}</p>`;
     return;
@@ -730,12 +740,47 @@ function renderAdminBody(period) {
       </table></div>`;
   }
 
+  // ── 목표 대비 달성률 표 (개인 영업사원, 월 목표 기준) ──
+  const individuals = [];
+  for (const sh of showNames) for (const sp of Object.keys(groups[sh])) individuals.push({ sh, sp, ...groups[sh][sp] });
+  individuals.sort((a, b) => b.done - a.done || b.amt - a.amt || a.sp.localeCompare(b.sp, 'ko'));
+  const targetTable = individuals.length ? `<div class="adm-scroll"><table class="adm-table adm-target-table">
+    <thead><tr><th>영업사원</th><th>전시장</th><th class="right">계약완료</th><th class="right">목표(건)</th><th class="right">달성률</th><th class="right">계약금액(만)</th><th class="right">목표(만)</th><th class="right">달성률</th></tr></thead>
+    <tbody>${individuals.map((s) => {
+      const t = adminTargets[s.sp] || {};
+      return `<tr data-sp="${esc(s.sp)}" data-done="${s.done}" data-amt="${s.amt}">
+        <td class="adm-sp">${esc(s.sp)}</td><td class="muted">${esc(s.sh)}</td>
+        <td class="right adm-tot">${s.done}</td>
+        <td class="right"><input class="adm-target" data-kind="count" value="${t.count || ''}" inputmode="numeric" placeholder="—" /></td>
+        <td class="right adm-ach" data-kind="count">${achHtml(s.done, t.count)}</td>
+        <td class="right">${fmtMan(s.amt) || '·'}</td>
+        <td class="right"><input class="adm-target adm-target-amt" data-kind="amount" value="${t.amount || ''}" inputmode="numeric" placeholder="—" /></td>
+        <td class="right adm-ach" data-kind="amount">${achHtml(s.amt, t.amount)}</td></tr>`;
+    }).join('')}</tbody>
+  </table></div>` : '';
+
   wrap.innerHTML = `
     <div class="adm-report-head">㈜세움디자인하우징 · 계약 통계 · KPI <b>${periodLabel}</b></div>
     <div class="kpi-row">${kpi.map((k) => `<div class="kpi-card"><div class="kpi-val ${k.cls || ''}">${k.val}</div><div class="kpi-label">${k.label}</div></div>`).join('')}</div>
     <h3 class="adm-h">전시장 · 영업사원별 실적 <span class="muted small">— ${periodLabel} · 개인 (계약완료 기준)</span></h3>
     ${table}
-    ${coopTable}`;
+    ${coopTable}
+    ${individuals.length ? `<h3 class="adm-h">🎯 목표 대비 달성률 <span class="muted small">— ${periodLabel} 월 목표 (목표값은 이 기기에 저장)</span></h3>${targetTable}` : ''}`;
+
+  // 목표 입력 → 저장 + 달성률 즉시 갱신
+  wrap.querySelectorAll('.adm-target').forEach((inp) => {
+    inp.oninput = () => {
+      inp.value = inp.value.replace(/[^\d]/g, '');
+      const tr = inp.closest('tr');
+      const sp = tr.dataset.sp, kind = inp.dataset.kind;
+      const t = adminTargets[sp] = adminTargets[sp] || {};
+      t[kind] = inp.value ? Number(inp.value) : 0;
+      saveTargets();
+      const actual = kind === 'count' ? Number(tr.dataset.done) : Number(tr.dataset.amt);
+      const cell = tr.querySelector(`.adm-ach[data-kind="${kind}"]`);
+      if (cell) cell.innerHTML = achHtml(actual, t[kind]);
+    };
+  });
 }
 
 // ---------- 휴지통 화면 ----------
