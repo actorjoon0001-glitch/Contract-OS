@@ -582,6 +582,7 @@ function renderListRows(rows) {
 
 // ---------- 관리자 통계 페이지 (관리자 전용) ----------
 let adminRows = [];
+let adminEmps = [];
 async function renderAdmin() {
   if (!canManageList()) return go('#/'); // 관리자 외 접근 차단
   current = null; currentId = null; dirty = false;
@@ -601,6 +602,7 @@ async function renderAdmin() {
   bindAccount(app);
   try {
     adminRows = (await api.list('')).filter((r) => !r.is_sample);
+    try { adminEmps = await api.employees(); } catch { adminEmps = []; } // 세움os 직원 명부(전시장 소속)
   } catch (err) {
     document.getElementById('admin-wrap').innerHTML = `<p class="center danger" style="padding:40px">통계를 불러오지 못했습니다: ${esc(err.message)}</p>`;
     return;
@@ -645,14 +647,20 @@ function renderAdminBody(period) {
   // ── 전시장 → 영업사원 → 월별 계약(완료) 건수 ──
   const months = [...new Set(contracted.map((r) => admDateStr(r).slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)))].sort();
   // 그룹: 전시장 → 영업사원 (개인). 2명 이상 함께 적힌 건은 별도 '공동 계약'으로 분리
+  // 전시장 소속은 세움os 직원 명부(employees) 기준 — 계약서에 적힌 전시장이 달라도 소속대로 묶임
+  const empShow = {}; // 이름 -> 공식 전시장(한글)
+  for (const e of adminEmps) if (e.name) empShow[e.name.trim()] = admShowroom(e.showroom);
   const groups = {}; // showroom -> salesperson -> { done, quotes, amt, dep }
-  const coop = {};   // "showroom|names" -> { sh, sp, done, quotes, amt, dep }
+  const coop = {};   // "names" -> { sh, sp, done, quotes, amt, dep }
   const isCoop = (sp) => sp.split(/[,\/]/).map((s) => s.trim()).filter(Boolean).length >= 2;
+  const ensure = (sh, sp) => { groups[sh] = groups[sh] || {}; return groups[sh][sp] = groups[sh][sp] || { done: 0, quotes: 0, amt: 0, dep: 0 }; };
   for (const r of rows) {
-    const sh = admShowroom(r.showroom), sp = (r.salesperson || '미지정').trim();
+    const sp = (r.salesperson || '미지정').trim();
+    // 소속 전시장: 직원 명부 우선, 없으면 계약서에 적힌 전시장
+    const sh = empShow[sp] || admShowroom(r.showroom);
     let g;
     if (isCoop(sp)) { g = coop[sh + '|' + sp] = coop[sh + '|' + sp] || { sh, sp, done: 0, quotes: 0, amt: 0, dep: 0 }; }
-    else { groups[sh] = groups[sh] || {}; g = groups[sh][sp] = groups[sh][sp] || { done: 0, quotes: 0, amt: 0, dep: 0 }; }
+    else { g = ensure(sh, sp); }
     if (admContracted(r)) { g.done += 1; g.amt += admNum(r.total_amount); g.dep += admNum(r.deposit_amount || r.down_payment); }
     else if (stageOf(r) !== 'canceled') { g.quotes += 1; }
   }
