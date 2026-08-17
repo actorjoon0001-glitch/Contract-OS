@@ -79,4 +79,6 @@
   .adm-table thead th, .adm-table tr.adm-show > td, .adm-table tfoot td {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
+  .adm-target { border: none !important; padding: 0 !important; width: auto !important; background: transparent !important; }
+  .ach-ok, .ach-warn, .ach-danger { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
