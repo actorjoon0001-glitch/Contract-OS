@@ -73,6 +73,7 @@ function guardedRoute() {
 async function route() {
   const hash = location.hash || '#/';
   if (hash === '#/' || hash === '') return renderList();
+  if (hash === '#/admin') return renderAdmin();
   if (hash === '#/trash') return renderTrash();
   if (hash === '#/new') return renderModelPicker();
   const mNew = hash.match(/^#\/new\/([\w-]+)$/);
@@ -95,7 +96,7 @@ function renderLogin(msg = '') {
   app.innerHTML = `
     <div class="login-wrap no-print">
       <form class="login-card" id="login-form">
-        <div class="login-brand"><span class="logo">SEUM</span> 전산 계약서</div>
+        <div class="login-brand"><span class="logo">SEUM</span> 전자 계약서</div>
         <p class="login-sub muted">세움 직원 계정(세움os)으로 로그인하세요.</p>
         <label class="login-field">이메일
           <input type="email" id="login-email" autocomplete="username" placeholder="name@seum.com" required />
@@ -163,7 +164,9 @@ async function renderList() {
   current = null; currentId = null; dirty = false;
   app.innerHTML = `
     <div class="topbar no-print">
-      <div class="brand"><span class="logo">SEUM</span> 전산 계약서 <small>Contract-OS</small></div>
+      <div class="brand"><span class="logo">SEUM</span> 전자 계약서 <small>Contract-OS</small>
+        ${canManageList() ? '<button class="btn tiny admin-btn" id="admin-btn" title="관리자 통계 페이지 (관리자 전용)">📊 관리자 페이지</button>' : ''}
+      </div>
       <div class="actions">
         <input id="search" class="search" type="search" placeholder="건축주 · 현장주소 · 계약번호 · 전시장 · 영업사원 검색" />
         <select id="filter-stage" class="filter-sel">
@@ -192,6 +195,8 @@ async function renderList() {
 
   document.getElementById('new-btn').onclick = () => go('#/new');
   document.getElementById('trash-btn').onclick = () => go('#/trash');
+  const adminBtn = document.getElementById('admin-btn');
+  if (adminBtn) adminBtn.onclick = () => go('#/admin');
   bindAccount(app);
   document.getElementById('search').oninput = applyListFilters;
   document.getElementById('filter-stage').onchange = applyListFilters;
@@ -573,6 +578,134 @@ function renderListRows(rows) {
       }
     };
   });
+}
+
+// ---------- 관리자 통계 페이지 (관리자 전용) ----------
+let adminRows = [];
+async function renderAdmin() {
+  if (!canManageList()) return go('#/'); // 관리자 외 접근 차단
+  current = null; currentId = null; dirty = false;
+  app.innerHTML = `
+    <div class="topbar no-print">
+      <div class="brand"><span class="logo">SEUM</span> 관리자 페이지 <small>계약 통계 · KPI</small></div>
+      <div class="actions">
+        <select id="adm-year" class="filter-sel"></select>
+        <button class="btn" id="back-btn">← 목록으로</button>
+        ${accountChip()}
+      </div>
+    </div>
+    <div class="admin-wrap no-print" id="admin-wrap">
+      <p class="muted center" style="padding:48px">불러오는 중…</p>
+    </div>`;
+  document.getElementById('back-btn').onclick = () => go('#/');
+  bindAccount(app);
+  try {
+    adminRows = (await api.list('')).filter((r) => !r.is_sample);
+  } catch (err) {
+    document.getElementById('admin-wrap').innerHTML = `<p class="center danger" style="padding:40px">통계를 불러오지 못했습니다: ${esc(err.message)}</p>`;
+    return;
+  }
+  // 연도 선택지 채우기
+  const years = [...new Set(adminRows.map((r) => admDateStr(r).slice(0, 4)).filter((y) => /^\d{4}$/.test(y)))].sort((a, b) => b.localeCompare(a));
+  const sel = document.getElementById('adm-year');
+  sel.innerHTML = `<option value="">전체 연도</option>` + years.map((y) => `<option value="${y}">${y}년</option>`).join('');
+  sel.value = years[0] || '';
+  sel.onchange = () => renderAdminBody(sel.value);
+  renderAdminBody(sel.value);
+}
+
+function admDateStr(r) { return r.deposit_date || r.contract_date || ''; }
+function admContracted(r) { return CONTRACTED_STAGES.has(stageOf(r)) || !!r.deposit_date; }
+function admNum(v) { const n = Number(String(v ?? '').replace(/,/g, '')); return Number.isFinite(n) ? n : 0; }
+
+function renderAdminBody(year) {
+  const wrap = document.getElementById('admin-wrap');
+  const rows = adminRows.filter((r) => !year || admDateStr(r).slice(0, 4) === year);
+  // ── KPI 집계 ──
+  const contracted = rows.filter(admContracted);
+  const canceled = rows.filter((r) => stageOf(r) === 'canceled');
+  const quotes = rows.filter((r) => !admContracted(r) && stageOf(r) !== 'canceled');
+  const conv = (contracted.length + quotes.length) ? Math.round(contracted.length / (contracted.length + quotes.length) * 100) : 0;
+  const sumAmt = contracted.reduce((a, r) => a + admNum(r.total_amount), 0);
+  const sumDep = contracted.reduce((a, r) => a + admNum(r.deposit_amount || r.down_payment), 0);
+  const kpi = [
+    { label: '계약완료', val: `${contracted.length}건`, cls: 'ok' },
+    { label: '견적·진행중', val: `${quotes.length}건` },
+    { label: '계약 전환율', val: `${conv}%`, cls: 'brand' },
+    { label: '총 계약금액', val: `${fmtMan(sumAmt)}만`, cls: 'brand' },
+    { label: '받은 계약금 합계', val: `${fmtMan(sumDep)}만`, cls: 'ok' },
+    { label: '취소', val: `${canceled.length}건`, cls: 'danger' },
+  ];
+  // ── 전시장 → 영업사원 → 월별 계약(완료) 건수 ──
+  const months = [...new Set(contracted.map((r) => admDateStr(r).slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)))].sort();
+  // 그룹: 전시장 → 영업사원
+  const groups = {}; // showroom -> salesperson -> {month:count, total, quotes, amt, dep}
+  const keyShow = (r) => (r.showroom || '미지정');
+  const keySales = (r) => (r.salesperson || '미지정');
+  for (const r of rows) {
+    const sh = keyShow(r), sp = keySales(r);
+    groups[sh] = groups[sh] || {};
+    const g = groups[sh][sp] = groups[sh][sp] || { m: {}, total: 0, quotes: 0, amt: 0, dep: 0 };
+    if (admContracted(r)) {
+      const mo = admDateStr(r).slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(mo)) g.m[mo] = (g.m[mo] || 0) + 1;
+      g.total += 1; g.amt += admNum(r.total_amount); g.dep += admNum(r.deposit_amount || r.down_payment);
+    } else if (stageOf(r) !== 'canceled') { g.quotes += 1; }
+  }
+  const moLabel = (m) => { const [y, mo] = m.split('-'); return `${Number(mo)}월`; };
+
+  // ── 월별 매트릭스 표 ──
+  let matrix = '';
+  const showNames = Object.keys(groups).sort((a, b) => a.localeCompare(b, 'ko'));
+  if (!months.length) {
+    matrix = `<p class="muted center" style="padding:24px">해당 기간 계약완료 건이 없습니다.</p>`;
+  } else {
+    const colTot = {}; months.forEach((m) => colTot[m] = 0); let grand = 0;
+    let bodyRows = '';
+    for (const sh of showNames) {
+      const sps = Object.keys(groups[sh]).sort((a, b) => a.localeCompare(b, 'ko'));
+      const shTot = {}; months.forEach((m) => shTot[m] = 0);
+      let shGrand = 0; let spRows = '';
+      for (const sp of sps) {
+        const g = groups[sh][sp];
+        const cells = months.map((m) => { const c = g.m[m] || 0; shTot[m] += c; colTot[m] += c; return `<td class="right ${c ? '' : 'muted'}">${c || '·'}</td>`; }).join('');
+        shGrand += g.total; grand += g.total;
+        spRows += `<tr><td class="adm-sp">${esc(sp)}</td>${cells}<td class="right adm-tot">${g.total}</td></tr>`;
+      }
+      const shCells = months.map((m) => `<td class="right">${shTot[m] || '·'}</td>`).join('');
+      bodyRows += `<tr class="adm-show"><td>${esc(sh)} <span class="muted small">${sps.length}명</span></td>${shCells}<td class="right adm-tot">${shGrand}</td></tr>${spRows}`;
+    }
+    const footCells = months.map((m) => `<td class="right">${colTot[m]}</td>`).join('');
+    matrix = `<div class="adm-scroll"><table class="adm-table">
+      <thead><tr><th>전시장 / 영업사원</th>${months.map((m) => `<th class="right">${moLabel(m)}</th>`).join('')}<th class="right">합계</th></tr></thead>
+      <tbody>${bodyRows}</tbody>
+      <tfoot><tr><td>전체 합계</td>${footCells}<td class="right adm-tot">${grand}</td></tr></tfoot>
+    </table></div>`;
+  }
+
+  // ── 영업사원별 KPI 표 ──
+  const spStats = [];
+  for (const sh of showNames) for (const sp of Object.keys(groups[sh])) {
+    const g = groups[sh][sp];
+    const denom = g.total + g.quotes;
+    spStats.push({ sh, sp, done: g.total, quote: g.quotes, conv: denom ? Math.round(g.total / denom * 100) : 0, amt: g.amt, dep: g.dep });
+  }
+  spStats.sort((a, b) => b.done - a.done || b.amt - a.amt);
+  const kpiTable = spStats.length ? `<div class="adm-scroll"><table class="adm-table">
+    <thead><tr><th>영업사원</th><th>전시장</th><th class="right">계약완료</th><th class="right">견적·진행</th><th class="right">전환율</th><th class="right">계약금액(만)</th><th class="right">받은계약금(만)</th></tr></thead>
+    <tbody>${spStats.map((s) => `<tr>
+      <td class="adm-sp">${esc(s.sp)}</td><td class="muted">${esc(s.sh)}</td>
+      <td class="right adm-tot">${s.done}</td><td class="right muted">${s.quote}</td>
+      <td class="right">${s.conv}%</td><td class="right">${fmtMan(s.amt) || '·'}</td><td class="right">${fmtMan(s.dep) || '·'}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>` : `<p class="muted center" style="padding:24px">데이터가 없습니다.</p>`;
+
+  wrap.innerHTML = `
+    <div class="kpi-row">${kpi.map((k) => `<div class="kpi-card"><div class="kpi-val ${k.cls || ''}">${k.val}</div><div class="kpi-label">${k.label}</div></div>`).join('')}</div>
+    <h3 class="adm-h">전시장 · 영업사원별 월별 계약 건수 <span class="muted small">(계약완료 기준)</span></h3>
+    ${matrix}
+    <h3 class="adm-h">영업사원별 KPI</h3>
+    ${kpiTable}`;
 }
 
 // ---------- 휴지통 화면 ----------
