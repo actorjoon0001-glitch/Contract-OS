@@ -589,7 +589,7 @@ async function renderAdmin() {
     <div class="topbar no-print">
       <div class="brand"><span class="logo">SEUM</span> 관리자 페이지 <small>계약 통계 · KPI</small></div>
       <div class="actions">
-        <select id="adm-year" class="filter-sel"></select>
+        <select id="adm-month" class="filter-sel" title="조회할 월 선택"></select>
         <button class="btn" id="back-btn">← 목록으로</button>
         ${accountChip()}
       </div>
@@ -606,10 +606,10 @@ async function renderAdmin() {
     return;
   }
   // 연도 선택지 채우기
-  const years = [...new Set(adminRows.map((r) => admDateStr(r).slice(0, 4)).filter((y) => /^\d{4}$/.test(y)))].sort((a, b) => b.localeCompare(a));
-  const sel = document.getElementById('adm-year');
-  sel.innerHTML = `<option value="">전체 연도</option>` + years.map((y) => `<option value="${y}">${y}년</option>`).join('');
-  sel.value = years[0] || '';
+  const months = [...new Set(adminRows.map((r) => admDateStr(r).slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)))].sort((a, b) => b.localeCompare(a));
+  const sel = document.getElementById('adm-month');
+  sel.innerHTML = months.map((m) => `<option value="${m}">${admMonthLabel(m)}</option>`).join('') + `<option value="">전체 기간</option>`;
+  sel.value = months[0] || '';
   sel.onchange = () => renderAdminBody(sel.value);
   renderAdminBody(sel.value);
 }
@@ -617,10 +617,16 @@ async function renderAdmin() {
 function admDateStr(r) { return r.deposit_date || r.contract_date || ''; }
 function admContracted(r) { return CONTRACTED_STAGES.has(stageOf(r)) || !!r.deposit_date; }
 function admNum(v) { const n = Number(String(v ?? '').replace(/,/g, '')); return Number.isFinite(n) ? n : 0; }
+function admMonthLabel(m) { const [y, mo] = m.split('-'); return `${y}년 ${Number(mo)}월`; }
+// 전시장 표기 정규화 (광주/광주전시장, 본사/본사 전시장 등 통합)
+const SHOWROOM_ALIAS = { '본사': '본사 전시장', '본점': '본사 전시장', '1전시장': '1전시장', '제1전시장': '1전시장', '3전시장': '3전시장', '제3전시장': '3전시장', '강화': '강화전시장', '안동': '안동전시장', '광주': '광주전시장' };
+function admShowroom(v) { const s = String(v ?? '').trim(); if (!s) return '미지정'; return SHOWROOM_ALIAS[s] || s; }
+const SHOWROOM_ORDER = ['본사 전시장', '1전시장', '3전시장', '강화전시장', '안동전시장', '광주전시장'];
 
-function renderAdminBody(year) {
+function renderAdminBody(period) {
   const wrap = document.getElementById('admin-wrap');
-  const rows = adminRows.filter((r) => !year || admDateStr(r).slice(0, 4) === year);
+  const rows = adminRows.filter((r) => !period || admDateStr(r).slice(0, 7) === period);
+  const periodLabel = period ? admMonthLabel(period) : '전체 기간';
   // ── KPI 집계 ──
   const contracted = rows.filter(admContracted);
   const canceled = rows.filter((r) => stageOf(r) === 'canceled');
@@ -629,7 +635,7 @@ function renderAdminBody(year) {
   const sumAmt = contracted.reduce((a, r) => a + admNum(r.total_amount), 0);
   const sumDep = contracted.reduce((a, r) => a + admNum(r.deposit_amount || r.down_payment), 0);
   const kpi = [
-    { label: '계약완료', val: `${contracted.length}건`, cls: 'ok' },
+    { label: `계약완료 (${periodLabel})`, val: `${contracted.length}건`, cls: 'ok' },
     { label: '견적·진행중', val: `${quotes.length}건` },
     { label: '계약 전환율', val: `${conv}%`, cls: 'brand' },
     { label: '총 계약금액', val: `${fmtMan(sumAmt)}만`, cls: 'brand' },
@@ -639,73 +645,57 @@ function renderAdminBody(year) {
   // ── 전시장 → 영업사원 → 월별 계약(완료) 건수 ──
   const months = [...new Set(contracted.map((r) => admDateStr(r).slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)))].sort();
   // 그룹: 전시장 → 영업사원
-  const groups = {}; // showroom -> salesperson -> {month:count, total, quotes, amt, dep}
-  const keyShow = (r) => (r.showroom || '미지정');
-  const keySales = (r) => (r.salesperson || '미지정');
+  const groups = {}; // showroom -> salesperson -> { done, quotes, amt, dep }
   for (const r of rows) {
-    const sh = keyShow(r), sp = keySales(r);
+    const sh = admShowroom(r.showroom), sp = (r.salesperson || '미지정');
     groups[sh] = groups[sh] || {};
-    const g = groups[sh][sp] = groups[sh][sp] || { m: {}, total: 0, quotes: 0, amt: 0, dep: 0 };
-    if (admContracted(r)) {
-      const mo = admDateStr(r).slice(0, 7);
-      if (/^\d{4}-\d{2}$/.test(mo)) g.m[mo] = (g.m[mo] || 0) + 1;
-      g.total += 1; g.amt += admNum(r.total_amount); g.dep += admNum(r.deposit_amount || r.down_payment);
-    } else if (stageOf(r) !== 'canceled') { g.quotes += 1; }
+    const g = groups[sh][sp] = groups[sh][sp] || { done: 0, quotes: 0, amt: 0, dep: 0 };
+    if (admContracted(r)) { g.done += 1; g.amt += admNum(r.total_amount); g.dep += admNum(r.deposit_amount || r.down_payment); }
+    else if (stageOf(r) !== 'canceled') { g.quotes += 1; }
   }
-  const moLabel = (m) => { const [y, mo] = m.split('-'); return `${Number(mo)}월`; };
+  const showNames = Object.keys(groups).sort((a, b) => {
+    const ia = SHOWROOM_ORDER.indexOf(a), ib = SHOWROOM_ORDER.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b, 'ko');
+  });
 
-  // ── 월별 매트릭스 표 ──
-  let matrix = '';
-  const showNames = Object.keys(groups).sort((a, b) => a.localeCompare(b, 'ko'));
-  if (!months.length) {
-    matrix = `<p class="muted center" style="padding:24px">해당 기간 계약완료 건이 없습니다.</p>`;
+  // ── 전시장 → 영업사원 실적 표 (선택 기간) ──
+  let table;
+  if (!rows.length) {
+    table = `<p class="muted center" style="padding:28px">${periodLabel}에 해당하는 계약이 없습니다.</p>`;
   } else {
-    const colTot = {}; months.forEach((m) => colTot[m] = 0); let grand = 0;
-    let bodyRows = '';
+    let gDone = 0, gQuote = 0, gAmt = 0, gDep = 0, body = '';
     for (const sh of showNames) {
-      const sps = Object.keys(groups[sh]).sort((a, b) => a.localeCompare(b, 'ko'));
-      const shTot = {}; months.forEach((m) => shTot[m] = 0);
-      let shGrand = 0; let spRows = '';
+      const sps = Object.keys(groups[sh]).sort((a, b) => groups[sh][b].done - groups[sh][a].done || a.localeCompare(b, 'ko'));
+      let sDone = 0, sQuote = 0, sAmt = 0, sDep = 0, spRows = '';
       for (const sp of sps) {
         const g = groups[sh][sp];
-        const cells = months.map((m) => { const c = g.m[m] || 0; shTot[m] += c; colTot[m] += c; return `<td class="right ${c ? '' : 'muted'}">${c || '·'}</td>`; }).join('');
-        shGrand += g.total; grand += g.total;
-        spRows += `<tr><td class="adm-sp">${esc(sp)}</td>${cells}<td class="right adm-tot">${g.total}</td></tr>`;
+        const denom = g.done + g.quotes;
+        const conv = denom ? Math.round(g.done / denom * 100) : 0;
+        sDone += g.done; sQuote += g.quotes; sAmt += g.amt; sDep += g.dep;
+        spRows += `<tr>
+          <td class="adm-sp">${esc(sp)}</td>
+          <td class="right adm-tot">${g.done || '·'}</td>
+          <td class="right muted">${g.quotes || '·'}</td>
+          <td class="right">${denom ? conv + '%' : '·'}</td>
+          <td class="right">${fmtMan(g.amt) || '·'}</td>
+          <td class="right">${fmtMan(g.dep) || '·'}</td></tr>`;
       }
-      const shCells = months.map((m) => `<td class="right">${shTot[m] || '·'}</td>`).join('');
-      bodyRows += `<tr class="adm-show"><td>${esc(sh)} <span class="muted small">${sps.length}명</span></td>${shCells}<td class="right adm-tot">${shGrand}</td></tr>${spRows}`;
+      gDone += sDone; gQuote += sQuote; gAmt += sAmt; gDep += sDep;
+      body += `<tr class="adm-show"><td>${esc(sh)} <span class="muted small">${sps.length}명</span></td>
+        <td class="right adm-tot">${sDone || '·'}</td><td class="right">${sQuote || '·'}</td>
+        <td class="right">·</td><td class="right">${fmtMan(sAmt) || '·'}</td><td class="right">${fmtMan(sDep) || '·'}</td></tr>${spRows}`;
     }
-    const footCells = months.map((m) => `<td class="right">${colTot[m]}</td>`).join('');
-    matrix = `<div class="adm-scroll"><table class="adm-table">
-      <thead><tr><th>전시장 / 영업사원</th>${months.map((m) => `<th class="right">${moLabel(m)}</th>`).join('')}<th class="right">합계</th></tr></thead>
-      <tbody>${bodyRows}</tbody>
-      <tfoot><tr><td>전체 합계</td>${footCells}<td class="right adm-tot">${grand}</td></tr></tfoot>
+    table = `<div class="adm-scroll"><table class="adm-table">
+      <thead><tr><th>전시장 / 영업사원</th><th class="right">계약완료</th><th class="right">견적·진행</th><th class="right">전환율</th><th class="right">계약금액(만)</th><th class="right">받은계약금(만)</th></tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot><tr><td>전체 합계</td><td class="right adm-tot">${gDone}</td><td class="right">${gQuote}</td><td class="right">·</td><td class="right">${fmtMan(gAmt) || '·'}</td><td class="right">${fmtMan(gDep) || '·'}</td></tr></tfoot>
     </table></div>`;
   }
 
-  // ── 영업사원별 KPI 표 ──
-  const spStats = [];
-  for (const sh of showNames) for (const sp of Object.keys(groups[sh])) {
-    const g = groups[sh][sp];
-    const denom = g.total + g.quotes;
-    spStats.push({ sh, sp, done: g.total, quote: g.quotes, conv: denom ? Math.round(g.total / denom * 100) : 0, amt: g.amt, dep: g.dep });
-  }
-  spStats.sort((a, b) => b.done - a.done || b.amt - a.amt);
-  const kpiTable = spStats.length ? `<div class="adm-scroll"><table class="adm-table">
-    <thead><tr><th>영업사원</th><th>전시장</th><th class="right">계약완료</th><th class="right">견적·진행</th><th class="right">전환율</th><th class="right">계약금액(만)</th><th class="right">받은계약금(만)</th></tr></thead>
-    <tbody>${spStats.map((s) => `<tr>
-      <td class="adm-sp">${esc(s.sp)}</td><td class="muted">${esc(s.sh)}</td>
-      <td class="right adm-tot">${s.done}</td><td class="right muted">${s.quote}</td>
-      <td class="right">${s.conv}%</td><td class="right">${fmtMan(s.amt) || '·'}</td><td class="right">${fmtMan(s.dep) || '·'}</td>
-    </tr>`).join('')}</tbody>
-  </table></div>` : `<p class="muted center" style="padding:24px">데이터가 없습니다.</p>`;
-
   wrap.innerHTML = `
     <div class="kpi-row">${kpi.map((k) => `<div class="kpi-card"><div class="kpi-val ${k.cls || ''}">${k.val}</div><div class="kpi-label">${k.label}</div></div>`).join('')}</div>
-    <h3 class="adm-h">전시장 · 영업사원별 월별 계약 건수 <span class="muted small">(계약완료 기준)</span></h3>
-    ${matrix}
-    <h3 class="adm-h">영업사원별 KPI</h3>
-    ${kpiTable}`;
+    <h3 class="adm-h">전시장 · 영업사원별 실적 <span class="muted small">— ${periodLabel} (계약완료 기준)</span></h3>
+    ${table}`;
 }
 
 // ---------- 휴지통 화면 ----------
