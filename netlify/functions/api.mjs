@@ -242,6 +242,8 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
     }
 
     if (method === 'DELETE') {
+      // 영구삭제(휴지통 비우기)는 관리자만 허용
+      if (auth.enabled && !auth.isAdmin) return json({ error: '영구삭제는 관리자만 가능합니다.' }, 403);
       const { data: existing, error: exErr } = await supa.from(TABLE).select('data, salesperson').eq('id', id).maybeSingle();
       if (exErr) throw exErr;
       if (existing && !canAccess(existing.data, existing.salesperson, auth)) return json({ error: '이 계약을 삭제할 권한이 없습니다.' }, 403);
