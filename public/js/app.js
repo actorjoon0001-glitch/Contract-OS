@@ -794,7 +794,7 @@ async function renderTrash() {
       </div>
     </div>
     <div class="list-wrap no-print">
-      <p class="muted trash-note"><b>복원</b>하면 계약 목록으로 되돌아가고, <b>영구삭제</b>하면 다시 살릴 수 없습니다.</p>
+      <p class="muted trash-note"><b>복원</b>하면 계약 목록으로 되돌아갑니다.${canManageList() ? ' <b>영구삭제</b>하면 다시 살릴 수 없습니다.' : ' (영구삭제는 관리자만 가능합니다.)'}</p>
       <table class="list-table">
         <thead>
           <tr>
@@ -829,7 +829,7 @@ async function loadTrash() {
         <td class="muted small">${esc(r.deleted_at ? fmtSignDate(r.deleted_at) : '-')}</td>
         <td class="trash-actions">
           <button class="btn tiny primary" data-restore="${r.id}">복원</button>
-          <button class="btn tiny danger" data-purge="${r.id}">영구삭제</button>
+          ${canManageList() ? `<button class="btn tiny danger" data-purge="${r.id}">영구삭제</button>` : ''}
         </td>
       </tr>`).join('');
     bindTrashActions();
