@@ -71,37 +71,52 @@ async function authContext(req, supa) {
     const meta = { ...(data.user.app_metadata || {}), ...(data.user.user_metadata || {}) };
     let name = meta.name || meta.full_name || meta.username || meta.displayName || '';
     let showroom = '';
-    // 세움os employees 테이블에서 직원의 전시장 조회 (auth_user_id 우선, 없으면 email)
+    let scope = 'own'; // 뷰어 범위: own(본인만) | showroom(같은 전시장) | all(전체). 미설정=본인만
+    // 세움os employees 테이블에서 직원의 전시장·범위 조회 (auth_user_id 우선, 없으면 email)
     let isEmployee = false;
     try {
-      let emp = (await supa.from('employees').select('showroom, name, status').eq('auth_user_id', data.user.id).maybeSingle()).data;
-      if (!emp && email) emp = (await supa.from('employees').select('showroom, name, status').eq('email', email).maybeSingle()).data;
+      let emp = (await supa.from('employees').select('*').eq('auth_user_id', data.user.id).maybeSingle()).data;
+      if (!emp && email) emp = (await supa.from('employees').select('*').eq('email', email).maybeSingle()).data;
       if (emp) {
         const code = String(emp.showroom || '').trim();
         showroom = SHOWROOM_CODE_TO_KR[code] || code; // 한글 전시장명으로(자동입력·표시용)
         if (!name && emp.name) name = emp.name;
         const st = String(emp.status || '').toLowerCase();
         isEmployee = !st || st === 'approved' || st === 'active'; // 승인된 직원만 사용 허용
+        const sc = String(emp.view_scope || '').trim().toLowerCase();
+        if (['own', 'showroom', 'all'].includes(sc)) scope = sc;
       }
     } catch { /* employees 조회 실패 시 미확인 처리 */ }
-    return { enabled: true, user: { id: data.user.id, email, name, showroom }, isAdmin: adminEmails().includes(email), isEmployee };
+    return { enabled: true, user: { id: data.user.id, email, name, showroom, scope }, isAdmin: adminEmails().includes(email), isEmployee };
   } catch {
     return { enabled: true, user: null, isAdmin: false };
   }
 }
 
-// 한 계약(row)을 이 사용자가 볼/수정할 수 있는가?
-// 관리자·개방모드는 전체 허용. 공유 전시장 직원은 '같은 전시장' 계약 + 본인 것.
-// 개인전용 전시장(예: 본사) 직원은 '본인 것만'. (전시장 정보 없으면 본인 것만)
-function canAccess(rowData, salesperson, auth) {
+// 로그인 사용자가 이 계약(showroom·owner·salesperson)을 볼 수 있는가? — 뷰어 범위(scope) 기준
+// all=전체, showroom=같은 전시장+본인, own=본인만(기본). 관리자·개방모드는 전체 허용.
+function scopeAllows(auth, showroomVal, ownerEmail, salesperson) {
   if (!auth.enabled || auth.isAdmin) return true;
   if (!auth.user) return false;
-  const vkey = normShowroom(auth.user.showroom);
-  if (isSharedShowroom(vkey) && normShowroom(rowData?.showroom) === vkey) return true; // 공유 전시장: 같은 전시장
-  const owner = String(rowData?.ownerEmail || '').toLowerCase();
-  if (owner) return owner === auth.user.email;
-  const sp = String(rowData?.salesperson ?? salesperson ?? '').trim();
-  return !!auth.user.name && sp === auth.user.name;
+  const scope = auth.user.scope || 'own';
+  if (scope === 'all') return true;
+  const isOwn = () => {
+    const owner = String(ownerEmail || '').toLowerCase();
+    if (owner) return owner === auth.user.email;
+    const sp = String(salesperson ?? '').trim();
+    return !!auth.user.name && sp === auth.user.name;
+  };
+  if (scope === 'showroom') {
+    const vkey = normShowroom(auth.user.showroom);
+    if (vkey && normShowroom(showroomVal) === vkey) return true; // 같은 전시장 전체
+    return isOwn();
+  }
+  return isOwn(); // own(기본): 본인 것만
+}
+
+// 한 계약(row)을 이 사용자가 볼/수정할 수 있는가?
+function canAccess(rowData, salesperson, auth) {
+  return scopeAllows(auth, rowData?.showroom, rowData?.ownerEmail, rowData?.salesperson ?? salesperson);
 }
 
 // 본문 JSON에서 목록/검색용 요약 컬럼 추출
@@ -170,16 +185,9 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
         const { data, error } = await query;
         if (error) throw error;
         let rows = data || [];
-        // 권한: 공유 전시장은 같은 전시장 전체, 개인전용 전시장(본사)은 본인 것만 (+ 본인 소유는 항상)
+        // 권한: 뷰어 범위(scope) 기준 — all=전체, showroom=같은 전시장+본인, own=본인만(기본)
         if (auth.enabled && !auth.isAdmin) {
-          const vkey = normShowroom(auth.user.showroom);
-          const shared = isSharedShowroom(vkey);
-          rows = rows.filter((r) => {
-            if (shared && normShowroom(r.showroom) === vkey) return true;  // 공유 전시장: 같은 전시장
-            const owner = String(r.owner_email || '').toLowerCase();
-            if (owner) return owner === auth.user.email;                   // 본인 소유
-            return !!auth.user.name && String(r.salesperson || '') === auth.user.name;
-          });
+          rows = rows.filter((r) => scopeAllows(auth, r.showroom, r.owner_email, r.salesperson));
         }
         if (!(auth.enabled && !auth.isAdmin)) { /* 관리자·개방모드는 owner_email 유지(담당자 표시용) */ }
         else rows = rows.map(({ owner_email, ...rest }) => rest); // 일반 직원 응답에선 이메일 제거
@@ -298,17 +306,33 @@ export default async (req, context) => {
     return json({ email: auth.user?.email || '', name: auth.user?.name || '', showroom: auth.user?.showroom || '', isAdmin: !!auth.isAdmin, isEmployee: !!auth.isEmployee, authEnabled: auth.enabled });
   }
 
-  // 직원 목록 (관리자 전용) — 목록에서 계약을 특정 직원 담당으로 넘길 때 사용
+  // 직원 목록 (관리자 전용) — 담당자 지정·뷰어 범위 설정에 사용
   if (path === '/api/employees') {
     if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
     if (auth.enabled && !auth.isAdmin) return json({ error: '권한이 없습니다.' }, 403);
+    // 뷰어 범위 변경 (관리자 전용): { email, scope: 'own'|'showroom'|'all'|'' }
+    if (method === 'PUT' || method === 'POST') {
+      try {
+        const body = await req.json().catch(() => null);
+        const email = String(body?.email || '').toLowerCase().trim();
+        let scope = String(body?.scope || '').trim().toLowerCase();
+        if (!['own', 'showroom', 'all', ''].includes(scope)) scope = '';
+        if (!email) return json({ error: '이메일이 필요합니다.' }, 400);
+        const { error } = await supa.from('employees').update({ view_scope: scope || null }).ilike('email', email);
+        if (error) throw error;
+        return json({ ok: true, email, scope });
+      } catch (err) {
+        return json({ error: '뷰어 범위 저장 실패 (employees.view_scope 컬럼 필요)', detail: String(err?.message || err) }, 500);
+      }
+    }
     try {
-      const { data, error } = await supa.from('employees').select('name, email, showroom, status').order('showroom').order('name');
+      const { data, error } = await supa.from('employees').select('*').order('showroom').order('name');
       if (error) throw error;
       const list = (data || []).filter((e) => e.email).map((e) => ({
         name: e.name || '',
         email: String(e.email).toLowerCase(),
         showroom: SHOWROOM_CODE_TO_KR[String(e.showroom || '').trim()] || e.showroom || '',
+        scope: (['own', 'showroom', 'all'].includes(String(e.view_scope || '').trim().toLowerCase()) ? String(e.view_scope).trim().toLowerCase() : ''),
       }));
       return json(list);
     } catch (err) {

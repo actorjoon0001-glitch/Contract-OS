@@ -619,13 +619,67 @@ async function renderAdmin() {
     document.getElementById('admin-wrap').innerHTML = `<p class="center danger" style="padding:40px">통계를 불러오지 못했습니다: ${esc(err.message)}</p>`;
     return;
   }
-  // 연도 선택지 채우기
+  // 레이아웃: 좌측 뷰어 권한 설정 패널 + 우측 통계 본문
+  document.getElementById('admin-wrap').innerHTML = `
+    <div class="admin-layout">
+      ${permissionPanelHtml()}
+      <div class="admin-main"><div id="admin-body"></div></div>
+    </div>`;
+  bindPermissionPanel();
+  // 월 선택지 채우기
   const months = [...new Set(adminRows.map((r) => admDateStr(r).slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)))].sort((a, b) => b.localeCompare(a));
   const sel = document.getElementById('adm-month');
   sel.innerHTML = months.map((m) => `<option value="${m}">${admMonthLabel(m)}</option>`).join('') + `<option value="">전체 기간</option>`;
   sel.value = months[0] || '';
   sel.onchange = () => renderAdminBody(sel.value);
   renderAdminBody(sel.value);
+}
+
+// 뷰어 권한 설정 패널 (관리자 전용) — 직원별 열람 범위 드롭다운
+function permissionPanelHtml() {
+  const emps = adminEmps.slice().sort((a, b) => (a.showroom || '').localeCompare(b.showroom || '', 'ko') || (a.name || '').localeCompare(b.name || '', 'ko'));
+  const opt = (v, cur, label) => `<option value="${v}" ${(cur || 'own') === v ? 'selected' : ''}>${label}</option>`;
+  const rows = emps.length ? emps.map((e) => `
+    <tr>
+      <td class="perm-name">${esc(e.name || '-')}</td>
+      <td class="muted small">${esc(e.showroom || '-')}</td>
+      <td class="perm-cell">
+        <select class="perm-sel" data-email="${esc(e.email)}">
+          ${opt('own', e.scope, '본인만')}${opt('showroom', e.scope, '같은 전시장')}${opt('all', e.scope, '전체')}
+        </select>
+        <span class="perm-status" data-email="${esc(e.email)}"></span>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="3" class="muted center" style="padding:16px">직원 명부를 불러올 수 없습니다.</td></tr>`;
+  return `<aside class="perm-panel no-print">
+    <h3 class="perm-title">👁 뷰어 권한 설정</h3>
+    <p class="perm-hint muted small">직원별 계약서 열람 범위입니다. <b>본인만</b>(영업사원) · <b>같은 전시장</b>(지점장) · <b>전체</b>(본사 정산팀).</p>
+    <div class="perm-scroll"><table class="perm-table">
+      <thead><tr><th>이름</th><th>전시장</th><th>열람 범위</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </aside>`;
+}
+
+function bindPermissionPanel() {
+  document.querySelectorAll('.perm-sel').forEach((sel) => {
+    sel.onchange = async () => {
+      const email = sel.dataset.email, scope = sel.value;
+      const status = document.querySelector(`.perm-status[data-email="${CSS.escape(email)}"]`);
+      sel.disabled = true;
+      if (status) { status.textContent = '저장 중…'; status.className = 'perm-status'; }
+      try {
+        await api.setEmployeeScope(email, scope);
+        const emp = adminEmps.find((e) => e.email === email);
+        if (emp) emp.scope = scope;
+        if (status) { status.textContent = '✔ 저장됨'; status.className = 'perm-status ok'; }
+      } catch (err) {
+        if (status) { status.textContent = '실패: ' + err.message; status.className = 'perm-status danger'; }
+      } finally {
+        sel.disabled = false;
+        if (status) setTimeout(() => { status.textContent = ''; }, 2500);
+      }
+    };
+  });
 }
 
 function admDateStr(r) { return r.deposit_date || r.contract_date || ''; }
@@ -638,7 +692,7 @@ function admShowroom(v) { const s = String(v ?? '').trim(); if (!s) return '미�
 const SHOWROOM_ORDER = ['본사 전시장', '1전시장', '3전시장', '강화전시장', '안동전시장', '광주전시장'];
 
 function renderAdminBody(period) {
-  const wrap = document.getElementById('admin-wrap');
+  const wrap = document.getElementById('admin-body') || document.getElementById('admin-wrap');
   const rows = adminRows.filter((r) => !period || admDateStr(r).slice(0, 7) === period);
   const periodLabel = period ? admMonthLabel(period) : '전체 기간';
   // ── KPI 집계 ──
