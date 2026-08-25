@@ -399,6 +399,22 @@ input.f.date.m, input.f.date.d { width: 36px; }
 .kpi-val.ok { color: var(--ok); }
 .kpi-val.danger { color: var(--danger); }
 .kpi-label { margin-top: 6px; font-size: 12.5px; color: #66707c; font-weight: 600; }
+/* 관리자 레이아웃: 좌측 권한 패널 + 우측 통계 */
+.admin-layout { display: flex; gap: 18px; align-items: flex-start; }
+.admin-main { flex: 1; min-width: 0; }
+.perm-panel { width: 320px; flex: 0 0 320px; background: #fff; border: 1px solid #e2e6ea; border-radius: 12px; padding: 14px 14px 6px; box-shadow: 0 1px 5px rgba(0,0,0,.05); position: sticky; top: 74px; }
+.perm-title { margin: 0 0 6px; font-size: 15px; color: #1c2533; }
+.perm-hint { margin: 0 0 10px; line-height: 1.5; }
+.perm-scroll { max-height: calc(100vh - 220px); overflow-y: auto; }
+.perm-table { width: 100%; border-collapse: collapse; }
+.perm-table th, .perm-table td { padding: 7px 6px; border-bottom: 1px solid #eef0f2; font-size: 12.5px; text-align: left; vertical-align: middle; }
+.perm-table thead th { color: #66707c; font-weight: 700; font-size: 11.5px; position: sticky; top: 0; background: #fff; }
+.perm-name { font-weight: 600; color: #1c2533; white-space: nowrap; }
+.perm-sel { border: 1px solid #c4c9d0; border-radius: 6px; padding: 4px 6px; font-size: 12px; background: #fff; cursor: pointer; }
+.perm-status { display: block; font-size: 11px; margin-top: 2px; color: #8a8f96; }
+.perm-status.ok { color: var(--ok); }
+.perm-status.danger { color: var(--danger); }
+@media (max-width: 1000px) { .admin-layout { flex-direction: column; } .perm-panel { width: 100%; flex-basis: auto; position: static; } .perm-scroll { max-height: 340px; } }
 .adm-report-head { margin: 2px 2px 14px; font-size: 14px; color: #555; }
 .adm-report-head b { color: var(--brand); }
 .adm-h { margin: 28px 2px 10px; font-size: 15px; color: #1c2533; }
