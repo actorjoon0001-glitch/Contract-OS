@@ -311,7 +311,7 @@ export default async (req, context) => {
     if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
     if (auth.enabled && !auth.isAdmin) return json({ error: '권한이 없습니다.' }, 403);
     // 뷰어 범위 변경 (관리자 전용): { email, scope: 'own'|'showroom'|'all'|'' }
-    if (method === 'PUT' || method === 'POST') {
+    if (req.method === 'PUT' || req.method === 'POST') {
       try {
         const body = await req.json().catch(() => null);
         const email = String(body?.email || '').toLowerCase().trim();
