@@ -635,27 +635,36 @@ async function renderAdmin() {
   renderAdminBody(sel.value);
 }
 
-// 뷰어 권한 설정 패널 (관리자 전용) — 직원별 열람 범위 드롭다운
+// 뷰어 권한 설정 패널 (관리자 전용) — 전시장별로 묶어 직원별 열람 범위 드롭다운
 function permissionPanelHtml() {
-  const emps = adminEmps.slice().sort((a, b) => (a.showroom || '').localeCompare(b.showroom || '', 'ko') || (a.name || '').localeCompare(b.name || '', 'ko'));
   const opt = (v, cur, label) => `<option value="${v}" ${(cur || 'own') === v ? 'selected' : ''}>${label}</option>`;
-  const rows = emps.length ? emps.map((e) => `
+  // 전시장별 그룹핑 (세움os처럼)
+  const byShow = {};
+  for (const e of adminEmps) { const sh = admShowroom(e.showroom); (byShow[sh] = byShow[sh] || []).push(e); }
+  const showNames = Object.keys(byShow).sort((a, b) => {
+    const ia = SHOWROOM_ORDER.indexOf(a), ib = SHOWROOM_ORDER.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b, 'ko');
+  });
+  const empRow = (e) => `
     <tr>
       <td class="perm-name">${esc(e.name || '-')}</td>
-      <td class="muted small">${esc(e.showroom || '-')}</td>
       <td class="perm-cell">
         <select class="perm-sel" data-email="${esc(e.email)}">
           ${opt('own', e.scope, '본인만')}${opt('showroom', e.scope, '같은 전시장')}${opt('all', e.scope, '전체')}
         </select>
         <span class="perm-status" data-email="${esc(e.email)}"></span>
       </td>
-    </tr>`).join('') : `<tr><td colspan="3" class="muted center" style="padding:16px">직원 명부를 불러올 수 없습니다.</td></tr>`;
+    </tr>`;
+  const body = showNames.length ? showNames.map((sh) => {
+    const emps = byShow[sh].slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
+    return `<tr class="perm-group"><td colspan="2">${esc(sh)} <span class="muted small">${emps.length}명</span></td></tr>${emps.map(empRow).join('')}`;
+  }).join('') : `<tr><td colspan="2" class="muted center" style="padding:16px">직원 명부를 불러올 수 없습니다.</td></tr>`;
   return `<aside class="perm-panel no-print">
     <h3 class="perm-title">👁 뷰어 권한 설정</h3>
     <p class="perm-hint muted small">직원별 계약서 열람 범위입니다. <b>본인만</b>(영업사원) · <b>같은 전시장</b>(지점장) · <b>전체</b>(본사 정산팀).</p>
     <div class="perm-scroll"><table class="perm-table">
-      <thead><tr><th>이름</th><th>전시장</th><th>열람 범위</th></tr></thead>
-      <tbody>${rows}</tbody>
+      <thead><tr><th>이름</th><th>열람 범위</th></tr></thead>
+      <tbody>${body}</tbody>
     </table></div>
   </aside>`;
 }
