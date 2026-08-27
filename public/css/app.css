@@ -399,6 +399,8 @@ input.f.date.m, input.f.date.d { width: 36px; }
 .kpi-val.ok { color: var(--ok); }
 .kpi-val.danger { color: var(--danger); }
 .kpi-label { margin-top: 6px; font-size: 12.5px; color: #66707c; font-weight: 600; }
+/* 목록 인쇄 블록 — 화면에선 숨김, 인쇄 시에만 표시 */
+.list-print { display: none; }
 /* 관리자 레이아웃: 좌측 권한 패널 + 우측 통계 */
 .admin-layout { display: flex; gap: 18px; align-items: flex-start; }
 .admin-main { flex: 1; min-width: 0; }

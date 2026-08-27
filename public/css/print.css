@@ -67,6 +67,17 @@
   /* 페이지 잘림 방지 */
   table, tr, td, th { page-break-inside: avoid; }
 
+  /* 목록 인쇄 (필터된 계약 목록) */
+  .list-print { display: block !important; }
+  .list-print-head { margin-bottom: 8px; }
+  .list-print-head .lp-title { font-size: 16px; font-weight: 800; }
+  .list-print-head .lp-meta { font-size: 11px; color: #444; margin-top: 2px; }
+  .list-print-table { width: 100%; border-collapse: collapse; }
+  .list-print-table th, .list-print-table td { border: 1px solid #999; padding: 3px 5px; font-size: 10px; text-align: left; }
+  .list-print-table thead th { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .list-print-table .r { text-align: right; }
+  .list-print-table .c { text-align: center; }
+
   /* 관리자 통계 페이지 인쇄 */
   .admin-wrap { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
   .adm-report-head { font-size: 13px; margin-bottom: 10px; }
