@@ -72,7 +72,9 @@
   .list-print-head { margin-bottom: 8px; }
   .list-print-head .lp-title { font-size: 16px; font-weight: 800; }
   .list-print-head .lp-meta { font-size: 11px; color: #444; margin-top: 2px; }
-  .list-print-table { width: 100%; border-collapse: collapse; }
+  .list-print-table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+  .list-print-table thead { display: table-header-group; } /* 페이지마다 머리글 반복 */
+  .list-print-table tr { page-break-inside: avoid; }       /* 행은 안 잘리되, 표 전체는 페이지 넘김 허용 */
   .list-print-table th, .list-print-table td { border: 1px solid #999; padding: 3px 5px; font-size: 10px; text-align: left; }
   .list-print-table thead th { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .list-print-table .r { text-align: right; }
