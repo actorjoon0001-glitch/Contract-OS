@@ -157,6 +157,7 @@ function bindAccount(scope) {
 
 // ---------- 목록 화면 ----------
 let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터는 클라이언트에서 처리)
+let listFiltered = []; // 현재 필터 적용된 목록 (인쇄용)
 let employeeList = [];  // 직원 목록(관리자 담당자 지정용) — 로드 시 1회 채움
 const listCols = () => (canManageList() ? 17 : 16); // 관리자면 '담당자' 열 추가
 
@@ -176,6 +177,7 @@ async function renderList() {
         <select id="filter-month" class="filter-sel"><option value="">전체 기간</option></select>
         <select id="filter-showroom" class="filter-sel"><option value="">전시장 전체</option></select>
         <select id="filter-sales" class="filter-sel"><option value="">영업사원 전체</option></select>
+        <button class="btn" id="list-print-btn" title="현재 목록 인쇄 / PDF">🖨 인쇄</button>
         <button class="btn" id="trash-btn" title="삭제된 계약 보기/복원">🗑 휴지통</button>
         <button class="btn primary" id="new-btn">+ 새 계약서</button>
         ${accountChip()}
@@ -191,10 +193,12 @@ async function renderList() {
         </thead>
         <tbody id="list-body"><tr><td colspan="${listCols()}" class="muted center">불러오는 중...</td></tr></tbody>
       </table>
-    </div>`;
+    </div>
+    <div id="list-print" class="list-print"></div>`;
 
   document.getElementById('new-btn').onclick = () => go('#/new');
   document.getElementById('trash-btn').onclick = () => go('#/trash');
+  document.getElementById('list-print-btn').onclick = printList;
   const adminBtn = document.getElementById('admin-btn');
   if (adminBtn) adminBtn.onclick = () => go('#/admin');
   bindAccount(app);
@@ -265,7 +269,64 @@ function applyListFilters() {
   if (q) rows = rows.filter((r) =>
     [r.client_name, r.site_address, r.contract_no, r.showroom, r.salesperson]
       .some((v) => (v || '').toLowerCase().includes(q)));
+  listFiltered = rows;
   renderListRows(rows);
+}
+
+// 현재 필터된 목록을 깔끔한 표로 인쇄
+function printList() {
+  const rows = (listFiltered || []).filter((r) => !r.is_sample);
+  const box = document.getElementById('list-print');
+  if (!box) return;
+  if (!rows.length) { alert('인쇄할 계약이 없습니다.'); return; }
+  // 적용된 필터 요약
+  const selText = (id) => { const s = document.getElementById(id); return s && s.value ? s.options[s.selectedIndex].text : ''; };
+  const q = (document.getElementById('search')?.value || '').trim();
+  const parts = [];
+  if (selText('filter-month')) parts.push(selText('filter-month'));
+  if (selText('filter-stage')) parts.push(selText('filter-stage'));
+  if (selText('filter-showroom')) parts.push(selText('filter-showroom'));
+  if (selText('filter-sales')) parts.push(selText('filter-sales'));
+  if (q) parts.push(`검색 "${q}"`);
+  const now = new Date();
+  const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const permText = (r) => (r.permit_type === 'permit' ? '인허가' : r.permit_type === 'temporary' ? '가설축조' : '-');
+  const dateText = (r) => {
+    const contracted = CONTRACTED_STAGES.has(stageOf(r)) || !!r.deposit_date;
+    const d = contracted ? (r.deposit_date || r.contract_date || '') : (r.contract_date || '');
+    return d ? esc(d) + (contracted ? '' : ' (견적)') : '-';
+  };
+  const depText = (r) => {
+    const contracted = CONTRACTED_STAGES.has(stageOf(r)) || !!r.deposit_date;
+    const amt = contracted ? (r.deposit_amount || r.down_payment) : '';
+    return fmtMan(amt) || '-';
+  };
+  const body = rows.map((r, i) => `<tr>
+    <td class="c">${i + 1}</td>
+    <td>${esc(r.contract_no || '-')}</td>
+    <td>${esc(r.showroom || '-')}</td>
+    <td>${esc(r.salesperson || '-')}</td>
+    <td>${esc(r.client_name || '-')}</td>
+    <td>${esc(r.site_address || '-')}</td>
+    <td class="r">${fmtMan(r.total_amount) || '-'}</td>
+    <td>${dateText(r)}</td>
+    <td class="r">${depText(r)}</td>
+    <td class="c">${permText(r)}</td>
+    <td class="c">${esc(stageLabel(stageOf(r)))}</td>
+  </tr>`).join('');
+  box.innerHTML = `
+    <div class="list-print-head">
+      <div class="lp-title">㈜세움디자인하우징 · 계약 목록</div>
+      <div class="lp-meta">${parts.length ? esc(parts.join(' · ')) + ' · ' : ''}총 ${rows.length}건 · 출력일 ${stamp}</div>
+    </div>
+    <table class="list-print-table">
+      <thead><tr>
+        <th>#</th><th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
+        <th class="r">제품합계(만원)</th><th>계약일자</th><th class="r">계약금(만원)</th><th>인허가</th><th>진행상태</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>`;
+  window.print();
 }
 
 // 관리자만: 목록에서 전시장을 바로 바꿔 다른 전시장으로 넘기기
