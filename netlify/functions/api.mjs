@@ -185,12 +185,27 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
         const { data, error } = await query;
         if (error) throw error;
         let rows = data || [];
+        // 중복 고객 감지: 같은 연락처가 '다른 전시장' 계약에도 있으면 요약(전시장·담당자·날짜) 첨부
+        const phoneMap = {};
+        for (const r of rows) {
+          const ph = String(r.client_phone || '').replace(/\D/g, '');
+          if (ph.length >= 8) (phoneMap[ph] = phoneMap[ph] || []).push(r);
+        }
+        const withDupes = (r) => {
+          const ph = String(r.client_phone || '').replace(/\D/g, '');
+          if (ph.length < 8) return r;
+          const others = (phoneMap[ph] || []).filter((o) => o.id !== r.id && normShowroom(o.showroom) !== normShowroom(r.showroom));
+          if (!others.length) return r;
+          const dupes = others.slice(0, 6).map((o) => ({ showroom: o.showroom || '', salesperson: o.salesperson || '', date: o.deposit_date || o.contract_date || '' }));
+          return { ...r, dupes };
+        };
         // 권한: 뷰어 범위(scope) 기준 — all=전체, showroom=같은 전시장+본인, own=본인만(기본)
         if (auth.enabled && !auth.isAdmin) {
           rows = rows.filter((r) => scopeAllows(auth, r.showroom, r.owner_email, r.salesperson));
+          rows = rows.map((r) => { const { owner_email, ...rest } = withDupes(r); return rest; }); // 이메일 제거 + 중복정보 첨부
+        } else {
+          rows = rows.map(withDupes); // 관리자·개방모드는 owner_email 유지
         }
-        if (!(auth.enabled && !auth.isAdmin)) { /* 관리자·개방모드는 owner_email 유지(담당자 표시용) */ }
-        else rows = rows.map(({ owner_email, ...rest }) => rest); // 일반 직원 응답에선 이메일 제거
         return json(rows);
       }
 
