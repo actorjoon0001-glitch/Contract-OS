@@ -347,6 +347,9 @@ textarea.f.note.note-hl { color: #c0392b; font-weight: 700; }
 input.f.site, input.f.addr, input.f.name { width: 92%; }
 input.f.date { width: 56px; text-align: center; }
 input.f.date.m, input.f.date.d { width: 36px; }
+input.f.pct-input { width: 34px; text-align: right; padding: 0 2px; border: 1px solid transparent; border-radius: 4px; background: transparent; font: inherit; color: inherit; }
+input.f.pct-input:not([readonly]):hover { border-color: #cdd4dd; background: #fff; }
+input.f.pct-input:not([readonly]):focus { border-color: var(--brand); background: #fff; outline: none; }
 
 /* 신분증 첨부 (내부 보관 자료 · 인쇄 제외) */
 .idcard-bar {
