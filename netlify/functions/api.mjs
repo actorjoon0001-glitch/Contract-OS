@@ -196,7 +196,7 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
           if (ph.length < 8) return r;
           const others = (phoneMap[ph] || []).filter((o) => o.id !== r.id && normShowroom(o.showroom) !== normShowroom(r.showroom));
           if (!others.length) return r;
-          const dupes = others.slice(0, 6).map((o) => ({ showroom: o.showroom || '', salesperson: o.salesperson || '', date: o.deposit_date || o.contract_date || '' }));
+          const dupes = others.slice(0, 6).map((o) => ({ id: o.id, showroom: o.showroom || '', salesperson: o.salesperson || '', date: o.deposit_date || o.contract_date || '' }));
           return { ...r, dupes };
         };
         // 권한: 뷰어 범위(scope) 기준 — all=전체, showroom=같은 전시장+본인, own=본인만(기본)

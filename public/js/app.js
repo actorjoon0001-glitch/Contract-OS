@@ -370,7 +370,12 @@ function openDupDialog(name, dupes) {
       <div class="sign-modal-head"><h3>🔁 다른 전시장 견적 이력</h3><button class="sign-x" type="button" aria-label="닫기">✕</button></div>
       <div class="dup-body">
         <p class="dup-sub muted small"><b>${esc(name || '이 고객')}</b> — 같은 연락처로 다른 전시장에서 받은 견적입니다.</p>
-        <ul class="dup-list">${dupes.map((x) => `<li><span class="dup-sr">${esc(x.showroom || '-')}</span><span class="dup-mid">${esc(x.salesperson || '-')}</span><span class="dup-dt">${esc(x.date || '-')}</span></li>`).join('')}</ul>
+        <ul class="dup-list">${dupes.map((x) => `<li>
+          <span class="dup-sr">${esc(x.showroom || '-')}</span>
+          <span class="dup-mid">${esc(x.salesperson || '-')}</span>
+          <span class="dup-dt">${esc(x.date || '-')}</span>
+          ${x.id ? `<button type="button" class="btn tiny dup-go" data-id="${x.id}">📄 계약서 보기</button>` : ''}
+        </li>`).join('')}</ul>
       </div>
       <div class="sign-modal-actions"><span class="grow"></span><button class="btn primary" data-act="close" type="button">확인</button></div>
     </div>`;
@@ -381,6 +386,9 @@ function openDupDialog(name, dupes) {
   overlay.querySelector('.sign-x').onclick = done;
   overlay.querySelector('[data-act="close"]').onclick = done;
   overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) done(); });
+  overlay.querySelectorAll('.dup-go').forEach((b) => {
+    b.onclick = () => { const id = b.dataset.id; done(); go(`#/edit/${id}`); };
+  });
 }
 
 // 오늘 날짜 YYYY-MM-DD
