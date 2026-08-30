@@ -12,6 +12,7 @@ import { openSignaturePad } from './sign.js';
 import { loadAuthConfig, authEnabled, currentUser, login, logout, setOnAuthLost, trySSO } from './auth.js';
 
 let editorLocked = false; // 확정 상태이면 true (입력·서명 잠금)
+let dupView = false;      // 중복 고객 타 전시장 계약 읽기전용 열람
 let me = null;            // 로그인 사용자 정보 { email, name, isAdmin }
 
 // 진행상태(stage) — 값이 없으면 확정 여부로 추정
@@ -81,6 +82,8 @@ async function route() {
   if (hash === `#/edit/${SAMPLE_ID}`) return openEditor(SAMPLE_ID);
   const m = hash.match(/^#\/edit\/(\d+)$/);
   if (m) return openEditor(Number(m[1]));
+  const mDup = hash.match(/^#\/dup\/(\d+)$/);
+  if (mDup) return openEditor(Number(mDup[1]), null, { dup: true });
   renderList();
 }
 
@@ -387,7 +390,7 @@ function openDupDialog(name, dupes) {
   overlay.querySelector('[data-act="close"]').onclick = done;
   overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) done(); });
   overlay.querySelectorAll('.dup-go').forEach((b) => {
-    b.onclick = () => { const id = b.dataset.id; done(); go(`#/edit/${id}`); };
+    b.onclick = () => { const id = b.dataset.id; done(); go(`#/dup/${id}`); };
   });
 }
 
@@ -1097,8 +1100,9 @@ function renderModelPicker() {
 }
 
 // ---------- 편집 화면 ----------
-async function openEditor(id, modelId = null) {
+async function openEditor(id, modelId = null, { dup = false } = {}) {
   currentId = id;
+  dupView = false;
   if (id === SAMPLE_ID) {
     // 샘플은 DB에 없는 참고용 양식 → 새 계약서처럼 다룬다(저장 시 새로 생성)
     current = sampleContract();
@@ -1106,9 +1110,10 @@ async function openEditor(id, modelId = null) {
     currentId = null;
   } else if (id) {
     try {
-      const rec = await api.get(id);
+      const rec = await api.get(id, { dup });
       current = rec.data;
       current.contractNo = rec.contract_no;
+      dupView = !!dup; // 중복 열람은 읽기전용
     } catch (err) {
       alert('계약서를 불러오지 못했습니다: ' + err.message);
       return go('#/');
@@ -1126,7 +1131,7 @@ async function openEditor(id, modelId = null) {
 
 function renderEditor() {
   const c = current;
-  editorLocked = c.status === 'confirmed';
+  editorLocked = c.status === 'confirmed' || dupView; // 중복 열람은 읽기전용
   const [y, mo, d] = (c.contractDate || '').split('-');
 
   app.innerHTML = `
@@ -1135,12 +1140,13 @@ function renderEditor() {
       <div class="doc-meta">
         ${c.contractNo ? `계약번호 <b>${esc(c.contractNo)}</b>` : '<span class="muted">새 계약서 (저장 시 번호 부여)</span>'}
         ${c.modelName ? `<span class="model-badge">${esc(c.modelName)}</span>` : ''}
+        ${dupView ? '<span class="viewonly-badge">👁 다른 전시장 계약 · 읽기전용</span>' : ''}
         <span id="dirty-flag" class="muted"></span>
       </div>
       <div class="actions">
-        <label class="status-toggle"><input type="checkbox" id="status-confirmed" ${c.status === 'confirmed' ? 'checked' : ''}/> 확정</label>
+        ${dupView ? '' : `<label class="status-toggle"><input type="checkbox" id="status-confirmed" ${c.status === 'confirmed' ? 'checked' : ''}/> 확정</label>`}
         <button class="btn" id="print-btn">🖨 인쇄 / PDF</button>
-        <button class="btn primary" id="save-btn">💾 저장</button>
+        ${dupView ? '' : '<button class="btn primary" id="save-btn">💾 저장</button>'}
         ${accountChip()}
       </div>
     </div>
@@ -1939,7 +1945,8 @@ function renderDepositInfo() {
 
 // ---------- 편집 이벤트 ----------
 function bindEditor() {
-  document.getElementById('save-btn').onclick = saveContract;
+  const saveBtn = document.getElementById('save-btn');
+  if (saveBtn) saveBtn.onclick = saveContract;
   document.getElementById('print-btn').onclick = () => window.print();
   bindAccount(app);
   // 진행상태: '확정' 잠금과 무관하게 언제든 변경 가능 (관리용 라벨)
@@ -2004,7 +2011,8 @@ function bindEditor() {
     markDirty();
     renderEditor();
   };
-  document.getElementById('status-confirmed').onchange = async (e) => {
+  const confirmToggle = document.getElementById('status-confirmed');
+  if (confirmToggle) confirmToggle.onchange = async (e) => {
     if (e.target.checked) {
       // 확정: 무결성 봉인 후 잠금
       current.status = 'confirmed';

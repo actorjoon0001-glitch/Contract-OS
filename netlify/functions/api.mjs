@@ -119,6 +119,20 @@ function canAccess(rowData, salesperson, auth) {
   return scopeAllows(auth, rowData?.showroom, rowData?.ownerEmail, rowData?.salesperson ?? salesperson);
 }
 
+// 중복 고객 열람 검증: 요청자가 '접근 가능한' 계약 중 같은 연락처(전화번호)가 있으면 true
+// → 같은 고객을 담당(견적)한 사람만, 그 고객의 타 전시장 계약을 읽기전용으로 볼 수 있음
+async function requesterSharesPhone(supa, auth, phoneRaw) {
+  const phone = String(phoneRaw || '').replace(/\D/g, '');
+  if (phone.length < 8) return false;
+  const { data, error } = await supa.from(TABLE)
+    .select('salesperson, showroom, client_phone:data->client->>phone, owner_email:data->>ownerEmail, deleted_at:data->>deletedAt');
+  if (error) return false;
+  return (data || []).some((r) =>
+    !r.deleted_at &&
+    String(r.client_phone || '').replace(/\D/g, '') === phone &&
+    scopeAllows(auth, r.showroom, r.owner_email, r.salesperson));
+}
+
 // 본문 JSON에서 목록/검색용 요약 컬럼 추출
 function summarize(data) {
   return {
@@ -232,7 +246,14 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
       const { data: row, error } = await supa.from(TABLE).select('*').eq('id', id).maybeSingle();
       if (error) throw error;
       if (!row) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
-      if (!canAccess(row.data, row.salesperson, auth)) return json({ error: '이 계약을 볼 권한이 없습니다.' }, 403);
+      if (!canAccess(row.data, row.salesperson, auth)) {
+        // 중복 고객 열람 예외: 요청자가 같은 연락처 고객의 (접근 가능한) 계약을 가지고 있으면 읽기전용 허용
+        const url = new URL(req.url);
+        const allowed = url.searchParams.get('dup') === '1' && auth.enabled && auth.user
+          ? await requesterSharesPhone(supa, auth, row.data?.client?.phone)
+          : false;
+        if (!allowed) return json({ error: '이 계약을 볼 권한이 없습니다.' }, 403);
+      }
       return json({ id: row.id, contract_no: row.contract_no, ...row, data: row.data });
     }
 
