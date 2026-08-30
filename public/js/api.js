@@ -31,7 +31,7 @@ export const api = {
     const qs = params.toString();
     return req(`${BASE}${qs ? `?${qs}` : ''}`);
   },
-  get: (id) => req(`${BASE}/${id}`),
+  get: (id, { dup = false } = {}) => req(`${BASE}/${id}${dup ? '?dup=1' : ''}`),
   create: (data) => req(BASE, { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => req(`${BASE}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   remove: (id) => req(`${BASE}/${id}`, { method: 'DELETE' }),
