@@ -6,7 +6,7 @@ import {
   SAMPLE_ID, sampleContract, sampleListRow,
   STAGES, stageLabel,
   MODELS, modelContract,
-  SHOWROOMS,
+  SHOWROOMS, defaultTerms,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
 import { loadAuthConfig, authEnabled, currentUser, login, logout, setOnAuthLost, trySSO } from './auth.js';
@@ -1313,7 +1313,48 @@ function rightCell(item, i) {
 }
 
 function renderTerms() {
-  return current.terms.map((t) => `<li>${esc(t)}</li>`).join('');
+  const ro = editorLocked ? 'readonly' : '';
+  const rows = current.terms.map((t, i) => `
+    <li class="term-row">
+      <textarea class="f term-input" data-term="${i}" rows="1" ${ro}>${esc(t)}</textarea>
+      ${editorLocked ? '' : `<button type="button" class="term-del no-print" data-term-del="${i}" title="이 약관 삭제">✕</button>`}
+    </li>`).join('');
+  const controls = editorLocked ? '' : `<li class="term-ctrl no-print">
+      <button type="button" class="btn tiny" id="term-add">＋ 약관 추가</button>
+      <button type="button" class="btn tiny" id="term-reset">기본 약관 복원</button>
+    </li>`;
+  return rows + controls;
+}
+
+function rerenderTerms() {
+  const list = document.getElementById('terms-list');
+  if (!list) return;
+  list.innerHTML = renderTerms();
+  bindTerms();
+}
+
+function bindTerms() {
+  const list = document.getElementById('terms-list');
+  if (!list) return;
+  list.querySelectorAll('.term-input').forEach((ta) => {
+    autoGrow(ta);
+    if (editorLocked) return;
+    ta.oninput = () => { current.terms[Number(ta.dataset.term)] = ta.value; autoGrow(ta); markDirty(); };
+  });
+  if (editorLocked) return;
+  list.querySelectorAll('[data-term-del]').forEach((b) => {
+    b.onclick = () => { current.terms.splice(Number(b.dataset.termDel), 1); rerenderTerms(); markDirty(); };
+  });
+  const add = document.getElementById('term-add');
+  if (add) add.onclick = () => {
+    current.terms.push(''); rerenderTerms(); markDirty();
+    const inputs = list.querySelectorAll('.term-input');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  };
+  const reset = document.getElementById('term-reset');
+  if (reset) reset.onclick = () => {
+    if (confirm('약관을 기본 약관으로 되돌릴까요?\n지금 수정한 약관 내용은 사라집니다.')) { current.terms = defaultTerms(); rerenderTerms(); markDirty(); }
+  };
 }
 
 // 기타 비용 행에 내용이 하나라도 있는지 (인쇄 시 빈 섹션 숨김용)
@@ -1998,6 +2039,9 @@ function bindEditor() {
       renderEditor();
     };
   });
+
+  // 약관 편집 바인딩
+  bindTerms();
 
   // 비고 textarea 초기 높이 맞춤 (저장된 내용이 모두 보이도록)
   app.querySelectorAll('textarea.f').forEach(autoGrow);

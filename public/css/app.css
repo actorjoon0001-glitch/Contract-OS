@@ -201,8 +201,15 @@ select.f.dist.locked { background: #f1f3f5; cursor: default; }
 .terms-head { letter-spacing: 8px; }
 .terms-cell { padding: 8px 10px; }
 .terms-list { margin: 0; padding-left: 0; list-style: none; columns: 1; }
-.terms-list li { position: relative; padding-left: 14px; margin-bottom: 3px; font-size: 12px; line-height: 1.35; }
-.terms-list li::before { content: '※'; position: absolute; left: 0; color: #666; }
+.terms-list li { position: relative; padding-left: 14px; margin-bottom: 3px; font-size: 12px; line-height: 1.35; display: flex; align-items: flex-start; gap: 4px; }
+.terms-list li::before { content: '※'; position: absolute; left: 0; top: 2px; color: #666; }
+.terms-list li.term-ctrl { display: block; padding-left: 0; margin-top: 8px; }
+.terms-list li.term-ctrl::before { content: ''; }
+textarea.f.term-input { flex: 1; border: 1px solid transparent; background: transparent; font: inherit; font-size: 12px; line-height: 1.35; resize: none; overflow: hidden; padding: 1px 4px; border-radius: 4px; box-sizing: border-box; }
+textarea.f.term-input:not([readonly]):hover { border-color: #dfe3e8; background: #fafbfc; }
+textarea.f.term-input:not([readonly]):focus { border-color: var(--brand); background: #fff; outline: none; }
+.term-del { border: none; background: none; color: var(--danger); cursor: pointer; font-size: 12px; line-height: 1.4; padding: 0 3px; flex: 0 0 auto; }
+.term-del:hover { font-weight: 700; }
 
 /* 기타 비용 (어닝 등 추가 옵션) */
 .extra-cost-grid { margin-top: -1px; }
