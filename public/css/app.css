@@ -398,14 +398,16 @@ input.f.date.m, input.f.date.d { width: 36px; }
 .dup-badge { display: inline-block; font-size: 11px; font-weight: 700; color: #b5560f; background: #ffe8d6; border: 1px solid #f6d2b3; padding: 1px 7px; border-radius: 20px; white-space: nowrap; cursor: pointer; vertical-align: middle; }
 .dup-badge:hover { background: #ffdcc0; }
 /* 중복 고객 상세 팝업 */
-.dup-modal { width: 400px; }
+.dup-modal { width: 460px; }
 .dup-body { padding: 16px 18px; }
 .dup-sub { margin: 0 0 12px; line-height: 1.5; }
 .dup-list { list-style: none; margin: 0; padding: 0; }
-.dup-list li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #eef0f2; border-radius: 8px; margin-bottom: 6px; font-size: 13px; background: #fafbfc; }
-.dup-list .dup-sr { font-weight: 700; color: #1c2533; min-width: 92px; }
-.dup-list .dup-mid { flex: 1; color: #444; }
-.dup-list .dup-dt { color: #66707c; font-size: 12.5px; white-space: nowrap; }
+.dup-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 8px 10px; border: 1px solid #eef0f2; border-radius: 8px; margin-bottom: 6px; font-size: 13px; background: #fafbfc; }
+.dup-list .dup-sr { font-weight: 700; color: #1c2533; min-width: 86px; }
+.dup-list .dup-mid { color: #444; }
+.dup-list .dup-dt { color: #66707c; font-size: 12.5px; white-space: nowrap; margin-left: auto; }
+.dup-list .dup-go { flex: 0 0 auto; color: var(--brand); border-color: #cfe0fb; background: #eef5fd; }
+.dup-list .dup-go:hover { background: #e2eefb; }
 /* 관리자 페이지 버튼 */
 .admin-btn { margin-left: 12px; color: #6b3fa0; border-color: #d3c2ef; background: #f3edfc; }
 .admin-btn:hover { background: #e9ddfa; }
