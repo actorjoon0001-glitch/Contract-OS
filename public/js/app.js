@@ -169,7 +169,7 @@ async function renderList() {
         ${canManageList() ? '<button class="btn tiny admin-btn" id="admin-btn" title="관리자 통계 페이지 (관리자 전용)">📊 관리자 페이지</button>' : ''}
       </div>
       <div class="actions">
-        <input id="search" class="search" type="search" placeholder="건축주 · 현장주소 · 계약번호 · 전시장 · 영업사원 검색" />
+        <input id="search" class="search" type="search" placeholder="건축주 · 연락처(뒷번호) · 현장주소 · 계약번호 · 전시장 · 영업사원 검색" />
         <select id="filter-stage" class="filter-sel">
           <option value="">진행상태 전체</option>
           ${STAGES.map((s) => `<option value="${s.key}">${s.label}</option>`).join('')}
@@ -266,9 +266,15 @@ function applyListFilters() {
   if (mo) rows = rows.filter((r) => rowDateStr(r).slice(0, 7) === mo);
   if (sr) rows = rows.filter((r) => (r.showroom || '') === sr);
   if (sp) rows = rows.filter((r) => (r.salesperson || '') === sp);
-  if (q) rows = rows.filter((r) =>
-    [r.client_name, r.site_address, r.contract_no, r.showroom, r.salesperson]
-      .some((v) => (v || '').toLowerCase().includes(q)));
+  if (q) {
+    const qDigits = q.replace(/\D/g, ''); // 연락처 뒷번호 검색용 (숫자만)
+    rows = rows.filter((r) => {
+      const textHit = [r.client_name, r.site_address, r.contract_no, r.showroom, r.salesperson]
+        .some((v) => (v || '').toLowerCase().includes(q));
+      const phoneHit = qDigits && String(r.client_phone || '').replace(/\D/g, '').includes(qDigits);
+      return textHit || phoneHit;
+    });
+  }
   listFiltered = rows;
   renderListRows(rows);
 }
