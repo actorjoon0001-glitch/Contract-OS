@@ -41,7 +41,7 @@
     print-color-adjust: exact;
   }
   /* 비고 textarea: 잘리지 않고 전체 내용 출력 */
-  textarea.f.note { overflow: visible !important; resize: none; }
+  textarea.f.note, textarea.f.term-input { overflow: visible !important; resize: none; }
   /* 별도 협의 필요 주의 문구는 인쇄에서도 강조색 유지 */
   textarea.f.note.note-hl { color: #c0392b !important; font-weight: 700; }
 
