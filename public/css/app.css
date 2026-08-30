@@ -394,6 +394,8 @@ input.f.date.m, input.f.date.d { width: 36px; }
 .list-table td.center { text-align: center; }
 .id-badge { font-size: 12px; font-weight: 700; color: #1c7d3c; background: #dff3e4; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
 .dw-badge { font-size: 12px; font-weight: 700; color: #3a4fa0; background: #dde2fb; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+/* 중복 고객(타 전시장 견적) 배지 */
+.dup-badge { display: inline-block; font-size: 11px; font-weight: 700; color: #b5560f; background: #ffe8d6; border: 1px solid #f6d2b3; padding: 1px 7px; border-radius: 20px; white-space: nowrap; cursor: help; vertical-align: middle; }
 /* 관리자 페이지 버튼 */
 .admin-btn { margin-left: 12px; color: #6b3fa0; border-color: #d3c2ef; background: #f3edfc; }
 .admin-btn:hover { background: #e9ddfa; }

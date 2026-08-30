@@ -353,6 +353,15 @@ function rowOwnerSelect(r) {
   return `<select class="row-owner" data-owner-id="${r.id}" title="담당자 지정 → 그 직원에게 넘김(그 직원이 보게 됨)">${opts.join('')}</select>`;
 }
 
+// 중복 고객 배지 — 같은 연락처가 다른 전시장 계약에도 있으면 표시(전시장·담당자·날짜)
+function dupBadge(r) {
+  const d = r.dupes;
+  if (!Array.isArray(d) || !d.length) return '';
+  const lines = d.map((x) => `${x.showroom || '-'}${x.salesperson ? ' ' + x.salesperson : ''}${x.date ? ' · ' + x.date : ''}`);
+  const title = `다른 전시장 견적 이력 (${d.length}건)\n${lines.join('\n')}`;
+  return ` <span class="dup-badge no-print" title="${esc(title)}">🔁 타 전시장</span>`;
+}
+
 // 오늘 날짜 YYYY-MM-DD
 function todayYmd() {
   const d = new Date();
@@ -444,7 +453,7 @@ function renderListRows(rows) {
       <td>${esc(r.contract_no || '-')}</td>
       <td>${(r.is_sample || !canManageList()) ? esc(r.showroom || '-') : listShowroomSelect(r)}</td>
       <td>${esc(r.salesperson || '-')}</td>
-      <td>${esc(r.client_name || '-')}</td>
+      <td>${esc(r.client_name || '-')}${dupBadge(r)}</td>
       <td class="ellipsis">${esc(r.site_address || '-')}</td>
       <td class="right">${fmtMan(r.total_amount) || '-'}</td>
       <td>${listDateCell(r)}</td>
