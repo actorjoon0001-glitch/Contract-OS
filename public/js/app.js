@@ -353,13 +353,34 @@ function rowOwnerSelect(r) {
   return `<select class="row-owner" data-owner-id="${r.id}" title="담당자 지정 → 그 직원에게 넘김(그 직원이 보게 됨)">${opts.join('')}</select>`;
 }
 
-// 중복 고객 배지 — 같은 연락처가 다른 전시장 계약에도 있으면 표시(전시장·담당자·날짜)
+// 중복 고객 배지 — 같은 연락처가 다른 전시장 계약에도 있으면 표시(클릭하면 상세 팝업)
 function dupBadge(r) {
   const d = r.dupes;
   if (!Array.isArray(d) || !d.length) return '';
-  const lines = d.map((x) => `${x.showroom || '-'}${x.salesperson ? ' ' + x.salesperson : ''}${x.date ? ' · ' + x.date : ''}`);
-  const title = `다른 전시장 견적 이력 (${d.length}건)\n${lines.join('\n')}`;
-  return ` <span class="dup-badge no-print" title="${esc(title)}">🔁 타 전시장</span>`;
+  return ` <span class="dup-badge no-print" data-dup="${esc(JSON.stringify(d))}" data-name="${esc(r.client_name || '')}" title="클릭하면 다른 전시장 견적 이력 보기">🔁 타 전시장 (${d.length})</span>`;
+}
+
+// 중복 고객 상세 팝업 — 닫기 전까지 유지
+function openDupDialog(name, dupes) {
+  if (!Array.isArray(dupes) || !dupes.length) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'sign-modal-overlay no-print';
+  overlay.innerHTML = `
+    <div class="sign-modal dup-modal" role="dialog" aria-modal="true" aria-label="다른 전시장 견적 이력">
+      <div class="sign-modal-head"><h3>🔁 다른 전시장 견적 이력</h3><button class="sign-x" type="button" aria-label="닫기">✕</button></div>
+      <div class="dup-body">
+        <p class="dup-sub muted small"><b>${esc(name || '이 고객')}</b> — 같은 연락처로 다른 전시장에서 받은 견적입니다.</p>
+        <ul class="dup-list">${dupes.map((x) => `<li><span class="dup-sr">${esc(x.showroom || '-')}</span><span class="dup-mid">${esc(x.salesperson || '-')}</span><span class="dup-dt">${esc(x.date || '-')}</span></li>`).join('')}</ul>
+      </div>
+      <div class="sign-modal-actions"><span class="grow"></span><button class="btn primary" data-act="close" type="button">확인</button></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const done = () => { overlay.remove(); window.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') done(); };
+  window.addEventListener('keydown', onKey);
+  overlay.querySelector('.sign-x').onclick = done;
+  overlay.querySelector('[data-act="close"]').onclick = done;
+  overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) done(); });
 }
 
 // 오늘 날짜 YYYY-MM-DD
@@ -481,8 +502,17 @@ function renderListRows(rows) {
 
   body.querySelectorAll('.row').forEach((tr) => {
     tr.onclick = (e) => {
-      if (e.target.dataset.del || e.target.closest('.row-stage') || e.target.closest('.row-approve') || e.target.closest('.row-memo') || e.target.closest('.row-showroom') || e.target.closest('.row-owner')) return; // 인라인 조작은 행 이동 제외
+      if (e.target.dataset.del || e.target.closest('.row-stage') || e.target.closest('.row-approve') || e.target.closest('.row-memo') || e.target.closest('.row-showroom') || e.target.closest('.row-owner') || e.target.closest('.dup-badge')) return; // 인라인 조작은 행 이동 제외
       go(`#/edit/${tr.dataset.id}`);
+    };
+  });
+  // 중복 고객 배지: 클릭하면 상세 팝업
+  body.querySelectorAll('.dup-badge').forEach((b) => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      let dupes = [];
+      try { dupes = JSON.parse(b.dataset.dup || '[]'); } catch { dupes = []; }
+      openDupDialog(b.dataset.name || '', dupes);
     };
   });
   // 직원 메모: 목록에서 바로 입력 (엔터 또는 포커스 아웃 시 저장, Esc는 취소)
