@@ -82,8 +82,6 @@ async function route() {
   if (hash === `#/edit/${SAMPLE_ID}`) return openEditor(SAMPLE_ID);
   const m = hash.match(/^#\/edit\/(\d+)$/);
   if (m) return openEditor(Number(m[1]));
-  const mDup = hash.match(/^#\/dup\/(\d+)$/);
-  if (mDup) return openEditor(Number(mDup[1]), null, { dup: true });
   renderList();
 }
 
@@ -377,7 +375,6 @@ function openDupDialog(name, dupes) {
           <span class="dup-sr">${esc(x.showroom || '-')}</span>
           <span class="dup-mid">${esc(x.salesperson || '-')}</span>
           <span class="dup-dt">${esc(x.date || '-')}</span>
-          ${x.id ? `<button type="button" class="btn tiny dup-go" data-id="${x.id}">📄 계약서 보기</button>` : ''}
         </li>`).join('')}</ul>
       </div>
       <div class="sign-modal-actions"><span class="grow"></span><button class="btn primary" data-act="close" type="button">확인</button></div>
@@ -389,9 +386,6 @@ function openDupDialog(name, dupes) {
   overlay.querySelector('.sign-x').onclick = done;
   overlay.querySelector('[data-act="close"]').onclick = done;
   overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) done(); });
-  overlay.querySelectorAll('.dup-go').forEach((b) => {
-    b.onclick = () => { const id = b.dataset.id; done(); go(`#/dup/${id}`); };
-  });
 }
 
 // 오늘 날짜 YYYY-MM-DD
@@ -1284,11 +1278,11 @@ function renderRows() {
     { label: '제품공급가', type: 'supply', key: 'productSupply' },
     { label: '부가세(Vat)', type: 'calc', key: 'vat' },
     { label: '제품 합계', type: 'calc', key: 'productTotal', strong: true },
-    { label: '계약금', type: 'pay', key: 'downPayment', cond: '계약 시 입금 (10%)' },
-    { label: '중도금 1', type: 'pay', key: 'interim1', cond: '기초공사 완료 후 입금 (30%)' },
-    { label: '중도금 2', type: 'pay', key: 'interim2', cond: '철골·외장·지붕 완료 후 입금 (40%)' },
-    { label: '중도금 3', type: 'pay', key: 'interim3', cond: '내장목공 완료 시 입금 (15%)' },
-    { label: '잔금', type: 'pay', key: 'balance', cond: '준공서류 전달 / 이동설치시 출고 전 입금 (5%)' },
+    { label: '계약금', type: 'pay', key: 'downPayment', desc: '계약 시 입금', pct: 10 },
+    { label: '중도금 1', type: 'pay', key: 'interim1', desc: '기초공사 완료 후 입금', pct: 30 },
+    { label: '중도금 2', type: 'pay', key: 'interim2', desc: '철골·외장·지붕 완료 후 입금', pct: 40 },
+    { label: '중도금 3', type: 'pay', key: 'interim3', desc: '내장목공 완료 시 입금', pct: 15 },
+    { label: '잔금', type: 'pay', key: 'balance', desc: '준공서류 전달 / 이동설치시 출고 전 입금', pct: 5 },
     { label: '계약일자', type: 'date' },
     { label: '현장주소', type: 'site' },
   ];
@@ -1299,6 +1293,13 @@ function renderRows() {
     rows.push(`<tr>${leftCell(left[i])}${rightCell(c.items[i], i)}</tr>`);
   }
   return rows.join('');
+}
+
+// 결제 항목 표시용 퍼센트 (수기 수정값 우선, 없으면 기본 비율)
+function payPct(c, row) {
+  const p = c.amounts && c.amounts.payPct;
+  const v = p && p[row.key];
+  return (v === 0 || v) ? v : row.pct;
 }
 
 function leftCell(row) {
@@ -1332,7 +1333,7 @@ function leftCell(row) {
         <input class="f amt right ${lc}" data-path="amounts.${row.key}" data-pay="${row.key}" value="${esc(fmtMan(c.amounts[row.key]))}" title="비율대로 자동 입력됩니다. 직접 입력하면 그 값이 우선됩니다(수동 조정)." ${ro} />
         <span class="unit">만원</span>
       </td>
-      <td class="cond muted small">${row.cond || ''}</td>`;
+      <td class="cond muted small">${esc(row.desc || '')} (<input class="f pct-input right ${lc}" data-pct="${row.key}" value="${esc(payPct(c, row))}" inputmode="decimal" title="비율(%)만 직접 수정할 수 있습니다. 금액 자동배분과는 별개의 표시값입니다." ${ro} />%)</td>`;
   }
   if (row.type === 'date') {
     const [y, mo, d] = (c.contractDate || '').split('-');
@@ -2103,6 +2104,17 @@ function bindEditor() {
 
   // 약관 편집 바인딩
   bindTerms();
+
+  // 결제 항목 퍼센트(%) 수기 수정 — 표시값만 바뀌고 금액 자동배분엔 영향 없음
+  app.querySelectorAll('.pct-input').forEach((inp) => {
+    if (editorLocked) return;
+    inp.oninput = () => {
+      inp.value = inp.value.replace(/[^\d.]/g, '');
+      current.amounts.payPct = current.amounts.payPct || {};
+      current.amounts.payPct[inp.dataset.pct] = inp.value === '' ? '' : Number(inp.value);
+      markDirty();
+    };
+  });
 
   // 비고 textarea 초기 높이 맞춤 (저장된 내용이 모두 보이도록)
   app.querySelectorAll('textarea.f').forEach(autoGrow);
