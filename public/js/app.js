@@ -1979,12 +1979,19 @@ async function savePdfFile() {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ PDF 만드는 중…'; }
   try {
     await ensurePdfLibs();
+    const fullW = Math.max(el.scrollWidth, el.offsetWidth);
     const canvas = await window.html2canvas(el, {
-      scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: el.scrollWidth,
-      onclone: (doc) => { const c = doc.getElementById('contract'); if (c) c.classList.add('pdf-mode'); },
+      scale: 2, backgroundColor: '#ffffff', useCORS: true,
+      width: fullW, height: el.scrollHeight, windowWidth: fullW,
+      onclone: (doc) => {
+        const c = doc.getElementById('contract');
+        if (c) { c.classList.add('pdf-mode'); c.style.margin = '0'; c.style.boxShadow = 'none'; c.style.width = fullW + 'px'; }
+      },
     });
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF('l', 'mm', 'a4');
+    // 문서 비율에 맞춰 세로/가로 자동 선택 (계약서는 세로형)
+    const orient = canvas.width >= canvas.height ? 'l' : 'p';
+    const pdf = new jsPDF(orient, 'mm', 'a4');
     const pw = pdf.internal.pageSize.getWidth();
     const ph = pdf.internal.pageSize.getHeight();
     const imgW = pw;
