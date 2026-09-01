@@ -607,16 +607,21 @@ function renderListRows(rows) {
       const stage = sel.value;
       const cached = listRows.find((r) => String(r.id) === String(id));
       const prevStage = cached ? stageOf(cached) : '';
-      const applyStage = async (deposit) => {
+      const applyStage = async ({ deposit, clearDeposit } = {}) => {
         sel.disabled = true;
         try {
           const rec = await api.get(id);
           const data = rec.data || {};
           data.stage = stage;
           if (deposit) data.deposit = deposit;
+          if (clearDeposit) data.deposit = {}; // 계약금 환불 → 표시 제거
           await api.update(id, data);
           sel.className = `row-stage stage-${stage}`; // 색상 갱신
-          if (cached) cached.stage = stage; // 캐시 동기화 (필터 정확도)
+          if (cached) {
+            cached.stage = stage; // 캐시 동기화 (필터 정확도)
+            if (clearDeposit) { cached.deposit_date = null; cached.deposit_amount = null; }
+          }
+          if (clearDeposit) applyListFilters(); // 계약금 표시 즉시 갱신
         } catch (err) {
           alert('진행상태 변경 실패: ' + err.message);
           loadList();
@@ -627,9 +632,16 @@ function renderListRows(rows) {
       // '계약완료'로 바꿀 때 계약금 입금(금액·날짜) 입력받기 (취소 시 원복)
       if (stage === 'completed') {
         openDepositDialog({
-          onSave: (dep) => applyStage({ ...dep, at: new Date().toISOString() }),
+          onSave: (dep) => applyStage({ deposit: { ...dep, at: new Date().toISOString() } }),
           onCancel: () => { sel.value = prevStage; sel.className = `row-stage stage-${prevStage}`; },
         });
+        return;
+      }
+      // 계약금이 있는데 비계약(협의중·취소 등) 상태로 되돌리면 환불 여부 확인
+      const hadDeposit = cached && (String(cached.deposit_amount || '').trim() || cached.deposit_date);
+      if (hadDeposit && !CONTRACTED_STAGES.has(stage)) {
+        const refunded = confirm('이 계약은 받은 계약금이 있습니다.\n계약금을 돌려주셨나요?\n\n[확인] 환불함 → 계약금 표시를 지웁니다\n[취소] 유지');
+        applyStage({ clearDeposit: refunded });
         return;
       }
       applyStage();
@@ -2111,6 +2123,15 @@ function bindEditor() {
         onCancel: () => { e.target.value = prev; },
       });
       return;
+    }
+    // 계약금이 있는데 비계약(협의중·취소 등)으로 되돌리면 환불 여부 확인 → 예면 계약금 표시 제거
+    const d = current.deposit;
+    const hadDeposit = d && (String(d.amount || '').trim() || d.date);
+    if (hadDeposit && !CONTRACTED_STAGES.has(val)) {
+      if (confirm('이 계약은 받은 계약금이 있습니다.\n계약금을 돌려주셨나요?\n\n[확인] 환불함 → 계약금 표시를 지웁니다\n[취소] 유지')) {
+        current.deposit = {};
+        renderDepositInfo();
+      }
     }
     current.stage = val;
     e.target.className = `mb-stage stage-${current.stage}`; // 색상 갱신
