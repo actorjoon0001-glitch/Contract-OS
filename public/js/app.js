@@ -1499,12 +1499,9 @@ function field(path, value, cls = '', align = '') {
 }
 // 전시장 선택 드롭다운 (고정 목록). 목록에 없는 기존 값은 보존해서 그대로 표시.
 function showroomSelect(value) {
-  const v = value || '';
-  const dis = editorLocked ? 'disabled' : '';
-  const opts = [`<option value="" ${v ? '' : 'selected'}>전시장 선택</option>`]
-    .concat(SHOWROOMS.map((s) => `<option value="${esc(s)}" ${v === s ? 'selected' : ''}>${esc(s)}</option>`));
-  if (v && !SHOWROOMS.includes(v)) opts.push(`<option value="${esc(v)}" selected>${esc(v)} (기존)</option>`); // 레거시 값 보존
-  return `<select id="showroom-select" class="mb-stage ${editorLocked ? 'locked' : ''}" data-path="showroom" ${dis}>${opts.join('')}</select>`;
+  // 전시장은 영업사원 본인 소속으로 자동 지정되며 편집기에서는 고정(수정 불가). 재배정은 목록에서 관리자만.
+  const v = value || '미지정';
+  return `<span class="mb-fixed" title="전시장은 소속에 따라 자동 지정됩니다 (변경은 목록에서 관리자만 가능)">${esc(v)}</span>`;
 }
 // 비고/설명: 여러 줄로 줄바꿈되는 textarea (높이는 내용에 맞춰 자동 조절)
 function noteField(path, value) {
