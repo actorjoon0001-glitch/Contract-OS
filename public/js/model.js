@@ -12,14 +12,15 @@ export const SUPPLIER = {
 
 // 영업 진행상태(가망건 → … → 납품완료). '확정' 잠금·봉인과는 별개의 관리용 라벨.
 // key는 저장값(변경 시 기존 데이터 호환 주의), label은 화면 표시. 순서 = 진행 단계 순서.
+// hidden:true 는 드롭다운 선택지에서 숨김(기존 데이터 호환용으로 키는 유지)
 export const STAGES = [
-  { key: 'prospect', label: '가망건' },
+  { key: 'prospect', label: '가망건', hidden: true },
   { key: 'negotiating', label: '협의중' },
   { key: 'deposit_wait', label: '계약금 대기' },
   { key: 'deposit_partial', label: '가계약금' },
   { key: 'completed', label: '계약완료' },
-  { key: 'design_3d', label: '3D도면 작업중' },
-  { key: 'production', label: '제작중' },
+  { key: 'design_3d', label: '3D도면 작업중', hidden: true },
+  { key: 'production', label: '제작중', hidden: true },
   { key: 'installing', label: '설치·시공중' },
   { key: 'delivered', label: '납품완료' },
   { key: 'canceled', label: '취소' },
@@ -187,7 +188,7 @@ export function sampleContract() {
   const c = emptyContract();
   c.contractNo = '샘플';
   c.status = 'draft';
-  c.stage = 'prospect';
+  c.stage = 'negotiating';
   c.contractDate = '2026-06-01';
   c.siteAddress = '경기도 화성시 향남읍 예시로 123';
   c.showroom = '본점';
