@@ -1959,13 +1959,66 @@ function printContract() {
   setTimeout(() => window.print(), 30);
 }
 
+// PDF 라이브러리 지연 로드 (버튼 클릭 시에만)
+async function ensurePdfLibs() {
+  const load = (src) => new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = src; s.onload = res;
+    s.onerror = () => rej(new Error('PDF 라이브러리를 불러오지 못했습니다.'));
+    document.head.appendChild(s);
+  });
+  if (!window.html2canvas) await load('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  if (!(window.jspdf && window.jspdf.jsPDF)) await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+}
+
+// 계약서를 PDF 파일로 바로 다운로드 (대화상자 없이)
+async function savePdfFile() {
+  const el = document.getElementById('contract');
+  if (!el) return;
+  const btn = document.getElementById('pdf-btn');
+  const prev = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ PDF 만드는 중…'; }
+  try {
+    await ensurePdfLibs();
+    const canvas = await window.html2canvas(el, {
+      scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: el.scrollWidth,
+      onclone: (doc) => { const c = doc.getElementById('contract'); if (c) c.classList.add('pdf-mode'); },
+    });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('l', 'mm', 'a4');
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+    const imgW = pw;
+    const imgH = canvas.height * pw / canvas.width;
+    const img = canvas.toDataURL('image/jpeg', 0.92);
+    if (imgH <= ph + 1) {
+      pdf.addImage(img, 'JPEG', 0, 0, imgW, imgH);
+    } else {
+      let pos = 0;
+      while (pos < imgH - 1) {
+        pdf.addImage(img, 'JPEG', 0, -pos, imgW, imgH);
+        pos += ph;
+        if (pos < imgH - 1) pdf.addPage();
+      }
+    }
+    const c = current || {};
+    const no = String(c.contractNo || '').trim();
+    const name = String(c.client?.name || '').trim();
+    const fname = `세움계약서_${no || '무번호'}${name ? '_' + name : ''}`.replace(/[\\/:*?"<>|]+/g, ' ').trim();
+    pdf.save(fname + '.pdf');
+  } catch (err) {
+    alert('PDF 저장 실패: ' + (err.message || err) + '\n\n인터넷 연결을 확인하시거나, [🖨 인쇄] → 대상을 "PDF로 저장"으로 바꿔서 저장해 주세요.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prev; }
+  }
+}
+
 // ---------- 편집 이벤트 ----------
 function bindEditor() {
   const saveBtn = document.getElementById('save-btn');
   if (saveBtn) saveBtn.onclick = saveContract;
   document.getElementById('print-btn').onclick = () => printContract();
   const pdfBtn = document.getElementById('pdf-btn');
-  if (pdfBtn) pdfBtn.onclick = () => printContract();
+  if (pdfBtn) pdfBtn.onclick = () => savePdfFile();
   bindAccount(app);
   // 진행상태: '확정' 잠금과 무관하게 언제든 변경 가능 (관리용 라벨)
   const stageSel = document.getElementById('stage-select');
