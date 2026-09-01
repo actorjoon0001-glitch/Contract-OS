@@ -1970,7 +1970,31 @@ async function ensurePdfLibs() {
   if (!(window.jspdf && window.jspdf.jsPDF)) await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
 }
 
-// 계약서를 PDF 파일로 바로 다운로드 (대화상자 없이)
+// PDF 미리보기 창 — 확인 후 다운로드
+function openPdfPreview(imgDataUrl, fname, onDownload) {
+  const overlay = document.createElement('div');
+  overlay.className = 'sign-modal-overlay no-print';
+  overlay.innerHTML = `
+    <div class="sign-modal pdf-preview-modal" role="dialog" aria-modal="true" aria-label="PDF 미리보기">
+      <div class="sign-modal-head"><h3>📄 PDF 미리보기</h3><button class="sign-x" type="button" aria-label="닫기">✕</button></div>
+      <div class="pdf-preview-body"><img src="${imgDataUrl}" alt="계약서 미리보기" /></div>
+      <div class="sign-modal-actions">
+        <span class="muted small pdf-fname">${esc(fname)}.pdf</span><span class="grow"></span>
+        <button class="btn" data-act="cancel" type="button">취소</button>
+        <button class="btn primary" data-act="download" type="button">📥 다운로드</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const done = () => { overlay.remove(); window.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') done(); };
+  window.addEventListener('keydown', onKey);
+  overlay.querySelector('.sign-x').onclick = done;
+  overlay.querySelector('[data-act="cancel"]').onclick = done;
+  overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) done(); });
+  overlay.querySelector('[data-act="download"]').onclick = () => { try { onDownload(); } finally { done(); } };
+}
+
+// 계약서를 PDF로 만들어 미리보기 후 저장
 async function savePdfFile() {
   const el = document.getElementById('contract');
   if (!el) return;
@@ -2033,7 +2057,8 @@ async function savePdfFile() {
     const no = String(c.contractNo || '').trim();
     const name = String(c.client?.name || '').trim();
     const fname = `세움계약서_${no || '무번호'}${name ? '_' + name : ''}`.replace(/[\\/:*?"<>|]+/g, ' ').trim();
-    pdf.save(fname + '.pdf');
+    // 바로 저장하지 않고 미리보기 → 사용자가 [다운로드] 눌러야 저장
+    openPdfPreview(img, fname, () => pdf.save(fname + '.pdf'));
   } catch (err) {
     alert('PDF 저장 실패: ' + (err.message || err) + '\n\n인터넷 연결을 확인하시거나, [🖨 인쇄] → 대상을 "PDF로 저장"으로 바꿔서 저장해 주세요.');
   } finally {

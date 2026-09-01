@@ -347,6 +347,11 @@ textarea.f.note.note-hl { color: #c0392b; font-weight: 700; }
 input.f.site, input.f.addr, input.f.name { width: 92%; }
 input.f.date { width: 56px; text-align: center; }
 input.f.date.m, input.f.date.d { width: 36px; }
+/* PDF 미리보기 모달 */
+.pdf-preview-modal { width: 760px; max-width: 94vw; }
+.pdf-preview-body { padding: 14px; max-height: 70vh; overflow: auto; background: #e9ecef; text-align: center; }
+.pdf-preview-body img { max-width: 100%; height: auto; box-shadow: 0 2px 10px rgba(0,0,0,.15); background: #fff; }
+.pdf-fname { align-self: center; }
 /* PDF 저장 캡처용 — 인쇄본처럼 깔끔하게(입력칸 테두리 제거·조작버튼 숨김) */
 .pdf-mode .no-print { display: none !important; }
 .pdf-mode input.f, .pdf-mode textarea.f { border: none !important; background: transparent !important; color: #000 !important; }
