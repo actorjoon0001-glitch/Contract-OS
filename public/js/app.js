@@ -1139,7 +1139,8 @@ function renderEditor() {
       </div>
       <div class="actions">
         ${dupView ? '' : `<label class="status-toggle"><input type="checkbox" id="status-confirmed" ${c.status === 'confirmed' ? 'checked' : ''}/> 확정</label>`}
-        <button class="btn" id="print-btn">🖨 인쇄 / PDF</button>
+        <button class="btn" id="print-btn">🖨 인쇄</button>
+        <button class="btn" id="pdf-btn" title="PDF 파일로 저장 (저장 대화상자에서 'PDF로 저장' 선택)">📄 PDF 저장</button>
         ${dupView ? '' : '<button class="btn primary" id="save-btn">💾 저장</button>'}
         ${accountChip()}
       </div>
@@ -1944,11 +1945,27 @@ function renderDepositInfo() {
   }
 }
 
+// 인쇄/PDF 저장 — PDF로 저장 시 파일명이 '세움계약서_번호_건축주'로 미리 채워지도록 문서 제목 설정
+function printContract() {
+  const c = current || {};
+  const no = String(c.contractNo || '').trim();
+  const name = String(c.client?.name || '').trim();
+  const fname = `세움계약서_${no || '무번호'}${name ? '_' + name : ''}`.replace(/[\\/:*?"<>|]+/g, ' ').trim();
+  const prev = document.title;
+  document.title = fname;
+  const restore = () => { document.title = prev; window.removeEventListener('afterprint', restore); };
+  window.addEventListener('afterprint', restore);
+  setTimeout(restore, 60000); // 대화상자 안 뜨는 브라우저 대비 안전 복원
+  setTimeout(() => window.print(), 30);
+}
+
 // ---------- 편집 이벤트 ----------
 function bindEditor() {
   const saveBtn = document.getElementById('save-btn');
   if (saveBtn) saveBtn.onclick = saveContract;
-  document.getElementById('print-btn').onclick = () => window.print();
+  document.getElementById('print-btn').onclick = () => printContract();
+  const pdfBtn = document.getElementById('pdf-btn');
+  if (pdfBtn) pdfBtn.onclick = () => printContract();
   bindAccount(app);
   // 진행상태: '확정' 잠금과 무관하게 언제든 변경 가능 (관리용 라벨)
   const stageSel = document.getElementById('stage-select');
