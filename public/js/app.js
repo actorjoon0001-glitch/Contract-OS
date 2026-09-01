@@ -270,21 +270,21 @@ function populateSalesFilter(rows) {
   const sel = document.getElementById('filter-sales');
   if (!sel) return;
   const prev = sel.value;
+  // 실제 계약서에 영업사원으로 등장한 개별 이름만 = 영업팀 (마케팅·정산 등 백오피스 제외)
+  const active = new Set();
+  for (const r of rows) String(r.salesperson || '').split(/[,\/]/).forEach((n) => { n = n.trim(); if (n) active.add(n); });
+  // 이름 → 전시장 (직원 명부 우선, 없으면 계약서 전시장)
+  const nameShow = {};
+  for (const e of employeeList) if (e.name) nameShow[e.name.trim()] = admShowroom(e.showroom);
+  for (const r of rows) String(r.salesperson || '').split(/[,\/]/).forEach((n) => { n = n.trim(); if (n && !nameShow[n]) nameShow[n] = admShowroom(r.showroom); });
+  const byShow = {};
+  for (const n of active) { const sh = nameShow[n] || '미지정'; (byShow[sh] = byShow[sh] || new Set()).add(n); }
+  const order = [...SHOWROOMS, ...Object.keys(byShow).filter((s) => !SHOWROOMS.includes(s))];
   let html = `<option value="">영업사원 전체</option>`;
-  if (employeeList.length) {
-    const byShow = {};
-    for (const e of employeeList) { if (!e.name) continue; const sh = admShowroom(e.showroom); (byShow[sh] = byShow[sh] || new Set()).add(e.name.trim()); }
-    const order = [...SHOWROOMS, ...Object.keys(byShow).filter((s) => !SHOWROOMS.includes(s))];
-    for (const sh of order) {
-      if (!byShow[sh]) continue;
-      const names = [...byShow[sh]].sort((a, b) => a.localeCompare(b, 'ko'));
-      html += `<optgroup label="${esc(sh)}">` + names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('') + `</optgroup>`;
-    }
-  } else {
-    // 폴백(비관리자 등 명부 없음): 데이터에서 개별 이름만 추출(공동 표기 분리)
-    const set = new Set();
-    for (const r of rows) String(r.salesperson || '').split(/[,\/]/).forEach((n) => { n = n.trim(); if (n) set.add(n); });
-    html += [...set].sort((a, b) => a.localeCompare(b, 'ko')).map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  for (const sh of order) {
+    if (!byShow[sh]) continue;
+    const names = [...byShow[sh]].sort((a, b) => a.localeCompare(b, 'ko'));
+    html += `<optgroup label="${esc(sh)}">` + names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('') + `</optgroup>`;
   }
   sel.innerHTML = html;
   sel.value = prev;
