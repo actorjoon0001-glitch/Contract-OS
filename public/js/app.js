@@ -221,8 +221,8 @@ async function loadList() {
     const rows = await api.list('');
     // 필터 드롭다운은 실제 계약서 기준으로 채우고(샘플 값 제외), 샘플 행은 목록 맨 아래에 고정
     populateMonthFilter(rows);
-    populateFilter('filter-showroom', '전시장 전체', rows.map((r) => r.showroom));
-    populateFilter('filter-sales', '영업사원 전체', rows.map((r) => r.salesperson));
+    populateShowroomFilter();
+    populateSalesFilter(rows);
     listRows = [...rows, sampleListRow()];
     applyListFilters();
   } catch (err) {
@@ -256,6 +256,40 @@ function populateFilter(id, allLabel, values) {
   sel.value = prev; // 선택 유지
 }
 
+// 전시장 필터: 정규화된 고정 6개 전시장만 (본사·본점→본사 전시장, 광주→광주전시장 등)
+function populateShowroomFilter() {
+  const sel = document.getElementById('filter-showroom');
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = `<option value="">전시장 전체</option>` + SHOWROOMS.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  sel.value = prev;
+}
+
+// 영업사원 필터: 전시장별 그룹(optgroup)으로 개별 영업사원 이름 표시 (직원 명부 기준)
+function populateSalesFilter(rows) {
+  const sel = document.getElementById('filter-sales');
+  if (!sel) return;
+  const prev = sel.value;
+  let html = `<option value="">영업사원 전체</option>`;
+  if (employeeList.length) {
+    const byShow = {};
+    for (const e of employeeList) { if (!e.name) continue; const sh = admShowroom(e.showroom); (byShow[sh] = byShow[sh] || new Set()).add(e.name.trim()); }
+    const order = [...SHOWROOMS, ...Object.keys(byShow).filter((s) => !SHOWROOMS.includes(s))];
+    for (const sh of order) {
+      if (!byShow[sh]) continue;
+      const names = [...byShow[sh]].sort((a, b) => a.localeCompare(b, 'ko'));
+      html += `<optgroup label="${esc(sh)}">` + names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('') + `</optgroup>`;
+    }
+  } else {
+    // 폴백(비관리자 등 명부 없음): 데이터에서 개별 이름만 추출(공동 표기 분리)
+    const set = new Set();
+    for (const r of rows) String(r.salesperson || '').split(/[,\/]/).forEach((n) => { n = n.trim(); if (n) set.add(n); });
+    html += [...set].sort((a, b) => a.localeCompare(b, 'ko')).map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  }
+  sel.innerHTML = html;
+  sel.value = prev;
+}
+
 function applyListFilters() {
   const q = (document.getElementById('search').value || '').toLowerCase().trim();
   const st = document.getElementById('filter-stage').value;
@@ -265,8 +299,8 @@ function applyListFilters() {
   let rows = listRows;
   if (st) rows = rows.filter((r) => stageOf(r) === st);
   if (mo) rows = rows.filter((r) => rowDateStr(r).slice(0, 7) === mo);
-  if (sr) rows = rows.filter((r) => (r.showroom || '') === sr);
-  if (sp) rows = rows.filter((r) => (r.salesperson || '') === sp);
+  if (sr) rows = rows.filter((r) => admShowroom(r.showroom) === sr); // 전시장 정규화 후 비교
+  if (sp) rows = rows.filter((r) => String(r.salesperson || '').split(/[,\/]/).map((n) => n.trim()).includes(sp)); // 공동 계약도 포함
   if (q) {
     const qDigits = q.replace(/\D/g, ''); // 연락처 뒷번호 검색용 (숫자만)
     rows = rows.filter((r) => {
