@@ -1985,7 +1985,25 @@ async function savePdfFile() {
       width: fullW, height: el.scrollHeight, windowWidth: fullW,
       onclone: (doc) => {
         const c = doc.getElementById('contract');
-        if (c) { c.classList.add('pdf-mode'); c.style.margin = '0'; c.style.boxShadow = 'none'; c.style.width = fullW + 'px'; }
+        if (!c) return;
+        c.classList.add('pdf-mode'); c.style.margin = '0'; c.style.boxShadow = 'none'; c.style.width = fullW + 'px';
+        const win = doc.defaultView;
+        // html2canvas가 input/textarea를 제대로 못 그리므로 정적 텍스트로 치환 (정렬·굵기 유지)
+        c.querySelectorAll('input').forEach((inp) => {
+          const st = win.getComputedStyle(inp);
+          const sp = doc.createElement('span');
+          sp.textContent = inp.value || '';
+          const isPct = inp.classList.contains('pct-input');
+          sp.style.cssText = `display:inline-block;${isPct ? '' : 'width:' + st.width + ';'}text-align:${st.textAlign};font:${st.font};font-weight:${st.fontWeight};color:#000;vertical-align:baseline;white-space:nowrap;`;
+          inp.parentNode.replaceChild(sp, inp);
+        });
+        c.querySelectorAll('textarea').forEach((ta) => {
+          const st = win.getComputedStyle(ta);
+          const dv = doc.createElement('div');
+          dv.textContent = ta.value || '';
+          dv.style.cssText = `width:${st.width};text-align:${st.textAlign};font:${st.font};color:#000;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.3;`;
+          ta.parentNode.replaceChild(dv, ta);
+        });
       },
     });
     const { jsPDF } = window.jspdf;
@@ -1996,13 +2014,13 @@ async function savePdfFile() {
     const ph = pdf.internal.pageSize.getHeight();
     const imgW = pw;
     const imgH = canvas.height * pw / canvas.width;
-    const img = canvas.toDataURL('image/jpeg', 0.92);
+    const img = canvas.toDataURL('image/png'); // 도장·로고 등 이미지 엣지 보존(PNG)
     if (imgH <= ph + 1) {
-      pdf.addImage(img, 'JPEG', 0, 0, imgW, imgH);
+      pdf.addImage(img, 'PNG', 0, 0, imgW, imgH);
     } else {
       let pos = 0;
       while (pos < imgH - 1) {
-        pdf.addImage(img, 'JPEG', 0, -pos, imgW, imgH);
+        pdf.addImage(img, 'PNG', 0, -pos, imgW, imgH);
         pos += ph;
         if (pos < imgH - 1) pdf.addPage();
       }
