@@ -768,7 +768,17 @@ function permissionPanelHtml() {
     </tr>`;
   const body = showNames.length ? showNames.map((sh) => {
     const emps = byShow[sh].slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
-    return `<tr class="perm-group"><td colspan="2">${esc(sh)} <span class="muted small">${emps.length}명</span></td></tr>${emps.map(empRow).join('')}`;
+    const head = `<tr class="perm-group"><td colspan="2">${esc(sh)} <span class="muted small">${emps.length}명</span></td></tr>`;
+    // 부서 정보가 있으면 부서별로 세분화 (본사처럼 인원 많은 전시장)
+    const hasDept = emps.some((e) => e.department);
+    if (!hasDept) return head + emps.map(empRow).join('');
+    const byDept = {};
+    for (const e of emps) { const d = e.department || '기타'; (byDept[d] = byDept[d] || []).push(e); }
+    const deptNames = Object.keys(byDept).sort((a, b) => (a === '기타' ? 1 : b === '기타' ? -1 : a.localeCompare(b, 'ko')));
+    const inner = deptNames.map((d) =>
+      `<tr class="perm-subgroup"><td colspan="2">${esc(d)} <span class="muted small">${byDept[d].length}명</span></td></tr>${byDept[d].map(empRow).join('')}`
+    ).join('');
+    return head + inner;
   }).join('') : `<tr><td colspan="2" class="muted center" style="padding:16px">직원 명부를 불러올 수 없습니다.</td></tr>`;
   return `<aside class="perm-panel no-print">
     <h3 class="perm-title">👁 뷰어 권한 설정</h3>

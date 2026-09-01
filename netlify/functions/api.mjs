@@ -343,10 +343,16 @@ export default async (req, context) => {
     try {
       const { data, error } = await supa.from('employees').select('*').order('showroom').order('name');
       if (error) throw error;
+      // 부서(팀) 컬럼 자동 감지 — 흔한 이름들 중 값이 있는 것 사용
+      const deptOf = (e) => String(
+        e.department ?? e.dept ?? e.team ?? e.part ?? e.division ?? e.group ??
+        e['부서'] ?? e['팀'] ?? e['소속'] ?? e['부서명'] ?? e['팀명'] ?? ''
+      ).trim();
       const list = (data || []).filter((e) => e.email).map((e) => ({
         name: e.name || '',
         email: String(e.email).toLowerCase(),
         showroom: SHOWROOM_CODE_TO_KR[String(e.showroom || '').trim()] || e.showroom || '',
+        department: deptOf(e),
         scope: (['own', 'showroom', 'all'].includes(String(e.view_scope || '').trim().toLowerCase()) ? String(e.view_scope).trim().toLowerCase() : ''),
       }));
       return json(list);
