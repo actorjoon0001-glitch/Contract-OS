@@ -173,7 +173,7 @@ async function renderList() {
         <input id="search" class="search" type="search" placeholder="건축주 · 연락처(뒷번호) · 현장주소 · 계약번호 · 전시장 · 영업사원 검색" />
         <select id="filter-stage" class="filter-sel">
           <option value="">진행상태 전체</option>
-          ${STAGES.map((s) => `<option value="${s.key}">${s.label}</option>`).join('')}
+          ${STAGES.filter((s) => !s.hidden).map((s) => `<option value="${s.key}">${s.label}</option>`).join('')}
         </select>
         <select id="filter-month" class="filter-sel"><option value="">전체 기간</option></select>
         <select id="filter-showroom" class="filter-sel"><option value="">전시장 전체</option></select>
@@ -537,7 +537,7 @@ function renderListRows(rows) {
       <td>${r.is_sample
         ? '<span class="badge">샘플</span>'
         : `<select class="row-stage stage-${stageOf(r)}" data-stage-id="${r.id}" title="진행상태 변경">
-            ${STAGES.map((s) => `<option value="${s.key}" ${stageOf(r) === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
+            ${STAGES.filter((s) => !s.hidden || s.key === stageOf(r)).map((s) => `<option value="${s.key}" ${stageOf(r) === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
           </select>${r.status === 'confirmed' ? ' <span class="lock" title="확정·봉인됨">🔒</span>' : ''}`}</td>
       <td>${r.is_sample ? '' : (r.approval_at
         ? `<button class="row-approve approved" data-approve-id="${r.id}" title="${esc(fmtSignDate(r.approval_at))} 승인됨 · 다시 서명">✅ 승인됨</button>`
@@ -1215,7 +1215,7 @@ function renderEditor() {
       <span class="mb-title">관리</span>
       <label>진행상태
         <select id="stage-select" class="mb-stage stage-${stageOf(c)}">
-          ${STAGES.map((s) => `<option value="${s.key}" ${stageOf(c) === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
+          ${STAGES.filter((s) => !s.hidden || s.key === stageOf(c)).map((s) => `<option value="${s.key}" ${stageOf(c) === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
         </select>
       </label>
       <span id="deposit-info" class="dep-info no-print"></span>
