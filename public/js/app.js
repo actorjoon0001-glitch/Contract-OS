@@ -1979,6 +1979,8 @@ async function savePdfFile() {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ PDF 만드는 중…'; }
   try {
     await ensurePdfLibs();
+    // 인쇄용 도장 미리 로드(캐시) — onclone에서 교체 시 바로 렌더되도록
+    await new Promise((res) => { const im = new Image(); im.onload = res; im.onerror = res; im.src = '/img/seal-print.png'; });
     const fullW = Math.max(el.scrollWidth, el.offsetWidth);
     const canvas = await window.html2canvas(el, {
       scale: 2, backgroundColor: '#ffffff', useCORS: true,
@@ -2004,6 +2006,8 @@ async function savePdfFile() {
           dv.style.cssText = `width:${st.width};text-align:${st.textAlign};font:${st.font};color:#000;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.3;`;
           ta.parentNode.replaceChild(dv, ta);
         });
+        // 법인 도장: mix-blend-mode(multiply)는 캡처가 못 그리므로, 흰배경 제거한 인쇄용 도장으로 교체
+        c.querySelectorAll('.seal-img').forEach((img) => { img.src = '/img/seal-print.png'; img.style.mixBlendMode = 'normal'; });
       },
     });
     const { jsPDF } = window.jspdf;
