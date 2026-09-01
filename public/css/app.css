@@ -319,6 +319,11 @@ input.f.locked { background: transparent; border-bottom-color: transparent; colo
 #permit-select.permit-permit { background: #fde8e6; color: #b5352a; border-color: #f3c4bf; }
 #permit-select.permit-temporary { background: #e7f2ea; color: #1c7d3c; border-color: #c6e3ce; }
 .dep-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #444; }
+.dep-methods { display: flex; gap: 8px; }
+.dep-method { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #cdd4dd; border-radius: 8px; padding: 8px 6px; font-weight: 600; cursor: pointer; background: #f8fafc; }
+.dep-method:hover { border-color: var(--brand); }
+.dep-method:has(input:checked) { background: var(--brand); border-color: var(--brand); color: #fff; }
+.dep-method input { cursor: pointer; }
 .dep-input { border: 1px solid #c4c9d0; border-radius: 7px; padding: 9px 11px; font-size: 15px; font-weight: 400; outline: none; }
 .dep-input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(28,90,153,.12); }
 .dep-info { display: inline-flex; align-items: center; }

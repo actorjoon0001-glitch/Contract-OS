@@ -409,6 +409,11 @@ function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
         <label class="dep-field">입금 날짜
           <input id="dep-date" class="dep-input" type="date" value="${esc(initial.date || todayYmd())}" />
         </label>
+        <div class="dep-field">결제 수단 <span class="req">*</span>
+          <div class="dep-methods">
+            ${['계좌이체', '카드', '현금'].map((m) => `<label class="dep-method"><input type="radio" name="dep-method" value="${m}" ${initial.method === m ? 'checked' : ''}/> ${m}</label>`).join('')}
+          </div>
+        </div>
       </div>
       <div class="sign-modal-actions"><span class="grow"></span>
         <button class="btn" data-act="cancel" type="button">취소</button>
@@ -431,7 +436,11 @@ function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
   overlay.querySelector('.sign-x').onclick = () => done(null);
   overlay.querySelector('[data-act="cancel"]').onclick = () => done(null);
   overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) done(null); });
-  overlay.querySelector('[data-act="save"]').onclick = () => done({ amount: amountEl.value.trim(), date: dateEl.value });
+  overlay.querySelector('[data-act="save"]').onclick = () => {
+    const method = overlay.querySelector('input[name="dep-method"]:checked')?.value || '';
+    if (!method) { alert('결제 수단(계좌이체/카드/현금)을 선택해 주세요.\n선택해야 저장됩니다.'); return; }
+    done({ amount: amountEl.value.trim(), date: dateEl.value, method });
+  };
   setTimeout(() => amountEl.focus(), 0);
 }
 
@@ -1944,7 +1953,7 @@ function renderDepositInfo() {
   if (!el) return;
   const d = current.deposit;
   if (d && (String(d.amount || '').trim() || d.date)) {
-    el.innerHTML = `<button type="button" class="dep-chip" id="deposit-edit" title="계약금 입금 정보 수정">💰 계약금 ${d.amount ? esc(d.amount) + '만' : '-'}${d.date ? ` · ${esc(d.date)}` : ''}</button>`;
+    el.innerHTML = `<button type="button" class="dep-chip" id="deposit-edit" title="계약금 입금 정보 수정">💰 계약금 ${d.amount ? esc(d.amount) + '만' : '-'}${d.date ? ` · ${esc(d.date)}` : ''}${d.method ? ` · ${esc(d.method)}` : ''}</button>`;
     const btn = document.getElementById('deposit-edit');
     if (btn) btn.onclick = () => openDepositDialog({
       initial: current.deposit,
