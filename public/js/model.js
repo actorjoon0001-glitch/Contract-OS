@@ -279,11 +279,6 @@ export const MODELS = [
   { id: 'md37', showroom: '광주전시장', name: 'FOREST10W', category: '체류형쉼터', area: 10, startPrice: 1880 },
   { id: 'md38', showroom: '광주전시장', name: 'FOREST8W',  category: '체류형쉼터', area: 8,  startPrice: 2800 },
   { id: 'md39', showroom: '광주전시장', name: 'FOREST9O',  category: '체류형쉼터', area: 9,  startPrice: 3200 },
-  // ── 일산 박람회 (4) — 전시장은 비워둠(영업사원 본인 전시장 자동). photoId로 기존 사진 재사용. 신모델 2개는 임시값 ──
-  { id: 'ex01', expo: true, showroom: '', name: 'STAY19',       category: '전원주택',   area: 19, startPrice: 7220, photoId: 'md02' },
-  { id: 'ex02', expo: true, showroom: '', name: 'STAY20',       category: '전원주택',   area: 20, startPrice: 7600, photoId: 'md21' },
-  { id: 'ex03', expo: true, showroom: '', name: 'FOREST10-BW',  category: '체류형쉼터', area: 10, startPrice: 3900, photoId: 'md05' }, // 신모델(임시값)
-  { id: 'ex04', expo: true, showroom: '', name: 'FOREST-G10-W', category: '체류형쉼터', area: 10, startPrice: 5980, photoId: 'md08' }, // 신모델(임시값)
 ];
 
 export function getModel(id) {
