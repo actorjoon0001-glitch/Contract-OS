@@ -1323,16 +1323,16 @@ function renderEditor() {
           <td class="sign-field">${field('client.address', c.client.address, 'addr')}</td>
         </tr>
       </table>
-
-      <div class="history-sec">
-        <div class="sec history-head">[ 추가 사항 · 변경 이력 ]</div>
-        <div id="history-list" class="history-list"></div>
-        <div class="history-add no-print">
-          <textarea id="history-input" class="history-input" rows="2" placeholder="추가 계약금·설계/시공 변경 등 추가 사항을 입력하세요. (확정된 계약서도 이 이력란은 계속 기록할 수 있습니다)"></textarea>
-          <button type="button" class="btn tiny primary" id="history-add-btn">＋ 이력 추가</button>
-        </div>
+    </div>
+    ${currentId ? `
+    <div class="history-sec no-print">
+      <div class="history-head">📌 추가 사항 · 변경 이력 <span class="muted small">(원본 계약서와 별개 · 인쇄 안 됨)</span></div>
+      <div id="history-list" class="history-list"></div>
+      <div class="history-add">
+        <textarea id="history-input" class="history-input" rows="2" placeholder="추가 계약금·설계/시공 변경 등 추가 사항을 입력하세요. (확정된 계약서도 이 이력란은 계속 기록할 수 있습니다)"></textarea>
+        <button type="button" class="btn tiny primary" id="history-add-btn">＋ 이력 추가</button>
       </div>
-    </div>`;
+    </div>` : ''}`;
 
   bindEditor();
   updateTotals();

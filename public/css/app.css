@@ -65,10 +65,10 @@ html, body {
 }
 .manage-bar .mb-title { font-weight: 800; color: var(--brand); letter-spacing: 1px; }
 .mb-fixed { display: inline-block; padding: 6px 12px; border: 1px solid #e2e6ea; border-radius: 7px; background: #f4f6f8; color: #1c2533; font-weight: 700; font-size: 13px; }
-/* 추가 사항·변경 이력 */
-.history-sec { border: 2px solid var(--line); border-top: none; }
-.history-head { text-align: center; }
-.history-list { padding: 4px 10px; }
+/* 추가 사항·변경 이력 (원본 계약서와 분리된 별도 패널) */
+.history-sec { width: 1000px; max-width: 96%; margin: 16px auto 40px; background: #fff; border: 1px solid #e2e6ea; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,.07); overflow: hidden; }
+.history-head { padding: 10px 14px; background: var(--sec-bg); border-bottom: 1px solid #eadfbf; font-weight: 800; color: #1c2533; }
+.history-list { padding: 4px 14px; }
 .history-empty { padding: 8px 4px; }
 .history-item { position: relative; padding: 8px 30px 8px 12px; border-bottom: 1px dashed #e2e6ea; }
 .history-item:last-child { border-bottom: none; }
