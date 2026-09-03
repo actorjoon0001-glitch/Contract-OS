@@ -1333,6 +1333,9 @@ function renderEditor() {
           <input id="history-amount" class="history-amount" type="text" inputmode="numeric" placeholder="금액" />
           <span class="history-amount-unit">만원</span>
         </div>
+        <div class="history-methods">
+          ${['계좌이체', '카드', '현금'].map((m) => `<label class="history-method"><input type="radio" name="history-method" value="${m}"/> ${m}</label>`).join('')}
+        </div>
         <textarea id="history-input" class="history-input" rows="2" placeholder="메모 (추가 계약금·설계/시공 변경 사유 등)"></textarea>
         <button type="button" class="btn tiny primary" id="history-add-btn">＋ 이력 추가</button>
       </div>
@@ -2141,15 +2144,16 @@ function renderHistory() {
   const items = current.history || [];
   if (!items.length) { list.innerHTML = '<p class="muted small history-empty">아직 추가 사항이 없습니다.</p>'; return; }
   list.innerHTML = items.map((h, i) => `
-    <div class="history-item">
-      <div class="history-meta"><b>${esc(fmtSignDate(h.at) || '-')}</b> · ${esc(h.by || '담당자')}</div>
+    <div class="history-item ${h.deleted ? 'deleted' : ''}">
+      <div class="history-meta"><b>${esc(fmtSignDate(h.at) || '-')}</b> · ${esc(h.by || '담당자')}${h.deleted ? ` <span class="history-deltag">삭제됨${h.deletedBy ? ' · ' + esc(h.deletedBy) : ''}</span>` : ''}</div>
       <div class="history-body">
         ${h.amount ? `<span class="history-amt">💰 ${esc(fmtMan(h.amount))}만원</span>` : ''}
+        ${h.method ? `<span class="history-method-tag">${esc(h.method)}</span>` : ''}
         ${h.text ? `<span class="history-text">${esc(h.text)}</span>` : ''}
       </div>
-      ${me?.isAdmin ? `<button type="button" class="history-del no-print" data-hi="${i}" title="삭제">✕</button>` : ''}
+      ${canEditHistory(h) ? `<button type="button" class="history-del no-print" data-hi="${i}" title="${h.deleted ? '복원' : '삭제(취소선)'}">${h.deleted ? '↺' : '✕'}</button>` : ''}
     </div>`).join('');
-  list.querySelectorAll('[data-hi]').forEach((b) => { b.onclick = () => deleteHistoryEntry(Number(b.dataset.hi)); });
+  list.querySelectorAll('[data-hi]').forEach((b) => { b.onclick = () => toggleHistoryDeleted(Number(b.dataset.hi)); });
 }
 
 // 이력 저장(즉시 반영) — 확정건도 저장 가능(봉인 해시 제외). 실패 시 revert 호출
@@ -2165,20 +2169,39 @@ async function addHistoryEntry() {
   const btn = document.getElementById('history-add-btn');
   const text = (inp?.value || '').trim();
   const amount = (amtEl?.value || '').replace(/[^\d.]/g, '');
+  const method = document.querySelector('input[name="history-method"]:checked')?.value || '';
   if (!text && !amount) { (amtEl || inp)?.focus(); return; }
-  const entry = { at: new Date().toISOString(), by: (me?.name || me?.email || '담당자'), amount, text };
+  const entry = { at: new Date().toISOString(), by: (me?.name || me?.email || '담당자'), amount, method, text };
   (current.history ||= []).push(entry);
   if (btn) btn.disabled = true;
   const ok = await saveHistory(() => current.history.pop());
   if (btn) btn.disabled = false;
-  if (ok) { if (inp) inp.value = ''; if (amtEl) amtEl.value = ''; renderHistory(); }
+  if (ok) {
+    if (inp) inp.value = ''; if (amtEl) amtEl.value = '';
+    const mSel = document.querySelector('input[name="history-method"]:checked'); if (mSel) mSel.checked = false;
+    renderHistory();
+  }
 }
 
-async function deleteHistoryEntry(i) {
-  if (!me?.isAdmin) return; // 삭제는 관리자만
-  if (!confirm('이 이력 항목을 삭제할까요?')) return;
-  const removed = current.history.splice(i, 1);
-  const ok = await saveHistory(() => current.history.splice(i, 0, ...removed));
+// 이력 편집(삭제/복원) 권한: 관리자 또는 작성 본인
+function canEditHistory(h) {
+  if (me?.isAdmin) return true;
+  const who = (me?.name || me?.email || '');
+  return !!who && h.by === who;
+}
+
+// 소프트 삭제/복원 — 실제로 지우지 않고 취소선 표시만 토글(기록 보존)
+async function toggleHistoryDeleted(i) {
+  const h = current.history?.[i];
+  if (!h || !canEditHistory(h)) return;
+  const prev = { deleted: h.deleted, deletedBy: h.deletedBy, deletedAt: h.deletedAt };
+  if (h.deleted) { // 복원
+    delete h.deleted; delete h.deletedBy; delete h.deletedAt;
+  } else {
+    if (!confirm('이 이력에 취소선을 그어 삭제 표시할까요?\n(기록은 완전히 지워지지 않고 보존됩니다)')) return;
+    h.deleted = true; h.deletedBy = (me?.name || me?.email || '담당자'); h.deletedAt = new Date().toISOString();
+  }
+  const ok = await saveHistory(() => { Object.assign(h, prev); if (!prev.deleted) { delete h.deleted; delete h.deletedBy; delete h.deletedAt; } });
   if (ok) renderHistory();
 }
 
