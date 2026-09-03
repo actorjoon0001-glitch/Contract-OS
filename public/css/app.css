@@ -82,6 +82,13 @@ html, body {
 .history-amount-wrap { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
 .history-amount { width: 96px; border: 1px solid #c4c9d0; border-radius: 7px; padding: 8px 10px; font-size: 13px; text-align: right; }
 .history-amount-unit { font-size: 12px; color: #555; }
+.history-methods { display: flex; gap: 4px; flex: 0 0 auto; }
+.history-method { display: flex; align-items: center; gap: 3px; border: 1px solid #cdd4dd; border-radius: 6px; padding: 5px 8px; font-size: 12px; cursor: pointer; background: #fff; }
+.history-method:has(input:checked) { background: var(--brand); border-color: var(--brand); color: #fff; }
+.history-method-tag { font-size: 11.5px; font-weight: 700; color: #3a4fa0; background: #dde2fb; border-radius: 20px; padding: 1px 8px; }
+.history-deltag { font-size: 11px; color: var(--danger); font-weight: 700; }
+.history-item.deleted .history-body { text-decoration: line-through; color: #9aa1a9; opacity: .7; }
+.history-item.deleted .history-method-tag, .history-item.deleted .history-amt { text-decoration: line-through; }
 .history-input { flex: 1; min-width: 160px; border: 1px solid #c4c9d0; border-radius: 7px; padding: 8px 10px; font-size: 13px; font-family: inherit; resize: vertical; }
 .history-add .btn { white-space: nowrap; align-self: stretch; }
 .manage-bar label { display: flex; align-items: center; gap: 6px; color: #444; font-weight: 600; }
