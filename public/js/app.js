@@ -1329,7 +1329,11 @@ function renderEditor() {
       <div class="history-head">📌 추가 사항 · 변경 이력 <span class="muted small">(원본 계약서와 별개 · 인쇄 안 됨)</span></div>
       <div id="history-list" class="history-list"></div>
       <div class="history-add">
-        <textarea id="history-input" class="history-input" rows="2" placeholder="추가 계약금·설계/시공 변경 등 추가 사항을 입력하세요. (확정된 계약서도 이 이력란은 계속 기록할 수 있습니다)"></textarea>
+        <div class="history-amount-wrap">
+          <input id="history-amount" class="history-amount" type="text" inputmode="numeric" placeholder="금액" />
+          <span class="history-amount-unit">만원</span>
+        </div>
+        <textarea id="history-input" class="history-input" rows="2" placeholder="메모 (추가 계약금·설계/시공 변경 사유 등)"></textarea>
         <button type="button" class="btn tiny primary" id="history-add-btn">＋ 이력 추가</button>
       </div>
     </div>` : ''}`;
@@ -2139,7 +2143,10 @@ function renderHistory() {
   list.innerHTML = items.map((h, i) => `
     <div class="history-item">
       <div class="history-meta"><b>${esc(fmtSignDate(h.at) || '-')}</b> · ${esc(h.by || '담당자')}</div>
-      <div class="history-text">${esc(h.text || '')}</div>
+      <div class="history-body">
+        ${h.amount ? `<span class="history-amt">💰 ${esc(fmtMan(h.amount))}만원</span>` : ''}
+        ${h.text ? `<span class="history-text">${esc(h.text)}</span>` : ''}
+      </div>
       ${me?.isAdmin ? `<button type="button" class="history-del no-print" data-hi="${i}" title="삭제">✕</button>` : ''}
     </div>`).join('');
   list.querySelectorAll('[data-hi]').forEach((b) => { b.onclick = () => deleteHistoryEntry(Number(b.dataset.hi)); });
@@ -2154,15 +2161,17 @@ async function saveHistory(revert) {
 
 async function addHistoryEntry() {
   const inp = document.getElementById('history-input');
+  const amtEl = document.getElementById('history-amount');
   const btn = document.getElementById('history-add-btn');
   const text = (inp?.value || '').trim();
-  if (!text) { inp?.focus(); return; }
-  const entry = { at: new Date().toISOString(), by: (me?.name || me?.email || '담당자'), text };
+  const amount = (amtEl?.value || '').replace(/[^\d.]/g, '');
+  if (!text && !amount) { (amtEl || inp)?.focus(); return; }
+  const entry = { at: new Date().toISOString(), by: (me?.name || me?.email || '담당자'), amount, text };
   (current.history ||= []).push(entry);
   if (btn) btn.disabled = true;
   const ok = await saveHistory(() => current.history.pop());
   if (btn) btn.disabled = false;
-  if (ok) { if (inp) inp.value = ''; renderHistory(); }
+  if (ok) { if (inp) inp.value = ''; if (amtEl) amtEl.value = ''; renderHistory(); }
 }
 
 async function deleteHistoryEntry(i) {
@@ -2349,6 +2358,8 @@ function bindEditor() {
   renderHistory();
   const histAdd = document.getElementById('history-add-btn');
   if (histAdd) histAdd.onclick = addHistoryEntry;
+  const histAmt = document.getElementById('history-amount');
+  if (histAmt) histAmt.addEventListener('input', () => { histAmt.value = histAmt.value.replace(/[^\d.]/g, ''); });
 
   // 결제 항목 퍼센트(%) 수기 수정 — 표시값만 바뀌고 금액 자동배분엔 영향 없음
   app.querySelectorAll('.pct-input').forEach((inp) => {
