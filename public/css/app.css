@@ -65,6 +65,20 @@ html, body {
 }
 .manage-bar .mb-title { font-weight: 800; color: var(--brand); letter-spacing: 1px; }
 .mb-fixed { display: inline-block; padding: 6px 12px; border: 1px solid #e2e6ea; border-radius: 7px; background: #f4f6f8; color: #1c2533; font-weight: 700; font-size: 13px; }
+/* 추가 사항·변경 이력 */
+.history-sec { border: 2px solid var(--line); border-top: none; }
+.history-head { text-align: center; }
+.history-list { padding: 4px 10px; }
+.history-empty { padding: 8px 4px; }
+.history-item { position: relative; padding: 8px 30px 8px 12px; border-bottom: 1px dashed #e2e6ea; }
+.history-item:last-child { border-bottom: none; }
+.history-meta { font-size: 11.5px; color: #66707c; }
+.history-meta b { color: var(--brand); }
+.history-text { font-size: 13px; color: #1c2533; white-space: pre-wrap; line-height: 1.4; margin-top: 2px; }
+.history-del { position: absolute; top: 6px; right: 8px; border: none; background: none; color: var(--danger); cursor: pointer; font-size: 12px; }
+.history-add { display: flex; gap: 8px; align-items: flex-start; padding: 10px; background: #fafbfc; border-top: 1px solid #eef0f2; }
+.history-input { flex: 1; border: 1px solid #c4c9d0; border-radius: 7px; padding: 8px 10px; font-size: 13px; font-family: inherit; resize: vertical; }
+.history-add .btn { white-space: nowrap; align-self: stretch; }
 .manage-bar label { display: flex; align-items: center; gap: 6px; color: #444; font-weight: 600; }
 .manage-bar .mb-hint { font-weight: 400; margin-left: auto; }
 input.f.manage { min-width: 130px; font-weight: 600; }
