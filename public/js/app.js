@@ -1323,6 +1323,15 @@ function renderEditor() {
           <td class="sign-field">${field('client.address', c.client.address, 'addr')}</td>
         </tr>
       </table>
+
+      <div class="history-sec">
+        <div class="sec history-head">[ 추가 사항 · 변경 이력 ]</div>
+        <div id="history-list" class="history-list"></div>
+        <div class="history-add no-print">
+          <textarea id="history-input" class="history-input" rows="2" placeholder="추가 계약금·설계/시공 변경 등 추가 사항을 입력하세요. (확정된 계약서도 이 이력란은 계속 기록할 수 있습니다)"></textarea>
+          <button type="button" class="btn tiny primary" id="history-add-btn">＋ 이력 추가</button>
+        </div>
+      </div>
     </div>`;
 
   bindEditor();
@@ -2121,6 +2130,49 @@ async function savePdfFile() {
   }
 }
 
+// ---------- 추가 사항·변경 이력 ----------
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (!list) return;
+  const items = current.history || [];
+  if (!items.length) { list.innerHTML = '<p class="muted small history-empty">아직 추가 사항이 없습니다.</p>'; return; }
+  list.innerHTML = items.map((h, i) => `
+    <div class="history-item">
+      <div class="history-meta"><b>${esc(fmtSignDate(h.at) || '-')}</b> · ${esc(h.by || '담당자')}</div>
+      <div class="history-text">${esc(h.text || '')}</div>
+      ${me?.isAdmin ? `<button type="button" class="history-del no-print" data-hi="${i}" title="삭제">✕</button>` : ''}
+    </div>`).join('');
+  list.querySelectorAll('[data-hi]').forEach((b) => { b.onclick = () => deleteHistoryEntry(Number(b.dataset.hi)); });
+}
+
+// 이력 저장(즉시 반영) — 확정건도 저장 가능(봉인 해시 제외). 실패 시 revert 호출
+async function saveHistory(revert) {
+  if (!currentId) { markDirty(); return true; } // 새 계약: 일반 저장 시 함께 저장
+  try { await api.update(currentId, current); return true; }
+  catch (err) { alert('추가 사항 저장 실패: ' + err.message); if (revert) revert(); return false; }
+}
+
+async function addHistoryEntry() {
+  const inp = document.getElementById('history-input');
+  const btn = document.getElementById('history-add-btn');
+  const text = (inp?.value || '').trim();
+  if (!text) { inp?.focus(); return; }
+  const entry = { at: new Date().toISOString(), by: (me?.name || me?.email || '담당자'), text };
+  (current.history ||= []).push(entry);
+  if (btn) btn.disabled = true;
+  const ok = await saveHistory(() => current.history.pop());
+  if (btn) btn.disabled = false;
+  if (ok) { if (inp) inp.value = ''; renderHistory(); }
+}
+
+async function deleteHistoryEntry(i) {
+  if (!me?.isAdmin) return; // 삭제는 관리자만
+  if (!confirm('이 이력 항목을 삭제할까요?')) return;
+  const removed = current.history.splice(i, 1);
+  const ok = await saveHistory(() => current.history.splice(i, 0, ...removed));
+  if (ok) renderHistory();
+}
+
 // ---------- 편집 이벤트 ----------
 function bindEditor() {
   const saveBtn = document.getElementById('save-btn');
@@ -2292,6 +2344,11 @@ function bindEditor() {
 
   // 약관 편집 바인딩
   bindTerms();
+
+  // 추가 사항·변경 이력 (확정된 계약서도 계속 기록 가능)
+  renderHistory();
+  const histAdd = document.getElementById('history-add-btn');
+  if (histAdd) histAdd.onclick = addHistoryEntry;
 
   // 결제 항목 퍼센트(%) 수기 수정 — 표시값만 바뀌고 금액 자동배분엔 영향 없음
   app.querySelectorAll('.pct-input').forEach((inp) => {
