@@ -792,6 +792,12 @@ async function renderAdmin() {
       <div class="brand"><span class="logo">SEUM</span> 관리자 페이지 <small>계약 통계 · KPI</small></div>
       <div class="actions">
         <select id="adm-month" class="filter-sel" title="조회할 월 선택"></select>
+        <span class="date-range no-print" title="날짜(일자) 범위로 조회">
+          <input type="date" id="adm-from" class="filter-date" />
+          <span class="date-sep">~</span>
+          <input type="date" id="adm-to" class="filter-date" />
+          <button type="button" id="adm-date-clear" class="date-clear" title="날짜 초기화">✕</button>
+        </span>
         <button class="btn" id="adm-print-btn" title="이 통계를 인쇄 / PDF">🖨 인쇄</button>
         <button class="btn" id="back-btn">← 목록으로</button>
         ${accountChip()}
@@ -823,8 +829,13 @@ async function renderAdmin() {
   const sel = document.getElementById('adm-month');
   sel.innerHTML = months.map((m) => `<option value="${m}">${admMonthLabel(m)}</option>`).join('') + `<option value="">전체 기간</option>`;
   sel.value = months[0] || '';
-  sel.onchange = () => renderAdminBody(sel.value);
-  renderAdminBody(sel.value);
+  // 월 선택 ↔ 날짜 범위 상호 배타
+  sel.onchange = () => { const f = document.getElementById('adm-from'), t = document.getElementById('adm-to'); if (f) f.value = ''; if (t) t.value = ''; renderAdminBody(); };
+  const onAdmDate = () => { sel.value = ''; renderAdminBody(); };
+  document.getElementById('adm-from').onchange = onAdmDate;
+  document.getElementById('adm-to').onchange = onAdmDate;
+  document.getElementById('adm-date-clear').onclick = () => { const f = document.getElementById('adm-from'), t = document.getElementById('adm-to'); if (f) f.value = ''; if (t) t.value = ''; renderAdminBody(); };
+  renderAdminBody();
 }
 
 // 뷰어 권한 설정 패널 (관리자 전용) — 전시장별로 묶어 직원별 열람 범위 드롭다운
@@ -902,10 +913,21 @@ const SHOWROOM_ALIAS = { '본사': '본사 전시장', '본점': '본사 전시�
 function admShowroom(v) { const s = String(v ?? '').trim(); if (!s) return '미지정'; return SHOWROOM_ALIAS[s] || s; }
 const SHOWROOM_ORDER = ['본사 전시장', '1전시장', '3전시장', '강화전시장', '안동전시장', '광주전시장'];
 
-function renderAdminBody(period) {
+function renderAdminBody() {
   const wrap = document.getElementById('admin-body') || document.getElementById('admin-wrap');
-  const rows = adminRows.filter((r) => !period || admDateStr(r).slice(0, 7) === period);
-  const periodLabel = period ? admMonthLabel(period) : '전체 기간';
+  const period = document.getElementById('adm-month')?.value || '';
+  const from = document.getElementById('adm-from')?.value || '';
+  const to = document.getElementById('adm-to')?.value || '';
+  let rows, periodLabel;
+  if (from || to) {
+    rows = adminRows.filter((r) => { const d = admDateStr(r).slice(0, 10); return !!d && (!from || d >= from) && (!to || d <= to); });
+    periodLabel = `${from || '처음'} ~ ${to || '오늘'}`;
+  } else if (period) {
+    rows = adminRows.filter((r) => admDateStr(r).slice(0, 7) === period);
+    periodLabel = admMonthLabel(period);
+  } else {
+    rows = adminRows; periodLabel = '전체 기간';
+  }
   // ── KPI 집계 ──
   const contracted = rows.filter(admContracted);
   const canceled = rows.filter((r) => stageOf(r) === 'canceled');
