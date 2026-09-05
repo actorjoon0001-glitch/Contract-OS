@@ -55,6 +55,11 @@ html, body {
 .filter-sel {
   border: 1px solid #c4c9d0; border-radius: 7px; padding: 8px 10px; font-size: 13px; background: #fff; cursor: pointer;
 }
+.date-range { display: inline-flex; align-items: center; gap: 4px; }
+.filter-date { border: 1px solid #c4c9d0; border-radius: 7px; padding: 7px 8px; font-size: 12.5px; background: #fff; }
+.date-sep { color: #888; }
+.date-clear { border: 1px solid #c4c9d0; background: #fff; border-radius: 6px; width: 26px; height: 30px; cursor: pointer; color: #888; font-size: 12px; }
+.date-clear:hover { background: #f1f3f5; color: #333; }
 
 /* 관리 정보 바 (전시장·영업사원) */
 .manage-bar {
