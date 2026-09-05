@@ -176,6 +176,12 @@ async function renderList() {
           ${STAGES.filter((s) => !s.hidden).map((s) => `<option value="${s.key}">${s.label}</option>`).join('')}
         </select>
         <select id="filter-month" class="filter-sel"><option value="">전체 기간</option></select>
+        <span class="date-range" title="날짜(일자) 범위로 조회">
+          <input type="date" id="filter-from" class="filter-date" />
+          <span class="date-sep">~</span>
+          <input type="date" id="filter-to" class="filter-date" />
+          <button type="button" id="filter-date-clear" class="date-clear" title="날짜 초기화">✕</button>
+        </span>
         <select id="filter-showroom" class="filter-sel"><option value="">전시장 전체</option></select>
         <select id="filter-sales" class="filter-sel"><option value="">영업사원 전체</option></select>
         <button class="btn" id="list-print-btn" title="현재 목록 인쇄 / PDF">🖨 인쇄</button>
@@ -205,7 +211,13 @@ async function renderList() {
   bindAccount(app);
   document.getElementById('search').oninput = applyListFilters;
   document.getElementById('filter-stage').onchange = applyListFilters;
-  document.getElementById('filter-month').onchange = applyListFilters;
+  // 월 선택 시 날짜 범위 초기화(충돌 방지)
+  document.getElementById('filter-month').onchange = () => { setDateRange('', ''); applyListFilters(); };
+  // 날짜 범위 선택 시 월 필터 초기화
+  const onDate = () => { const m = document.getElementById('filter-month'); if (m) m.value = ''; applyListFilters(); };
+  document.getElementById('filter-from').onchange = onDate;
+  document.getElementById('filter-to').onchange = onDate;
+  document.getElementById('filter-date-clear').onclick = () => { setDateRange('', ''); applyListFilters(); };
   document.getElementById('filter-showroom').onchange = applyListFilters;
   document.getElementById('filter-sales').onchange = applyListFilters;
   loadList();
@@ -290,15 +302,27 @@ function populateSalesFilter(rows) {
   sel.value = prev;
 }
 
+function setDateRange(from, to) {
+  const f = document.getElementById('filter-from'); if (f) f.value = from;
+  const t = document.getElementById('filter-to'); if (t) t.value = to;
+}
+
 function applyListFilters() {
   const q = (document.getElementById('search').value || '').toLowerCase().trim();
   const st = document.getElementById('filter-stage').value;
   const mo = document.getElementById('filter-month')?.value || '';
   const sr = document.getElementById('filter-showroom').value;
   const sp = document.getElementById('filter-sales').value;
+  const from = document.getElementById('filter-from')?.value || '';
+  const to = document.getElementById('filter-to')?.value || '';
   let rows = listRows;
   if (st) rows = rows.filter((r) => stageOf(r) === st);
-  if (mo) rows = rows.filter((r) => rowDateStr(r).slice(0, 7) === mo);
+  if (from || to) {
+    // 날짜(일자) 범위 필터 — 월 필터보다 우선
+    rows = rows.filter((r) => { const d = rowDateStr(r).slice(0, 10); return !!d && (!from || d >= from) && (!to || d <= to); });
+  } else if (mo) {
+    rows = rows.filter((r) => rowDateStr(r).slice(0, 7) === mo);
+  }
   if (sr) rows = rows.filter((r) => admShowroom(r.showroom) === sr); // 전시장 정규화 후 비교
   if (sp) rows = rows.filter((r) => String(r.salesperson || '').split(/[,\/]/).map((n) => n.trim()).includes(sp)); // 공동 계약도 포함
   if (q) {
@@ -324,7 +348,9 @@ function printList() {
   const selText = (id) => { const s = document.getElementById(id); return s && s.value ? s.options[s.selectedIndex].text : ''; };
   const q = (document.getElementById('search')?.value || '').trim();
   const parts = [];
-  if (selText('filter-month')) parts.push(selText('filter-month'));
+  const pf = document.getElementById('filter-from')?.value || '', pt = document.getElementById('filter-to')?.value || '';
+  if (pf || pt) parts.push(`${pf || '처음'} ~ ${pt || '오늘'}`);
+  else if (selText('filter-month')) parts.push(selText('filter-month'));
   if (selText('filter-stage')) parts.push(selText('filter-stage'));
   if (selText('filter-showroom')) parts.push(selText('filter-showroom'));
   if (selText('filter-sales')) parts.push(selText('filter-sales'));
