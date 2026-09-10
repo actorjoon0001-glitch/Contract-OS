@@ -1263,7 +1263,11 @@ function renderEditor() {
       <label>모델
         <select id="model-select" class="mb-stage">
           <option value="" ${c.modelId ? '' : 'selected'}>통합(전체 옵션)</option>
-          ${MODELS.map((m) => `<option value="${m.id}" ${c.modelId === m.id ? 'selected' : ''}>${esc(m.showroom)} · ${esc(m.name)} (${fmtMan(m.startPrice)}만)</option>`).join('')}
+          ${SHOWROOMS.map((sr) => {
+            const ms = MODELS.filter((m) => m.showroom === sr);
+            if (!ms.length) return '';
+            return `<optgroup label="${esc(sr)}">${ms.map((m) => `<option value="${m.id}" ${c.modelId === m.id ? 'selected' : ''}>${esc(m.name)} (${fmtMan(m.startPrice)}만)</option>`).join('')}</optgroup>`;
+          }).join('')}
         </select>
       </label>
       <label>전시장 <span class="req">*</span> ${showroomSelect(c.showroom)}</label>
