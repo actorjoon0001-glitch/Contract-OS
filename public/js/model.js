@@ -45,11 +45,11 @@ export function normalizeStage(contract) {
 export const MOVE_OPTIONS = {
   categories: [
     {
-      key: 'farm', label: '농막', truck: false,
+      key: 'farm', label: '농막', truck: true,
       tiers: [
-        { label: '100km 미만', base: 220 },
-        { label: '200km 미만', base: 260 },
-        { label: '200km 이상', base: 290 },
+        { label: '100km 미만', base: 220, truckAdd: 60 },
+        { label: '200km 미만', base: 260, truckAdd: 80 },
+        { label: '200km 이상', base: 290, truckAdd: 100 },
       ],
     },
     {
