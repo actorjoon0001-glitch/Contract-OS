@@ -1587,10 +1587,7 @@ function moveControls(i, item) {
   const cat = MOVE_OPTIONS.categories.find((c) => c.key === item.moveCategory);
   const catOpts = MOVE_OPTIONS.categories.map((c) =>
     `<option value="${c.key}" ${item.moveCategory === c.key ? 'selected' : ''}>${esc(c.label)}</option>`).join('');
-  // 거리 구간 라벨은 종류와 무관하게 동일(100km미만/200km미만/200km이상)
-  const tierLabels = (cat ? cat.tiers : MOVE_OPTIONS.categories[0].tiers).map((t) => t.label);
-  const tierOpts = tierLabels.map((l) =>
-    `<option value="${esc(l)}" ${item.tier === l ? 'selected' : ''}>${esc(l)}</option>`).join('');
+  const tierOpts = moveTierOptions(item);
   const showTruck = !!(cat && cat.truck);
   return `<span class="move-input">
       <select class="f dist no-print ${lc}" data-move-cat="${i}" ${dis}>
@@ -1619,6 +1616,13 @@ function movePrintLabel(item) {
   return s;
 }
 
+// 거리 선택 옵션 — 선택한 종류의 기본요금을 함께 표시(작성 시 금액이 보이도록)
+function moveTierOptions(item) {
+  const cat = MOVE_OPTIONS.categories.find((c) => c.key === item.moveCategory) || MOVE_OPTIONS.categories[0];
+  return cat.tiers.map((t) =>
+    `<option value="${esc(t.label)}" ${item.tier === t.label ? 'selected' : ''}>${esc(t.label)} · ${fmtMan(t.base)}만원</option>`).join('');
+}
+
 // 이동 설치비 선택 변경 시 금액·표시 갱신
 function updateMoveFee(i) {
   const item = current.items[i];
@@ -1627,6 +1631,9 @@ function updateMoveFee(i) {
   const wrap = app.querySelector(`[data-move-truck-wrap="${i}"]`);
   if (wrap) wrap.style.display = (cat && cat.truck) ? '' : 'none';
   if (!(cat && cat.truck)) item.truckQty = 0;
+  // 종류가 바뀌면 거리 옵션 금액 표시 갱신(선택값 유지)
+  const tierSel = app.querySelector(`[data-move-tier="${i}"]`);
+  if (tierSel) { const cur = tierSel.value; tierSel.innerHTML = `<option value="">거리 선택</option>` + moveTierOptions(item); tierSel.value = cur; }
   // 금액 계산 → 금액칸 반영
   const fee = computeMoveFee(item);
   item.amount = fee === '' ? '' : fee;
