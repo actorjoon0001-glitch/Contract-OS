@@ -47,25 +47,25 @@ export const MOVE_OPTIONS = {
     {
       key: 'farm', label: '농막', truck: true,
       tiers: [
-        { label: '100km 미만', base: 220, truckAdd: 60 },
-        { label: '200km 미만', base: 260, truckAdd: 80 },
-        { label: '200km 이상', base: 290, truckAdd: 100 },
+        { label: '100km 미만', base: 220, truckAdd: 60, lowbedAdd: 120 },
+        { label: '200km 미만', base: 260, truckAdd: 80, lowbedAdd: 150 },
+        { label: '200km 이상', base: 290, truckAdd: 100, lowbedAdd: 180 },
       ],
     },
     {
       key: 'stay35', label: '체류형쉼터·이동식주택 (높이 3.5m 이하)', truck: true,
       tiers: [
-        { label: '100km 미만', base: 260, truckAdd: 60 },
-        { label: '200km 미만', base: 350, truckAdd: 80 },
-        { label: '200km 이상', base: 400, truckAdd: 100 },
+        { label: '100km 미만', base: 260, truckAdd: 60, lowbedAdd: 120 },
+        { label: '200km 미만', base: 350, truckAdd: 80, lowbedAdd: 150 },
+        { label: '200km 이상', base: 400, truckAdd: 100, lowbedAdd: 180 },
       ],
     },
     {
       key: 'stay40', label: '체류형쉼터·이동식주택 (높이 3.5~4m)', truck: true,
       tiers: [
-        { label: '100km 미만', base: 390, truckAdd: 60 },
-        { label: '200km 미만', base: 430, truckAdd: 80 },
-        { label: '200km 이상', base: 470, truckAdd: 100 },
+        { label: '100km 미만', base: 390, truckAdd: 60, lowbedAdd: 120 },
+        { label: '200km 미만', base: 430, truckAdd: 80, lowbedAdd: 150 },
+        { label: '200km 이상', base: 470, truckAdd: 100, lowbedAdd: 180 },
       ],
     },
   ],
@@ -77,6 +77,10 @@ export function moveTruckQty(item) {
   const raw = item.truckQty != null ? item.truckQty : (item.truck ? 1 : 0);
   return Math.max(0, Math.min(5, Math.floor(Number(raw) || 0)));
 }
+// 저상용 트럭 추가 수량 (0~5)
+export function moveLowbedQty(item) {
+  return Math.max(0, Math.min(5, Math.floor(Number(item.lowbedQty) || 0)));
+}
 
 export function computeMoveFee(item) {
   const cat = MOVE_OPTIONS.categories.find((c) => c.key === item.moveCategory);
@@ -84,7 +88,8 @@ export function computeMoveFee(item) {
   const tier = cat.tiers.find((t) => t.label === item.tier);
   if (!tier) return '';
   let amt = tier.base;
-  if (cat.truck) amt += (tier.truckAdd || 0) * moveTruckQty(item); // 트럭 1대당 추가요금 × 대수
+  if (cat.truck) amt += (tier.truckAdd || 0) * moveTruckQty(item);   // 일반트럭 1대당 추가요금 × 대수
+  amt += (tier.lowbedAdd || 0) * moveLowbedQty(item);                // 저상용 트럭 1대당 추가요금 × 대수
   return amt;
 }
 
@@ -96,7 +101,7 @@ export function defaultItems() {
     { no: '2', name: '약식 기초공사(평당)', unit: '평당', priceRule: 'foundation', priceLabel: '12평↓ 140 / 12평↑ 110', unitPrice: '', area: '', amount: '', note: '높이400T / 기초에 관한 기본설비 포함' },
     { no: '3', name: '건물건축비(평당)', unit: '평당', unitPrice: 380, priceEditable: true, area: '', amount: '', note: '체류형 쉼터 등 단가가 다른 경우 평당 단가를 직접 입력' },
     { no: '4', name: '현장 시공비(평당)', unit: '평당', unitPrice: 80, area: '', amount: '', note: '현장시공시 처마 가능함' },
-    { no: '5', name: '이동 설치비', unit: '거리', unitPrice: '', area: '', amount: '', moveCategory: '', tier: '', truckQty: 0, note: '트럭+크레인(25톤기준)+주춧돌+설치인원 포함 (현장상황에 따른 추가금 있음)' },
+    { no: '5', name: '이동 설치비', unit: '거리', unitPrice: '', area: '', amount: '', moveCategory: '', tier: '', truckQty: 0, lowbedQty: 0, note: '트럭+크레인(25톤기준)+주춧돌+설치인원 포함 (현장상황에 따른 추가금 있음)' },
     { no: '6', name: '포치(평당)', unit: '평당', unitPrice: 190, area: '', amount: '', note: '아연각관+합성데크판 사용(방부목X)' },
     { no: '', name: '데크(평당)', unit: '평당', unitPrice: 85, area: '', amount: '', note: '합성데크판 사용(방부목X)' },
     { no: '7', name: '썬룸(평당)', unit: '평당', key: 'sunroom', unitPrice: 300, area: '', amount: '', note: '썬룸,포치는 하부3면 사이딩 마감. 폴딩도어는 추가금 발생' },
@@ -340,6 +345,7 @@ export function normalizeContract(contract) {
   for (const it of contract.items || []) {
     if (it && it.unit === '거리') {
       if (it.truckQty == null) it.truckQty = it.truck ? 1 : 0;
+      if (it.lowbedQty == null) it.lowbedQty = 0;
       delete it.truck;
     }
   }
