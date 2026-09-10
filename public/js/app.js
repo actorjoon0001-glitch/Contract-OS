@@ -2,7 +2,7 @@ import { api } from './api.js';
 import {
   SUPPLIER, emptyContract, recalc, paymentRemaining,
   fmtMan, manToKorean, normalizeContract, computeIntegrityHash,
-  MOVE_OPTIONS, computeMoveFee, moveTruckQty,
+  MOVE_OPTIONS, computeMoveFee, moveTruckQty, moveLowbedQty,
   SAMPLE_ID, sampleContract, sampleListRow,
   STAGES, stageLabel,
   MODELS, modelContract,
@@ -1602,6 +1602,12 @@ function moveControls(i, item) {
           ${moveTruckOptions(item)}
         </select>
       </label>
+      <label class="move-truck no-print" data-move-lowbed-wrap="${i}" style="${showTruck ? '' : 'display:none'}">
+        저상용 트럭 추가
+        <select class="f dist no-print ${lc}" data-move-lowbed="${i}" ${dis}>
+          ${moveLowbedOptions(item)}
+        </select>
+      </label>
       <span class="move-print print-only" data-move-print="${i}">${esc(movePrintLabel(item))}</span>
     </span>`;
 }
@@ -1613,6 +1619,8 @@ function movePrintLabel(item) {
   let s = `${cat.label} · ${item.tier}`;
   const qty = moveTruckQty(item);
   if (cat.truck && qty > 0) s += ` · 일반트럭 ${qty}대 추가`;
+  const lq = moveLowbedQty(item);
+  if (lq > 0) s += ` · 저상용트럭 ${lq}대 추가`;
   return s;
 }
 
@@ -1622,6 +1630,15 @@ function moveTruckOptions(item) {
   const tier = cat && cat.tiers.find((t) => t.label === item.tier);
   const add = (tier && tier.truckAdd) || 0;
   const qty = moveTruckQty(item);
+  return [0, 1, 2, 3, 4, 5].map((n) =>
+    `<option value="${n}" ${qty === n ? 'selected' : ''}>${n === 0 ? '없음' : n + '대'}${add && n ? ` (+${fmtMan(add * n)}만원)` : ''}</option>`).join('');
+}
+// 저상용 트럭 추가 옵션 — 대수별 추가금액 함께 표시
+function moveLowbedOptions(item) {
+  const cat = MOVE_OPTIONS.categories.find((c) => c.key === item.moveCategory);
+  const tier = cat && cat.tiers.find((t) => t.label === item.tier);
+  const add = (tier && tier.lowbedAdd) || 0;
+  const qty = moveLowbedQty(item);
   return [0, 1, 2, 3, 4, 5].map((n) =>
     `<option value="${n}" ${qty === n ? 'selected' : ''}>${n === 0 ? '없음' : n + '대'}${add && n ? ` (+${fmtMan(add * n)}만원)` : ''}</option>`).join('');
 }
@@ -1637,16 +1654,21 @@ function moveTierOptions(item) {
 function updateMoveFee(i) {
   const item = current.items[i];
   const cat = MOVE_OPTIONS.categories.find((c) => c.key === item.moveCategory);
-  // 트럭옵션 없는 종류(농막)면 체크박스 숨김 + 트럭 선택 해제
+  // 트럭옵션 없는 종류면 트럭 선택 숨김 + 선택 해제
+  const showTruck = !!(cat && cat.truck);
   const wrap = app.querySelector(`[data-move-truck-wrap="${i}"]`);
-  if (wrap) wrap.style.display = (cat && cat.truck) ? '' : 'none';
-  if (!(cat && cat.truck)) item.truckQty = 0;
+  if (wrap) wrap.style.display = showTruck ? '' : 'none';
+  const lbWrap = app.querySelector(`[data-move-lowbed-wrap="${i}"]`);
+  if (lbWrap) lbWrap.style.display = showTruck ? '' : 'none';
+  if (!showTruck) { item.truckQty = 0; item.lowbedQty = 0; }
   // 종류가 바뀌면 거리 옵션 금액 표시 갱신(선택값 유지)
   const tierSel = app.querySelector(`[data-move-tier="${i}"]`);
   if (tierSel) { const cur = tierSel.value; tierSel.innerHTML = `<option value="">거리 선택</option>` + moveTierOptions(item); tierSel.value = cur; }
   // 트럭 대수별 추가금액 표시 갱신(거리에 따라 단가 달라짐, 선택값 유지)
   const truckSel = app.querySelector(`[data-move-truck="${i}"]`);
   if (truckSel) { const cur = truckSel.value; truckSel.innerHTML = moveTruckOptions(item); truckSel.value = cur; }
+  const lowbedSel = app.querySelector(`[data-move-lowbed="${i}"]`);
+  if (lowbedSel) { const cur = lowbedSel.value; lowbedSel.innerHTML = moveLowbedOptions(item); lowbedSel.value = cur; }
   // 금액 계산 → 금액칸 반영
   const fee = computeMoveFee(item);
   item.amount = fee === '' ? '' : fee;
@@ -2423,6 +2445,13 @@ function bindEditor() {
     sel.addEventListener('change', () => {
       const i = Number(sel.dataset.moveTruck);
       current.items[i].truckQty = Number(sel.value) || 0;
+      updateMoveFee(i);
+    });
+  });
+  app.querySelectorAll('select[data-move-lowbed]').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      const i = Number(sel.dataset.moveLowbed);
+      current.items[i].lowbedQty = Number(sel.value) || 0;
       updateMoveFee(i);
     });
   });
