@@ -2415,7 +2415,11 @@ function bindEditor() {
       const im = path.match(/^items\.(\d+)\.(amount|area|unitPrice)$/);
       if (im) {
         const it = current.items[Number(im[1])];
-        if (it) it.amountManual = im[2] === 'amount' ? String(v).trim() !== '' : false;
+        if (it) {
+          it.amountManual = im[2] === 'amount' ? String(v).trim() !== '' : false;
+          // 평당 단가를 직접 입력하면 자동 구간단가보다 그 값 우선(비우면 자동 복귀)
+          if (im[2] === 'unitPrice') it.unitPriceManual = String(v).trim() !== '';
+        }
       }
       if (inp.tagName === 'TEXTAREA') autoGrow(inp);
       // 비고: '협의 후 진행/현장답사' 등 주의 문구면 강조색 토글
@@ -2567,6 +2571,11 @@ function updateTotals() {
     if (it.unit === '평당' || it.priceRule || it.unit === '거리') {
       const inp = app.querySelector(`input[data-path="items.${i}.amount"]`);
       if (inp && document.activeElement !== inp) inp.value = fmtMan(it.amount);
+    }
+    // 건물건축비: 구간단가 자동 적용 시 평당 단가 입력칸도 갱신(직접 입력 중/포커스면 유지)
+    if (it.priceRule === 'building' && !it.unitPriceManual) {
+      const pInp = app.querySelector(`input[data-path="items.${i}.unitPrice"]`);
+      if (pInp && document.activeElement !== pInp) pInp.value = fmtMan(it.unitPrice);
     }
   });
   // 자동 배분 모드면 결제 입력칸도 비율대로 갱신 (포커스 중인 칸은 건드리지 않음)

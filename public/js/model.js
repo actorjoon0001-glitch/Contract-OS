@@ -99,12 +99,12 @@ export function defaultItems() {
     { no: '1', name: '<인허가> 토목설계', unit: '정액', unitPrice: 450, area: '', amount: '', note: '인허가 기간 평균 1~2달 이상 소요' },
     { no: '1', name: '<인허가> 건축설계', unit: '정액', unitPrice: 450, area: '', amount: '', note: '' },
     { no: '2', name: '약식 기초공사(평당)', unit: '평당', priceRule: 'foundation', priceLabel: '12평↓ 140 / 12평↑ 110', unitPrice: '', area: '', amount: '', note: '높이400T / 기초에 관한 기본설비 포함' },
-    { no: '3', name: '건물건축비(평당)', unit: '평당', unitPrice: 380, priceEditable: true, area: '', amount: '', note: '체류형 쉼터 등 단가가 다른 경우 평당 단가를 직접 입력' },
+    { no: '3', name: '건물건축비(평당)', unit: '평당', priceRule: 'building', priceEditable: true, priceLabel: '24평↓ 380 / 24평↑ 350', unitPrice: '', area: '', amount: '', note: '체류형 쉼터 등 단가가 다른 경우 평당 단가를 직접 입력' },
     { no: '4', name: '현장 시공비(평당)', unit: '평당', unitPrice: 80, area: '', amount: '', note: '현장시공시 처마 가능함' },
     { no: '5', name: '이동 설치비', unit: '거리', unitPrice: '', area: '', amount: '', moveCategory: '', tier: '', truckQty: 0, lowbedQty: 0, note: '트럭+크레인(25톤기준)+주춧돌+설치인원 포함 (현장상황에 따른 추가금 있음)' },
     { no: '6', name: '포치(평당)', unit: '평당', unitPrice: 190, area: '', amount: '', note: '아연각관+합성데크판 사용(방부목X)' },
     { no: '', name: '데크(평당)', unit: '평당', unitPrice: 85, area: '', amount: '', note: '합성데크판 사용(방부목X)' },
-    { no: '7', name: '썬룸(평당)', unit: '평당', key: 'sunroom', unitPrice: 300, area: '', amount: '', note: '썬룸,포치는 하부3면 사이딩 마감. 폴딩도어는 추가금 발생' },
+    { no: '7', name: '썬룸(평당)', unit: '평당', key: 'sunroom', priceRule: 'sunroom', priceLabel: '24평↓ 360 / 24평↑ 330', unitPrice: '', area: '', amount: '', note: '썬룸,포치는 하부3면 사이딩 마감. 폴딩도어는 추가금 발생' },
     { no: '', name: '└ 썬룸 약식기초(300T)', unit: '정액', key: 'sunroomFoundation', priceRule: 'sunroomFoundation', priceLabel: '평당 65만원', unitPrice: '', area: '', amount: '', note: '썬룸 선택(면적 입력) 시 자동 적용 · 300T' },
     { no: '8', name: '습식난방 가스/기름(평당)', unit: '평당', priceRule: 'heating', priceLabel: '10~15평 550 / 16~24평 600 / 24평↑ 초과분 평당20', unitPrice: '', area: '', amount: '', note: '토목공사 및 정화조는 현장답사하여 건축주와 협의 후 진행' },
   ];
@@ -398,12 +398,23 @@ export function recalc(contract) {
   // 썬룸 면적(썬룸 약식기초 계산용)
   const sun = contract.items.find((it) => it.key === 'sunroom');
   const sunArea = sun ? num(sun.area) : 0;
+  // 건물 평수(건물건축비 면적) — 썬룸 단가 구간 판정 기준
+  const bld = contract.items.find((it) => it.priceRule === 'building');
+  const buildingArea = bld ? num(bld.area) : 0;
 
   let itemsSum = 0;
   for (const it of contract.items) {
     const a = num(it.area);
     if (it.amountManual) {
       // 영업사원이 금액을 직접 수정한 항목: 자동 계산 건너뛰고 입력값 유지
+    } else if (it.priceRule === 'building') {
+      // 건물건축비: 자기 평수 24평 미만 380 / 24평 이상 350 (평당 단가 직접 입력 시 그 값 우선)
+      if (!it.unitPriceManual) it.unitPrice = a >= 24 ? 350 : 380; // 24평 미만 380 / 24평 이상 350
+      it.amount = a > 0 && num(it.unitPrice) > 0 ? a * num(it.unitPrice) : '';
+    } else if (it.priceRule === 'sunroom') {
+      // 썬룸: 건물 평수 24평 미만 평당 360 / 24평 이상 평당 330
+      const rate = buildingArea >= 24 ? 330 : 360;
+      it.amount = a > 0 ? a * rate : '';
     } else if (it.priceRule === 'foundation') {
       // 기초공사: 12평 미만 평당 140, 12평 이상 평당 110
       it.amount = a > 0 ? a * (a < 12 ? 140 : 110) : '';
