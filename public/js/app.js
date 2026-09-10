@@ -1599,7 +1599,7 @@ function moveControls(i, item) {
       <label class="move-truck no-print" data-move-truck-wrap="${i}" style="${showTruck ? '' : 'display:none'}">
         일반트럭 추가
         <select class="f dist no-print ${lc}" data-move-truck="${i}" ${dis}>
-          ${[0, 1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${moveTruckQty(item) === n ? 'selected' : ''}>${n === 0 ? '없음' : n + '대'}</option>`).join('')}
+          ${moveTruckOptions(item)}
         </select>
       </label>
       <span class="move-print print-only" data-move-print="${i}">${esc(movePrintLabel(item))}</span>
@@ -1614,6 +1614,16 @@ function movePrintLabel(item) {
   const qty = moveTruckQty(item);
   if (cat.truck && qty > 0) s += ` · 일반트럭 ${qty}대 추가`;
   return s;
+}
+
+// 일반트럭 추가 옵션 — 대수별 추가금액 함께 표시
+function moveTruckOptions(item) {
+  const cat = MOVE_OPTIONS.categories.find((c) => c.key === item.moveCategory);
+  const tier = cat && cat.tiers.find((t) => t.label === item.tier);
+  const add = (tier && tier.truckAdd) || 0;
+  const qty = moveTruckQty(item);
+  return [0, 1, 2, 3, 4, 5].map((n) =>
+    `<option value="${n}" ${qty === n ? 'selected' : ''}>${n === 0 ? '없음' : n + '대'}${add && n ? ` (+${fmtMan(add * n)}만원)` : ''}</option>`).join('');
 }
 
 // 거리 선택 옵션 — 선택한 종류의 기본요금을 함께 표시(작성 시 금액이 보이도록)
@@ -1634,6 +1644,9 @@ function updateMoveFee(i) {
   // 종류가 바뀌면 거리 옵션 금액 표시 갱신(선택값 유지)
   const tierSel = app.querySelector(`[data-move-tier="${i}"]`);
   if (tierSel) { const cur = tierSel.value; tierSel.innerHTML = `<option value="">거리 선택</option>` + moveTierOptions(item); tierSel.value = cur; }
+  // 트럭 대수별 추가금액 표시 갱신(거리에 따라 단가 달라짐, 선택값 유지)
+  const truckSel = app.querySelector(`[data-move-truck="${i}"]`);
+  if (truckSel) { const cur = truckSel.value; truckSel.innerHTML = moveTruckOptions(item); truckSel.value = cur; }
   // 금액 계산 → 금액칸 반영
   const fee = computeMoveFee(item);
   item.amount = fee === '' ? '' : fee;
