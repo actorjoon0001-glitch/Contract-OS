@@ -47,25 +47,25 @@ export const MOVE_OPTIONS = {
     {
       key: 'farm', label: '농막', truck: false,
       tiers: [
-        { label: '100km 미만', base: 180 },
-        { label: '200km 미만', base: 220 },
-        { label: '200km 이상', base: 250 },
+        { label: '100km 미만', base: 220 },
+        { label: '200km 미만', base: 260 },
+        { label: '200km 이상', base: 290 },
       ],
     },
     {
       key: 'stay35', label: '체류형쉼터·이동식주택 (높이 3.5m 이하)', truck: true,
       tiers: [
-        { label: '100km 미만', base: 220, truckAdd: 60 },
-        { label: '200km 미만', base: 310, truckAdd: 80 },
-        { label: '200km 이상', base: 360, truckAdd: 100 },
+        { label: '100km 미만', base: 260, truckAdd: 60 },
+        { label: '200km 미만', base: 350, truckAdd: 80 },
+        { label: '200km 이상', base: 400, truckAdd: 100 },
       ],
     },
     {
       key: 'stay40', label: '체류형쉼터·이동식주택 (높이 3.5~4m)', truck: true,
       tiers: [
-        { label: '100km 미만', base: 350, truckAdd: 60 },
-        { label: '200km 미만', base: 390, truckAdd: 80 },
-        { label: '200km 이상', base: 430, truckAdd: 100 },
+        { label: '100km 미만', base: 390, truckAdd: 60 },
+        { label: '200km 미만', base: 430, truckAdd: 80 },
+        { label: '200km 이상', base: 470, truckAdd: 100 },
       ],
     },
   ],
