@@ -641,11 +641,15 @@ function listDepositCell(r) {
   const amt = explicit || String(r.down_payment || '').trim();
   if (!amt || amt === '0') return '<span class="muted small">—</span>';
   const shown = fmtMan(amt) || esc(amt);
-  // 실제 받은 계약금(explicit)이 계약서상 계약금(down_payment)보다 적으면 부족액 표시
+  // 실제 받은 계약금(explicit)을 계약서상 계약금(down_payment)과 비교 → 부족/초과 표시
   const expected = depNum(r.down_payment);
   const received = depNum(r.deposit_amount);
-  const short = explicit && expected > 0 && received < expected ? expected - received : 0;
-  return `<button type="button" class="dep-mini dep-btn" data-deposit-id="${r.id}" title="클릭하면 계약금 입금 정보 수정">💰${shown}</button>${short ? ` <span class="dep-short" title="계약서 계약금 ${fmtMan(expected)}만 대비 부족">${fmtMan(short)}만 부족</span>` : ''}`;
+  let diffTag = '';
+  if (explicit && expected > 0) {
+    if (received < expected) diffTag = ` <span class="dep-short" title="계약서 계약금 ${fmtMan(expected)}만 대비 부족">${fmtMan(expected - received)}만 부족</span>`;
+    else if (received > expected) diffTag = ` <span class="dep-over" title="계약서 계약금 ${fmtMan(expected)}만 대비 초과">${fmtMan(received - expected)}만 초과</span>`;
+  }
+  return `<button type="button" class="dep-mini dep-btn" data-deposit-id="${r.id}" title="클릭하면 계약금 입금 정보 수정">💰${shown}</button>${diffTag}`;
 }
 
 // 인허가 열 — 계약서에서 선택한 인허가 구분 (permit=준공용/인허가, temporary=가설축조신고, 미선택=—)
