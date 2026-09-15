@@ -458,8 +458,6 @@ function todayYmd() {
 const PAY_METHODS = ['계좌이체', '카드', '현금'];
 const PAY_BUCKETS = [
   { key: 'down', label: '계약금' },
-  { key: 'interim', label: '중도금' },
-  { key: 'final', label: '잔금' },
 ];
 
 function depNum(x) { return Number(String(x ?? '').replace(/[^\d.]/g, '')) || 0; }
@@ -498,8 +496,8 @@ function openPaymentDialog({ expected = {}, initial = {}, onSave, onCancel } = {
   overlay.className = 'sign-modal-overlay no-print';
   overlay.innerHTML = `
     <div class="sign-modal pay-modal" role="dialog" aria-modal="true" aria-label="결제 입금 정보">
-      <div class="sign-modal-head"><h3>결제(입금) 정보</h3><button class="sign-x" type="button" aria-label="닫기">✕</button></div>
-      <p class="dep-note">계약금·중도금·잔금을 <b>받은 대로</b> 입력하세요. 한 번에 다 받으면 <b>1차</b>만, 나눠 받으면 <b>+ 2차 추가</b>. 한 회차에 계좌이체+카드처럼 나눠 받으면 <b>+ 수단 추가</b>로 여러 줄을 넣습니다.</p>
+      <div class="sign-modal-head"><h3>계약금 입금 정보</h3><button class="sign-x" type="button" aria-label="닫기">✕</button></div>
+      <p class="dep-note">받은 <b>계약금</b>을 입력하세요. 한 번에 다 받으면 <b>1차</b>만, 나눠 받으면 <b>+ 2차 추가</b>. 한 회차에 계좌이체+카드처럼 나눠 받으면 <b>+ 수단 추가</b>로 여러 줄을 넣습니다.</p>
       <div class="pay-body"></div>
       <div class="sign-modal-actions"><span class="grow"></span>
         <button class="btn" data-act="cancel" type="button">취소</button>
