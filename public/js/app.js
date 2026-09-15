@@ -194,7 +194,7 @@ async function renderList() {
       <table class="list-table">
         <thead>
           <tr>
-            <th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
+            <th>계약번호</th><th>주택모델</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
             <th class="right">제품합계(만원)</th><th>계약일자</th><th class="right">계약금(만원)</th><th class="center">인허가</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th>${canManageList() ? '<th>담당자</th>' : ''}<th>메모</th><th>수정일</th><th></th>
           </tr>
         </thead>
@@ -371,7 +371,7 @@ function printList() {
   const body = rows.map((r, i) => `<tr>
     <td class="c">${i + 1}</td>
     <td>${esc(r.contract_no || '-')}</td>
-    <td>${esc(r.showroom || '-')}</td>
+    <td>${esc(r.model_name || '통합')}</td>
     <td>${esc(r.salesperson || '-')}</td>
     <td>${esc(r.client_name || '-')}</td>
     <td>${esc(r.site_address || '-')}</td>
@@ -388,7 +388,7 @@ function printList() {
     </div>
     <table class="list-print-table">
       <thead><tr>
-        <th>#</th><th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
+        <th>#</th><th>계약번호</th><th>주택모델</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
         <th class="r">제품합계(만원)</th><th>계약일자</th><th class="r">계약금(만원)</th><th>인허가</th><th>진행상태</th>
       </tr></thead>
       <tbody>${body}</tbody>
@@ -663,7 +663,7 @@ function renderListRows(rows) {
   body.innerHTML = rows.map((r) => `
     <tr data-id="${r.id}" class="row">
       <td>${esc(r.contract_no || '-')}</td>
-      <td>${(r.is_sample || !canManageList()) ? esc(r.showroom || '-') : listShowroomSelect(r)}</td>
+      <td>${esc(r.model_name || '통합')}</td>
       <td>${esc(r.salesperson || '-')}</td>
       <td>${esc(r.client_name || '-')}${dupBadge(r)}</td>
       <td class="ellipsis">${esc(r.site_address || '-')}</td>
@@ -1209,7 +1209,7 @@ async function renderTrash() {
       <table class="list-table">
         <thead>
           <tr>
-            <th>계약번호</th><th>전시장</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
+            <th>계약번호</th><th>주택모델</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
             <th class="right">제품합계(만원)</th><th>계약일자</th><th>삭제일시</th><th></th>
           </tr>
         </thead>
@@ -1231,7 +1231,7 @@ async function loadTrash() {
     body.innerHTML = rows.map((r) => `
       <tr data-id="${r.id}">
         <td>${esc(r.contract_no || '-')}</td>
-        <td>${esc(r.showroom || '-')}</td>
+        <td>${esc(r.model_name || '통합')}</td>
         <td>${esc(r.salesperson || '-')}</td>
         <td>${esc(r.client_name || '-')}</td>
         <td class="ellipsis">${esc(r.site_address || '-')}</td>
