@@ -361,6 +361,33 @@ input.f.locked { background: transparent; border-bottom-color: transparent; colo
 .dep-info { display: inline-flex; align-items: center; }
 .dep-chip { border: 1px solid #c2e6cd; background: #dff3e4; color: #1c7d3c; padding: 4px 10px; border-radius: 20px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .dep-chip:hover { background: #d1eddb; }
+.dep-chip-extra { font-weight: 600; opacity: .85; }
+/* 결제(입금) 장부 모달 — 계약금·중도금·잔금 1차/2차 */
+.pay-modal { width: 460px; max-width: 94vw; }
+.pay-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; max-height: 64vh; overflow-y: auto; }
+.pay-bucket { border: 1px solid #e2e6ec; border-radius: 10px; padding: 10px 12px; background: #fbfcfe; }
+.pay-bucket-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.pay-bucket-head b { font-size: 14px; color: #222; }
+.pay-exp { font-size: 12px; color: #667; background: #eef1f5; padding: 1px 8px; border-radius: 20px; }
+.pay-got { font-size: 12px; font-weight: 700; margin-left: auto; color: #888; }
+.pay-got.ok { color: #1c7d3c; }
+.pay-got.short { color: var(--danger); }
+.pay-round { border-top: 1px dashed #e0e4ea; padding-top: 8px; margin-top: 8px; }
+.pay-round:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.pay-round-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.pay-round-no { font-size: 12px; font-weight: 700; color: var(--brand); background: #e8f0f8; padding: 2px 9px; border-radius: 20px; white-space: nowrap; }
+.pay-del-round { margin-left: auto; border: 0; background: none; color: #b5352a; font-size: 11.5px; cursor: pointer; text-decoration: underline; }
+.pay-line { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.pay-line .pay-amt { flex: 1; min-width: 0; padding: 7px 9px; font-size: 14px; }
+.pay-line .pay-method { width: 96px; padding: 7px 6px; font-size: 13px; background: #fff; }
+.pay-round-head .pay-date { flex: 1; padding: 6px 8px; font-size: 13px; }
+.pay-del-line { border: 0; background: #f2f3f5; color: #888; width: 26px; height: 26px; border-radius: 6px; cursor: pointer; font-size: 12px; flex: none; }
+.pay-del-line:hover { background: #fde8e6; color: #b5352a; }
+.pay-line-sp { width: 26px; flex: none; }
+.pay-add-line { border: 1px dashed #c4ccd6; background: #fff; color: var(--brand); padding: 5px 10px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.pay-add-line:hover { background: #f0f5fb; }
+.pay-add-round { margin-top: 8px; border: 1px dashed #b9c2ce; background: #f6f8fb; color: #445; padding: 6px 12px; border-radius: 7px; font-size: 12.5px; font-weight: 700; cursor: pointer; width: 100%; }
+.pay-add-round:hover { background: #eef2f7; border-color: var(--brand); color: var(--brand); }
 
 /* 입력 필드 (편집 시 옅은 배경, 인쇄 시 사라짐) */
 input.f, textarea.f {
