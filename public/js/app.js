@@ -454,36 +454,133 @@ function todayYmd() {
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
-// 계약금 입금(금액·날짜) 입력 모달 — '계약완료' 처리 시 사용
-function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
+// 결제(입금) 관리 — 계약금·중도금·잔금 각각 1차/2차, 회차별 결제수단 혼합(계좌이체+카드 등) 지원
+const PAY_METHODS = ['계좌이체', '카드', '현금'];
+const PAY_BUCKETS = [
+  { key: 'down', label: '계약금' },
+  { key: 'interim', label: '중도금' },
+  { key: 'final', label: '잔금' },
+];
+
+function depNum(x) { return Number(String(x ?? '').replace(/[^\d.]/g, '')) || 0; }
+
+// 계약서 결제 스케줄(amounts) → 각 결제 기준 금액(만원)
+function expectedPayments(a = {}) {
+  return {
+    down: depNum(a.downPayment),
+    interim: depNum(a.interim1) + depNum(a.interim2) + depNum(a.interim3),
+    final: depNum(a.balance),
+  };
+}
+
+// 한 버킷(계약금 등)의 받은 합계
+function bucketReceived(bucket = {}) {
+  return (bucket.rounds || []).reduce((s, r) => s + (r.entries || []).reduce((a, e) => a + depNum(e.amount), 0), 0);
+}
+
+// 기존 deposit → 장부(ledger) 구조로 정규화(구버전 {amount,date,method} 자동 이전)
+function toLedger(dep = {}) {
+  const mk = (b) => ({ rounds: (b && Array.isArray(b.rounds) ? b.rounds : []).map((r) => ({ date: r.date || '', entries: (r.entries || []).map((e) => ({ method: e.method || '', amount: e.amount ?? '' })) })) });
+  const L = dep.ledger || {};
+  const out = { down: mk(L.down), interim: mk(L.interim), final: mk(L.final) };
+  // 구버전(장부 없이 계약금 단일값)만 있으면 계약금 1차로 이전
+  if (!out.down.rounds.length && (String(dep.amount || '').trim() || dep.date || dep.method)) {
+    out.down.rounds = [{ date: dep.date || '', entries: [{ method: dep.method || '', amount: dep.amount ?? '' }] }];
+  }
+  // 각 버킷 최소 1회차 보장(신규 회차는 오늘 날짜 기본값 — 금액 없으면 저장 시 정리됨)
+  for (const b of PAY_BUCKETS) if (!out[b.key].rounds.length) out[b.key].rounds = [{ date: todayYmd(), entries: [{ method: '', amount: '' }] }];
+  return out;
+}
+
+function openPaymentDialog({ expected = {}, initial = {}, onSave, onCancel } = {}) {
+  const state = toLedger(initial);
   const overlay = document.createElement('div');
   overlay.className = 'sign-modal-overlay no-print';
   overlay.innerHTML = `
-    <div class="sign-modal dep-modal" role="dialog" aria-modal="true" aria-label="계약금 입금 정보">
-      <div class="sign-modal-head"><h3>계약완료 — 계약금 입금 정보</h3><button class="sign-x" type="button" aria-label="닫기">✕</button></div>
-      <p class="dep-note">계약완료는 <b>계약금(10%)을 전액 받은 경우에만</b> 변경해 주세요.<br>아직 계약금을 받지 않았다면 <b>취소</b>를 누르고 진행상태를 <b>‘계약금 대기’</b>로 변경해 주세요.</p>
-      <div class="dep-body">
-        <label class="dep-field">받은 계약금 <span class="muted small">(만원)</span>
-          <input id="dep-amount" class="dep-input" type="text" inputmode="numeric" value="${esc(initial.amount ?? '')}" placeholder="예: 500" />
-        </label>
-        <label class="dep-field">입금 날짜
-          <input id="dep-date" class="dep-input" type="date" value="${esc(initial.date || todayYmd())}" />
-        </label>
-        <div class="dep-field">결제 수단 <span class="req">*</span>
-          <div class="dep-methods">
-            ${['계좌이체', '카드', '현금'].map((m) => `<label class="dep-method"><input type="radio" name="dep-method" value="${m}" ${initial.method === m ? 'checked' : ''}/> ${m}</label>`).join('')}
-          </div>
-        </div>
-      </div>
+    <div class="sign-modal pay-modal" role="dialog" aria-modal="true" aria-label="결제 입금 정보">
+      <div class="sign-modal-head"><h3>결제(입금) 정보</h3><button class="sign-x" type="button" aria-label="닫기">✕</button></div>
+      <p class="dep-note">계약금·중도금·잔금을 <b>받은 대로</b> 입력하세요. 한 번에 다 받으면 <b>1차</b>만, 나눠 받으면 <b>+ 2차 추가</b>. 한 회차에 계좌이체+카드처럼 나눠 받으면 <b>+ 수단 추가</b>로 여러 줄을 넣습니다.</p>
+      <div class="pay-body"></div>
       <div class="sign-modal-actions"><span class="grow"></span>
         <button class="btn" data-act="cancel" type="button">취소</button>
         <button class="btn primary" data-act="save" type="button">저장</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  const amountEl = overlay.querySelector('#dep-amount');
-  const dateEl = overlay.querySelector('#dep-date');
-  amountEl.addEventListener('input', () => { amountEl.value = amountEl.value.replace(/[^\d.,]/g, ''); });
+  const body = overlay.querySelector('.pay-body');
+
+  // 화면 입력값 → state 반영(구조 변경 전 호출)
+  const sync = () => {
+    body.querySelectorAll('.pay-amt').forEach((inp) => { const { b, r, e } = inp.dataset; state[b].rounds[+r].entries[+e].amount = inp.value.trim(); });
+    body.querySelectorAll('.pay-method').forEach((sel) => { const { b, r, e } = sel.dataset; state[b].rounds[+r].entries[+e].method = sel.value; });
+    body.querySelectorAll('.pay-date').forEach((inp) => { const { b, r } = inp.dataset; state[b].rounds[+r].date = inp.value; });
+  };
+
+  // 받은 합계/부족액 표시만 갱신(포커스 유지)
+  const refreshTotals = () => {
+    sync();
+    body.querySelectorAll('.pay-bucket').forEach((sec, i) => {
+      const b = PAY_BUCKETS[i];
+      const exp = depNum(expected[b.key]);
+      const got = bucketReceived(state[b.key]);
+      const short = exp > 0 && got < exp;
+      const gotEl = sec.querySelector('.pay-got');
+      if (gotEl) { gotEl.className = `pay-got ${short ? 'short' : (got > 0 ? 'ok' : '')}`; gotEl.textContent = `받음 ${fmtMan(got) || 0}만${short ? ` · ${fmtMan(exp - got)}만 부족` : ''}`; }
+    });
+  };
+
+  const render = () => {
+    body.innerHTML = PAY_BUCKETS.map((b) => {
+      const bk = state[b.key];
+      const exp = depNum(expected[b.key]);
+      const got = bucketReceived(bk);
+      const short = exp > 0 && got < exp;
+      const roundsHtml = bk.rounds.map((r, ri) => {
+        const entries = r.entries.map((e, ei) => `
+          <div class="pay-line">
+            <input class="dep-input pay-amt" data-b="${b.key}" data-r="${ri}" data-e="${ei}" type="text" inputmode="numeric" value="${esc(e.amount ?? '')}" placeholder="금액(만원)" />
+            <select class="dep-input pay-method" data-b="${b.key}" data-r="${ri}" data-e="${ei}">
+              <option value="">수단</option>
+              ${PAY_METHODS.map((m) => `<option value="${m}" ${e.method === m ? 'selected' : ''}>${m}</option>`).join('')}
+            </select>
+            ${r.entries.length > 1 ? `<button type="button" class="pay-del-line" data-b="${b.key}" data-r="${ri}" data-e="${ei}" title="이 줄 삭제">✕</button>` : '<span class="pay-line-sp"></span>'}
+          </div>`).join('');
+        return `
+          <div class="pay-round">
+            <div class="pay-round-head">
+              <span class="pay-round-no">${ri + 1}차</span>
+              <input class="dep-input pay-date" data-b="${b.key}" data-r="${ri}" type="date" value="${esc(r.date || '')}" />
+              ${bk.rounds.length > 1 ? `<button type="button" class="pay-del-round" data-b="${b.key}" data-r="${ri}" title="${ri + 1}차 삭제">회차 삭제</button>` : ''}
+            </div>
+            ${entries}
+            <button type="button" class="pay-add-line" data-b="${b.key}" data-r="${ri}">+ 수단 추가</button>
+          </div>`;
+      }).join('');
+      return `
+        <section class="pay-bucket">
+          <div class="pay-bucket-head">
+            <b>${b.label}</b>
+            ${exp > 0 ? `<span class="pay-exp">계약서 ${fmtMan(exp)}만</span>` : ''}
+            <span class="pay-got ${short ? 'short' : (got > 0 ? 'ok' : '')}">받음 ${fmtMan(got) || 0}만${short ? ` · ${fmtMan(exp - got)}만 부족` : ''}</span>
+          </div>
+          ${roundsHtml}
+          ${bk.rounds.length < 2 ? `<button type="button" class="pay-add-round" data-b="${b.key}">+ 2차 추가</button>` : ''}
+        </section>`;
+    }).join('');
+    wire();
+  };
+
+  const wire = () => {
+    body.querySelectorAll('.pay-amt').forEach((inp) => inp.addEventListener('input', () => { inp.value = inp.value.replace(/[^\d.,]/g, ''); refreshTotals(); }));
+    body.querySelectorAll('.pay-method').forEach((sel) => sel.addEventListener('change', refreshTotals));
+    body.querySelectorAll('.pay-add-line').forEach((btn) => btn.onclick = () => { sync(); const { b, r } = btn.dataset; state[b].rounds[+r].entries.push({ method: '', amount: '' }); render(); });
+    body.querySelectorAll('.pay-del-line').forEach((btn) => btn.onclick = () => { sync(); const { b, r, e } = btn.dataset; state[b].rounds[+r].entries.splice(+e, 1); render(); });
+    body.querySelectorAll('.pay-add-round').forEach((btn) => btn.onclick = () => { sync(); const { b } = btn.dataset; state[b].rounds.push({ date: todayYmd(), entries: [{ method: '', amount: '' }] }); render(); });
+    body.querySelectorAll('.pay-del-round').forEach((btn) => btn.onclick = () => { sync(); const { b, r } = btn.dataset; state[b].rounds.splice(+r, 1); render(); });
+  };
+
+  render();
+
   let settled = false;
   const done = (result) => {
     if (settled) return; settled = true;
@@ -497,11 +594,31 @@ function openDepositDialog({ initial = {}, onSave, onCancel } = {}) {
   overlay.querySelector('[data-act="cancel"]').onclick = () => done(null);
   overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) done(null); });
   overlay.querySelector('[data-act="save"]').onclick = () => {
-    const method = overlay.querySelector('input[name="dep-method"]:checked')?.value || '';
-    if (!method) { alert('결제 수단(계좌이체/카드/현금)을 선택해 주세요.\n선택해야 저장됩니다.'); return; }
-    done({ amount: amountEl.value.trim(), date: dateEl.value, method });
+    sync();
+    // 금액 있는 줄은 결제수단 필수
+    for (const b of PAY_BUCKETS) for (const r of state[b.key].rounds) for (const e of r.entries) {
+      if (depNum(e.amount) > 0 && !e.method) { alert(`${b.label}: 금액을 입력한 줄은 결제수단(계좌이체/카드/현금)을 선택해 주세요.`); return; }
+    }
+    // 빈 줄·빈 회차 정리
+    const clean = {};
+    for (const b of PAY_BUCKETS) {
+      clean[b.key] = { rounds: state[b.key].rounds
+        .map((r) => ({ date: r.date || '', entries: r.entries.filter((e) => depNum(e.amount) > 0 || e.method).map((e) => ({ method: e.method || '', amount: e.amount || '' })) }))
+        .filter((r) => r.entries.length) };
+    }
+    const downRounds = clean.down.rounds;
+    const downTotal = bucketReceived(clean.down);
+    if (downTotal <= 0) { alert('계약금 입금액을 입력해 주세요.\n아직 계약금을 받지 않았다면 [취소] 후 진행상태를 ‘계약금 대기’로 변경해 주세요.'); return; }
+    const methods = [...new Set(downRounds.flatMap((r) => r.entries.map((e) => e.method).filter(Boolean)))];
+    done({
+      amount: String(downTotal),          // 계약금 총 수령액(목록·관리자 호환)
+      date: downRounds[0]?.date || '',     // 계약금 1차 입금일
+      method: methods.join('·'),           // 계약금 결제수단 요약
+      ledger: clean,                       // 계약금·중도금·잔금 전체 장부
+      at: new Date().toISOString(),
+    });
   };
-  setTimeout(() => amountEl.focus(), 0);
+  setTimeout(() => body.querySelector('.pay-amt')?.focus(), 0);
 }
 
 // 계약 단계로 넘어간(입금된) 건인지 — 이 경우 날짜는 '계약금 입금일'
@@ -689,10 +806,17 @@ function renderListRows(rows) {
           sel.disabled = false;
         }
       };
-      // '계약완료'로 바꿀 때 계약금 입금(금액·날짜) 입력받기 (취소 시 원복)
+      // '계약완료'로 바꿀 때 결제(입금) 정보 입력받기 (취소 시 원복)
       if (stage === 'completed') {
-        openDepositDialog({
-          onSave: (dep) => applyStage({ deposit: { ...dep, at: new Date().toISOString() } }),
+        sel.disabled = true;
+        let rec;
+        try { rec = await api.get(id); }
+        catch (err) { alert('계약 정보를 불러오지 못했습니다: ' + err.message); sel.value = prevStage; sel.className = `row-stage stage-${prevStage}`; sel.disabled = false; return; }
+        sel.disabled = false;
+        openPaymentDialog({
+          expected: expectedPayments(rec.data?.amounts),
+          initial: rec.data?.deposit || {},
+          onSave: (dep) => applyStage({ deposit: dep }),
           onCancel: () => { sel.value = prevStage; sel.className = `row-stage stage-${prevStage}`; },
         });
         return;
@@ -2093,18 +2217,25 @@ function downloadData(dataUrl, filename) {
   a.remove();
 }
 
-// 편집기 관리바에 계약금 입금 정보 표시(있으면) — 클릭하면 수정
+// 편집기 관리바에 결제(입금) 정보 표시(있으면) — 클릭하면 계약금·중도금·잔금 장부 수정
 function renderDepositInfo() {
   const el = document.getElementById('deposit-info');
   if (!el) return;
   const d = current.deposit;
-  if (d && (String(d.amount || '').trim() || d.date)) {
-    el.innerHTML = `<button type="button" class="dep-chip" id="deposit-edit" title="계약금 입금 정보 수정">💰 계약금 ${d.amount ? esc(d.amount) + '만' : '-'}${d.date ? ` · ${esc(d.date)}` : ''}${d.method ? ` · ${esc(d.method)}` : ''}</button>`;
+  const led = d && d.ledger;
+  const downGot = led ? bucketReceived(led.down) : depNum(d && d.amount);
+  const interimGot = led ? bucketReceived(led.interim) : 0;
+  const finalGot = led ? bucketReceived(led.final) : 0;
+  const openEdit = () => openPaymentDialog({
+    expected: expectedPayments(current.amounts),
+    initial: current.deposit || {},
+    onSave: (dep) => { current.deposit = dep; renderDepositInfo(); markDirty(); },
+  });
+  if (d && (downGot > 0 || d.date)) {
+    const extra = [interimGot > 0 ? `중도금 ${fmtMan(interimGot)}만` : '', finalGot > 0 ? `잔금 ${fmtMan(finalGot)}만` : ''].filter(Boolean).join(' · ');
+    el.innerHTML = `<button type="button" class="dep-chip" id="deposit-edit" title="결제(입금) 정보 수정">💰 계약금 ${downGot ? fmtMan(downGot) + '만' : '-'}${d.date ? ` · ${esc(d.date)}` : ''}${d.method ? ` · ${esc(d.method)}` : ''}${extra ? ` <span class="dep-chip-extra">+ ${extra}</span>` : ''}</button>`;
     const btn = document.getElementById('deposit-edit');
-    if (btn) btn.onclick = () => openDepositDialog({
-      initial: current.deposit,
-      onSave: (dep) => { current.deposit = { ...dep, at: new Date().toISOString() }; renderDepositInfo(); markDirty(); },
-    });
+    if (btn) btn.onclick = openEdit;
   } else {
     el.innerHTML = '';
   }
@@ -2311,12 +2442,13 @@ function bindEditor() {
   const stageSel = document.getElementById('stage-select');
   if (stageSel) stageSel.onchange = (e) => {
     const val = e.target.value;
-    if (val === 'completed') { // 계약완료 → 계약금 입금 정보 입력 (취소 시 원복)
+    if (val === 'completed') { // 계약완료 → 결제(입금) 정보 입력 (취소 시 원복)
       const prev = current.stage;
-      openDepositDialog({
+      openPaymentDialog({
+        expected: expectedPayments(current.amounts),
         initial: current.deposit || {},
         onSave: (dep) => {
-          current.deposit = { ...dep, at: new Date().toISOString() };
+          current.deposit = dep;
           current.stage = 'completed';
           e.target.className = 'mb-stage stage-completed';
           renderDepositInfo();
