@@ -645,7 +645,7 @@ function listDepositCell(r) {
   const expected = depNum(r.down_payment);
   const received = depNum(r.deposit_amount);
   const short = explicit && expected > 0 && received < expected ? expected - received : 0;
-  return `<span class="dep-mini" title="받은 계약금">💰${shown}</span>${short ? ` <span class="dep-short" title="계약서 계약금 ${fmtMan(expected)}만 대비 부족">${fmtMan(short)}만 부족</span>` : ''}`;
+  return `<button type="button" class="dep-mini dep-btn" data-deposit-id="${r.id}" title="클릭하면 계약금 입금 정보 수정">💰${shown}</button>${short ? ` <span class="dep-short" title="계약서 계약금 ${fmtMan(expected)}만 대비 부족">${fmtMan(short)}만 부족</span>` : ''}`;
 }
 
 // 인허가 열 — 계약서에서 선택한 인허가 구분 (permit=준공용/인허가, temporary=가설축조신고, 미선택=—)
@@ -695,8 +695,35 @@ function renderListRows(rows) {
 
   body.querySelectorAll('.row').forEach((tr) => {
     tr.onclick = (e) => {
-      if (e.target.dataset.del || e.target.closest('.row-stage') || e.target.closest('.row-approve') || e.target.closest('.row-memo') || e.target.closest('.row-showroom') || e.target.closest('.row-owner') || e.target.closest('.dup-badge')) return; // 인라인 조작은 행 이동 제외
+      if (e.target.dataset.del || e.target.closest('.row-stage') || e.target.closest('.row-approve') || e.target.closest('.row-memo') || e.target.closest('.row-showroom') || e.target.closest('.row-owner') || e.target.closest('.dup-badge') || e.target.closest('.dep-btn')) return; // 인라인 조작은 행 이동 제외
       go(`#/edit/${tr.dataset.id}`);
+    };
+  });
+  // 계약금 배지: 클릭하면 계약금 입금 정보 창만 바로 열기(편집기 안 열림)
+  body.querySelectorAll('.dep-btn').forEach((btn) => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.depositId;
+      const cached = listRows.find((r) => String(r.id) === String(id));
+      btn.disabled = true;
+      let rec;
+      try { rec = await api.get(id); }
+      catch (err) { alert('계약 정보를 불러오지 못했습니다: ' + err.message); btn.disabled = false; return; }
+      btn.disabled = false;
+      openPaymentDialog({
+        expected: expectedPayments(rec.data?.amounts),
+        initial: rec.data?.deposit || {},
+        onSave: async (dep) => {
+          try {
+            const fresh = await api.get(id);
+            const data = fresh.data || {};
+            data.deposit = dep;
+            await api.update(id, data);
+            if (cached) { cached.deposit_amount = dep.amount || null; cached.deposit_date = dep.date || null; }
+            applyListFilters();
+          } catch (err) { alert('계약금 저장 실패: ' + err.message); }
+        },
+      });
     };
   });
   // 중복 고객 배지: 클릭하면 상세 팝업
