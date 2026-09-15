@@ -1535,15 +1535,27 @@ function renderEditor() {
       <div class="history-head">📌 추가 사항 · 변경 이력 <span class="muted small">(원본 계약서와 별개 · 인쇄 안 됨)</span></div>
       <div id="history-list" class="history-list"></div>
       <div class="history-add">
-        <div class="history-amount-wrap">
-          <input id="history-amount" class="history-amount" type="text" inputmode="numeric" placeholder="금액" />
-          <span class="history-amount-unit">만원</span>
+        <div class="hist-row">
+          <select id="history-kind" class="hist-kind" title="구분">
+            ${['추가금', '중도금 1차', '중도금 2차', '중도금 3차', '잔금 1차', '잔금 2차', '기타'].map((k) => `<option value="${k}">${k}</option>`).join('')}
+          </select>
+          <div class="history-amount-wrap">
+            <input id="history-amount" class="history-amount" type="text" inputmode="numeric" placeholder="금액" />
+            <span class="history-amount-unit">만원</span>
+          </div>
+          <div class="history-methods">
+            ${['계좌이체', '카드', '현금'].map((m) => `<label class="history-method"><input type="checkbox" name="history-method" value="${m}"/> ${m}</label>`).join('')}
+          </div>
         </div>
-        <div class="history-methods">
-          ${['계좌이체', '카드', '현금'].map((m) => `<label class="history-method"><input type="radio" name="history-method" value="${m}"/> ${m}</label>`).join('')}
+        <div class="hist-row">
+          <input id="history-recv-date" class="hist-recv" type="date" title="받은 날짜" value="${esc(todayYmd())}" />
+          <input id="history-recv-team" class="hist-recv" type="text" placeholder="받은 팀 (예: 정산팀)" value="${esc(me?.showroom || '')}" />
+          <input id="history-recv-by" class="hist-recv" type="text" placeholder="받은 사람" value="${esc(me?.name || '')}" />
         </div>
-        <textarea id="history-input" class="history-input" rows="2" placeholder="메모 (추가 계약금·설계/시공 변경 사유 등)"></textarea>
-        <button type="button" class="btn tiny primary" id="history-add-btn">＋ 이력 추가</button>
+        <div class="hist-row">
+          <textarea id="history-input" class="history-input" rows="2" placeholder="메모 (변경 사유 · 분할 금액 등)"></textarea>
+          <button type="button" class="btn tiny primary" id="history-add-btn">＋ 이력 추가</button>
+        </div>
       </div>
     </div>` : ''}`;
 
@@ -2398,16 +2410,26 @@ function renderHistory() {
   if (!list) return;
   const items = current.history || [];
   if (!items.length) { list.innerHTML = '<p class="muted small history-empty">아직 추가 사항이 없습니다.</p>'; return; }
-  list.innerHTML = items.map((h, i) => `
+  list.innerHTML = items.map((h, i) => {
+    const methodList = (h.methods && h.methods.length) ? h.methods : (h.method ? [h.method] : []);
+    const recvParts = [
+      h.recvDate ? `📅 ${esc(h.recvDate)}` : '',
+      h.recvTeam ? `🏢 ${esc(h.recvTeam)}` : '',
+      h.recvBy ? `👤 ${esc(h.recvBy)}` : '',
+    ].filter(Boolean);
+    return `
     <div class="history-item ${h.deleted ? 'deleted' : ''}">
-      <div class="history-meta"><b>${esc(fmtSignDate(h.at) || '-')}</b> · ${esc(h.by || '담당자')}${h.deleted ? ` <span class="history-deltag">삭제됨${h.deletedBy ? ' · ' + esc(h.deletedBy) : ''}</span>` : ''}</div>
+      <div class="history-meta"><b>${esc(fmtSignDate(h.at) || '-')}</b> · 기록: ${esc(h.by || '담당자')}${h.deleted ? ` <span class="history-deltag">삭제됨${h.deletedBy ? ' · ' + esc(h.deletedBy) : ''}</span>` : ''}</div>
       <div class="history-body">
+        ${h.kind ? `<span class="history-kind-tag">${esc(h.kind)}</span>` : ''}
         ${h.amount ? `<span class="history-amt">💰 ${esc(fmtMan(h.amount))}만원</span>` : ''}
-        ${h.method ? `<span class="history-method-tag">${esc(h.method)}</span>` : ''}
+        ${methodList.map((m) => `<span class="history-method-tag">${esc(m)}</span>`).join('')}
         ${h.text ? `<span class="history-text">${esc(h.text)}</span>` : ''}
       </div>
+      ${recvParts.length ? `<div class="history-recv">받음 · ${recvParts.join(' · ')}</div>` : ''}
       ${canEditHistory(h) ? `<button type="button" class="history-del no-print" data-hi="${i}" title="${h.deleted ? '복원' : '삭제(취소선)'}">${h.deleted ? '↺' : '✕'}</button>` : ''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
   list.querySelectorAll('[data-hi]').forEach((b) => { b.onclick = () => toggleHistoryDeleted(Number(b.dataset.hi)); });
 }
 
@@ -2421,19 +2443,37 @@ async function saveHistory(revert) {
 async function addHistoryEntry() {
   const inp = document.getElementById('history-input');
   const amtEl = document.getElementById('history-amount');
+  const kindEl = document.getElementById('history-kind');
+  const recvDateEl = document.getElementById('history-recv-date');
+  const recvTeamEl = document.getElementById('history-recv-team');
+  const recvByEl = document.getElementById('history-recv-by');
   const btn = document.getElementById('history-add-btn');
   const text = (inp?.value || '').trim();
   const amount = (amtEl?.value || '').replace(/[^\d.]/g, '');
-  const method = document.querySelector('input[name="history-method"]:checked')?.value || '';
+  const methods = [...document.querySelectorAll('input[name="history-method"]:checked')].map((m) => m.value);
+  const kind = kindEl?.value || '';
+  const recvDate = recvDateEl?.value || '';
+  const recvTeam = (recvTeamEl?.value || '').trim();
+  const recvBy = (recvByEl?.value || '').trim();
   if (!text && !amount) { (amtEl || inp)?.focus(); return; }
-  const entry = { at: new Date().toISOString(), by: (me?.name || me?.email || '담당자'), amount, method, text };
+  const entry = {
+    at: new Date().toISOString(),
+    by: (me?.name || me?.email || '담당자'),
+    kind, amount,
+    methods,
+    method: methods.join('·'), // 구버전 표시 호환
+    recvDate, recvTeam, recvBy,
+    text,
+  };
   (current.history ||= []).push(entry);
   if (btn) btn.disabled = true;
   const ok = await saveHistory(() => current.history.pop());
   if (btn) btn.disabled = false;
   if (ok) {
     if (inp) inp.value = ''; if (amtEl) amtEl.value = '';
-    const mSel = document.querySelector('input[name="history-method"]:checked'); if (mSel) mSel.checked = false;
+    document.querySelectorAll('input[name="history-method"]:checked').forEach((m) => { m.checked = false; });
+    if (recvDateEl) recvDateEl.value = todayYmd();
+    if (kindEl) kindEl.value = '추가금';
     renderHistory();
   }
 }
