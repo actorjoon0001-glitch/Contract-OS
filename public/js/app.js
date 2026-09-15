@@ -794,9 +794,10 @@ function renderListRows(rows) {
           sel.className = `row-stage stage-${stage}`; // 색상 갱신
           if (cached) {
             cached.stage = stage; // 캐시 동기화 (필터 정확도)
+            if (deposit) { cached.deposit_amount = deposit.amount || null; cached.deposit_date = deposit.date || null; }
             if (clearDeposit) { cached.deposit_date = null; cached.deposit_amount = null; }
           }
-          if (clearDeposit) applyListFilters(); // 계약금 표시 즉시 갱신
+          if (deposit || clearDeposit) applyListFilters(); // 계약금·날짜 표시 즉시 갱신
         } catch (err) {
           alert('진행상태 변경 실패: ' + err.message);
           loadList();
