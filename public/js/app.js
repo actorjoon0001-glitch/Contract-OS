@@ -1381,7 +1381,21 @@ async function openEditor(id, modelId = null, { dup = false } = {}) {
   }
   normalizeContract(current);
   recalc(current);
+  // 관리자면 직원 명부를 확보해 전시장을 영업사원 소속으로 정렬(목록을 안 거치고 바로 연 경우 대비)
+  if (canManageList() && !employeeList.length) {
+    try { employeeList = await api.employees(); } catch { /* 명부 실패 시 서버 저장 시 강제됨 */ }
+  }
+  syncShowroomFromSalesperson(); // 전시장을 영업사원 소속 기준으로 표시 정렬(명부 있으면)
   renderEditor();
+}
+
+// 영업사원의 소속 전시장을 직원 명부에서 찾아 current.showroom에 반영(있을 때만).
+// 명부(employeeList)는 관리자만 로드됨 → 일반 직원은 로그인 소속(me.showroom) 유지.
+function syncShowroomFromSalesperson() {
+  const sp = String(current?.salesperson || '').trim();
+  if (!sp || !employeeList.length) return;
+  const emp = employeeList.find((e) => String(e.name || '').trim() === sp);
+  if (emp && emp.showroom) current.showroom = emp.showroom;
 }
 
 function renderEditor() {
@@ -1722,16 +1736,10 @@ function field(path, value, cls = '', align = '') {
   const lc = editorLocked ? 'locked' : '';
   return `<input class="f ${cls} ${align} ${lc}" data-path="${path}" value="${esc(value)}" ${lock} />`;
 }
-// 전시장 선택 (편집기). 기본은 고정 표시. 관리자만 재지정 가능(잘못 분류된 계약 교정용).
+// 전시장 표시 (편집기). 전시장은 영업사원의 소속으로 자동 확정되므로 항상 고정 표시.
 function showroomSelect(value) {
-  const v = value || '';
-  if (canManageList()) {
-    const opts = ['<option value="">미지정</option>']
-      .concat(SHOWROOMS.map((s) => `<option value="${esc(s)}" ${v === s ? 'selected' : ''}>${esc(s)}</option>`));
-    if (v && !SHOWROOMS.includes(v)) opts.push(`<option value="${esc(v)}" selected>${esc(v)}</option>`); // 레거시 값 보존
-    return `<select id="showroom-select" class="mb-stage" title="관리자 전시장 재지정 (잘못 분류된 계약 교정용)">${opts.join('')}</select>`;
-  }
-  return `<span class="mb-fixed" title="전시장은 소속에 따라 자동 지정됩니다 (재지정은 관리자만)">${esc(v || '미지정')}</span>`;
+  const v = value || '미지정';
+  return `<span class="mb-fixed" title="전시장은 영업사원 소속에 따라 자동 지정됩니다">${esc(v)}</span>`;
 }
 // 비고/설명: 여러 줄로 줄바꿈되는 textarea (높이는 내용에 맞춰 자동 조절)
 function noteField(path, value) {
