@@ -132,7 +132,27 @@ function summarize(data) {
   };
 }
 
-// 연도별 계약번호 채번 (예: 2026-0001)
+// 영업사원(이름)의 실제 소속 전시장을 employees 명부에서 조회 → 한글 전시장명 반환.
+// 동명이인(2명 이상)·미등록·조회실패 시에는 판단 보류하고 '' 반환(기존 값 유지).
+async function showroomOfEmployeeName(supa, name) {
+  const nm = String(name || '').trim();
+  if (!nm) return '';
+  try {
+    const { data, error } = await supa.from('employees').select('showroom, name').ilike('name', nm).limit(2);
+    if (error || !data || data.length !== 1) return '';
+    const code = String(data[0].showroom || '').trim();
+    return SHOWROOM_CODE_TO_KR[code] || code || '';
+  } catch {
+    return '';
+  }
+}
+
+// 저장 전, 계약서 전시장을 '영업사원의 소속'으로 강제 정렬(가능할 때만).
+async function enforceShowroomBySalesperson(supa, data) {
+  const derived = await showroomOfEmployeeName(supa, data?.salesperson);
+  if (derived) data.showroom = derived; // 영업사원 소속으로 확정 — 모델·수동값보다 우선
+}
+
 async function nextContractNo(supa, year) {
   const prefix = `${year}-`;
   const { data, error } = await supa
@@ -219,6 +239,7 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
         }
         const year = data.contractDate?.slice(0, 4) || String(new Date().getFullYear());
         const contractNo = data.contractNo || (await nextContractNo(supa, year));
+        await enforceShowroomBySalesperson(supa, data); // 전시장 = 영업사원 소속으로 확정
         const row = { contract_no: contractNo, ...summarize(data), data };
         const { data: inserted, error } = await supa.from(TABLE).insert(row).select().single();
         if (error) throw error;
@@ -257,6 +278,7 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
           if (auth.user.name && !data.ownerName) data.ownerName = auth.user.name;
         }
       }
+      await enforceShowroomBySalesperson(supa, data); // 전시장 = 영업사원 소속으로 확정
       const patch = { ...summarize(data), data, updated_at: new Date().toISOString() };
       const { data: updated, error } = await supa.from(TABLE).update(patch).eq('id', id).select().maybeSingle();
       if (error) throw error;
