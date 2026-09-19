@@ -37,5 +37,6 @@ export const api = {
   remove: (id) => req(`${BASE}/${id}`, { method: 'DELETE' }),
   me: () => req('/api/me'),
   employees: () => req('/api/employees'),
+  salespeople: () => req('/api/salespeople'),
   setEmployeeScope: (email, scope) => req('/api/employees', { method: 'PUT', body: JSON.stringify({ email, scope }) }),
 };

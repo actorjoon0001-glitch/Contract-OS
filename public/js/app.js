@@ -160,6 +160,7 @@ function bindAccount(scope) {
 let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터는 클라이언트에서 처리)
 let listFiltered = []; // 현재 필터 적용된 목록 (인쇄용)
 let employeeList = [];  // 직원 목록(관리자 담당자 지정용) — 로드 시 1회 채움
+let salesRoster = [];   // 영업사원 명부(전시장 소속) — 영업사원 필터 드롭다운용(누구나 로드)
 const listCols = () => (canManageList() ? 16 : 15); // 관리자면 '담당자' 열 추가
 
 async function renderList() {
@@ -230,6 +231,10 @@ async function loadList() {
     if (canManageList() && !employeeList.length) {
       try { employeeList = await api.employees(); } catch { /* 직원 목록 실패 시 담당자 지정만 비활성 */ }
     }
+    // 영업사원 명부(전시장 소속) 1회 로드 — 영업사원 필터를 명부 기준으로 구성
+    if (!salesRoster.length) {
+      try { salesRoster = await api.salespeople(); } catch { /* 실패 시 계약서 기준으로 폴백 */ }
+    }
     const rows = await api.list('');
     // 필터 드롭다운은 실제 계약서 기준으로 채우고(샘플 값 제외), 샘플 행은 목록 맨 아래에 고정
     populateMonthFilter(rows);
@@ -282,24 +287,23 @@ function populateSalesFilter(rows) {
   const sel = document.getElementById('filter-sales');
   if (!sel) return;
   const prev = sel.value;
-  // 실제 계약서에 영업사원으로 등장한 개별 이름만 = 영업팀 (마케팅·정산 등 백오피스 제외)
-  const active = new Set();
-  for (const r of rows) String(r.salesperson || '').split(/[,\/]/).forEach((n) => { n = n.trim(); if (n) active.add(n); });
-  // 이름 → 전시장 (직원 명부 우선, 없으면 계약서 전시장)
-  const nameShow = {};
-  for (const e of employeeList) if (e.name) nameShow[e.name.trim()] = admShowroom(e.showroom);
-  for (const r of rows) String(r.salesperson || '').split(/[,\/]/).forEach((n) => { n = n.trim(); if (n && !nameShow[n]) nameShow[n] = admShowroom(r.showroom); });
   const byShow = {};
-  for (const n of active) { const sh = nameShow[n] || '미지정'; (byShow[sh] = byShow[sh] || new Set()).add(n); }
+  if (salesRoster.length) {
+    // 명부(Supabase employees) 기준 — 전시장별 실제 소속 인원. 서버가 비관리자는 본인 전시장만 내려줌.
+    for (const e of salesRoster) { const n = String(e.name || '').trim(); if (!n) continue; const sh = admShowroom(e.showroom); (byShow[sh] = byShow[sh] || new Set()).add(n); }
+  } else {
+    // 폴백: 명부 로드 실패 시 계약서에 등장한 영업사원 이름으로 구성
+    const active = new Set();
+    for (const r of rows) String(r.salesperson || '').split(/[,\/]/).forEach((n) => { n = n.trim(); if (n) active.add(n); });
+    const nameShow = {};
+    for (const e of employeeList) if (e.name) nameShow[e.name.trim()] = admShowroom(e.showroom);
+    for (const r of rows) String(r.salesperson || '').split(/[,\/]/).forEach((n) => { n = n.trim(); if (n && !nameShow[n]) nameShow[n] = admShowroom(r.showroom); });
+    for (const n of active) { const sh = nameShow[n] || '미지정'; (byShow[sh] = byShow[sh] || new Set()).add(n); }
+  }
   const order = [...SHOWROOMS, ...Object.keys(byShow).filter((s) => !SHOWROOMS.includes(s))];
-  // 비관리자(범위 제한 사용자)는 본인 전시장 영업사원만 필터에 노출
-  const isScoped = authEnabled() && me && !me.isAdmin;
-  const myShow = isScoped ? admShowroom(me.showroom) : '';
-  const limitToMine = isScoped && SHOWROOMS.includes(myShow);
   let html = `<option value="">영업사원 전체</option>`;
   for (const sh of order) {
     if (!byShow[sh]) continue;
-    if (limitToMine && sh !== myShow) continue; // 본인 전시장만
     const names = [...byShow[sh]].sort((a, b) => a.localeCompare(b, 'ko'));
     html += `<optgroup label="${esc(sh)}">` + names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('') + `</optgroup>`;
   }

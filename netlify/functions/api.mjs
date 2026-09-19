@@ -370,6 +370,37 @@ export default async (req, context) => {
     return json({ email: auth.user?.email || '', name: auth.user?.name || '', showroom: auth.user?.showroom || '', isAdmin: !!auth.isAdmin, isEmployee: !!auth.isEmployee, authEnabled: auth.enabled });
   }
 
+  // 영업사원 명부 (로그인한 직원 누구나) — 영업사원 필터 드롭다운용.
+  // employees 명부의 전시장 소속 기준. 비관리자는 본인 전시장만, 관리자·개방모드는 전체.
+  // 백오피스(마케팅·정산)는 영업팀이 아니므로 제외.
+  if (path === '/api/salespeople') {
+    if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
+    try {
+      const { data, error } = await supa.from('employees').select('*').order('showroom').order('name');
+      if (error) throw error;
+      const deptOf = (e) => String(
+        e.department ?? e.dept ?? e.team ?? e.part ?? e.division ?? e.group ??
+        e['부서'] ?? e['팀'] ?? e['소속'] ?? e['부서명'] ?? e['팀명'] ?? ''
+      ).trim();
+      const BACKOFFICE = ['마케팅', '정산', '경영지원'];
+      let list = (data || []).filter((e) => e.name).map((e) => ({
+        name: String(e.name).trim(),
+        showroom: SHOWROOM_CODE_TO_KR[String(e.showroom || '').trim()] || e.showroom || '',
+        department: deptOf(e),
+      }));
+      // 백오피스 제외 + 전시장(소속) 없는 직원 제외
+      list = list.filter((e) => e.showroom && !BACKOFFICE.some((b) => e.department.includes(b)));
+      // 비관리자는 본인 전시장만
+      if (auth.enabled && !auth.isAdmin && auth.user?.showroom) {
+        const my = normShowroom(auth.user.showroom);
+        list = list.filter((e) => normShowroom(e.showroom) === my);
+      }
+      return json(list);
+    } catch (err) {
+      return json({ error: '영업사원 명부 조회 실패', detail: String(err?.message || err) }, 500);
+    }
+  }
+
   // 직원 목록 (관리자 전용) — 담당자 지정·뷰어 범위 설정에 사용
   if (path === '/api/employees') {
     if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
@@ -414,5 +445,5 @@ export default async (req, context) => {
 };
 
 export const config = {
-  path: ['/api/config', '/api/me', '/api/employees', '/api/contracts', '/api/contracts/:id'],
+  path: ['/api/config', '/api/me', '/api/salespeople', '/api/employees', '/api/contracts', '/api/contracts/:id'],
 };
