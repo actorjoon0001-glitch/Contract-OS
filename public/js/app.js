@@ -1745,10 +1745,18 @@ function field(path, value, cls = '', align = '') {
   const lc = editorLocked ? 'locked' : '';
   return `<input class="f ${cls} ${align} ${lc}" data-path="${path}" value="${esc(value)}" ${lock} />`;
 }
-// 전시장 표시 (편집기). 전시장은 영업사원의 소속으로 자동 확정되므로 항상 고정 표시.
+// 전시장 (편집기). 현직 영업사원은 명부 소속으로 자동 확정되므로 고정 표시.
+// 관리자는 드롭다운으로 재지정 가능 — 단, 명부에 있는 현직 영업사원은 저장 시 서버가 소속으로 되돌림.
+// (퇴사·삭제된 영업사원의 옛 계약서처럼 명부에 없는 경우엔 관리자가 고른 전시장이 그대로 저장됨)
 function showroomSelect(value) {
-  const v = value || '미지정';
-  return `<span class="mb-fixed" title="전시장은 영업사원 소속에 따라 자동 지정됩니다">${esc(v)}</span>`;
+  const v = value || '';
+  if (canManageList()) {
+    const opts = ['<option value="">미지정</option>']
+      .concat(SHOWROOMS.map((s) => `<option value="${esc(s)}" ${v === s ? 'selected' : ''}>${esc(s)}</option>`));
+    if (v && !SHOWROOMS.includes(v)) opts.push(`<option value="${esc(v)}" selected>${esc(v)}</option>`); // 레거시 값 보존
+    return `<select id="showroom-select" class="mb-stage" title="관리자 전시장 재지정 (퇴사 등 명부에 없는 영업사원의 계약 교정용)">${opts.join('')}</select>`;
+  }
+  return `<span class="mb-fixed" title="전시장은 영업사원 소속에 따라 자동 지정됩니다">${esc(v || '미지정')}</span>`;
 }
 // 비고/설명: 여러 줄로 줄바꿈되는 textarea (높이는 내용에 맞춰 자동 조절)
 function noteField(path, value) {
