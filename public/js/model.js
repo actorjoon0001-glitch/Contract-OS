@@ -299,7 +299,8 @@ export function modelContract(id) {
   if (!m) return c;
   c.modelId = m.id;
   c.modelName = m.name;
-  if (m.showroom) c.showroom = m.showroom; // 모델 소속 전시장 자동 설정
+  // 전시장은 '판매 영업사원의 소속'을 따른다 — 모델 소속(m.showroom)으로 덮어쓰지 않는다.
+  // (모델은 카탈로그 분류일 뿐. 계약서 전시장은 로그인 사용자 소속으로 openEditor에서 설정)
   // 이 모델에서 숨길 옵션 항목 제거
   if (Array.isArray(m.hideItems) && m.hideItems.length) {
     c.items = c.items.filter((it) => !m.hideItems.some((h) => it.name.includes(h)));
