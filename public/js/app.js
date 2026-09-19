@@ -292,9 +292,14 @@ function populateSalesFilter(rows) {
   const byShow = {};
   for (const n of active) { const sh = nameShow[n] || '미지정'; (byShow[sh] = byShow[sh] || new Set()).add(n); }
   const order = [...SHOWROOMS, ...Object.keys(byShow).filter((s) => !SHOWROOMS.includes(s))];
+  // 비관리자(범위 제한 사용자)는 본인 전시장 영업사원만 필터에 노출
+  const isScoped = authEnabled() && me && !me.isAdmin;
+  const myShow = isScoped ? admShowroom(me.showroom) : '';
+  const limitToMine = isScoped && SHOWROOMS.includes(myShow);
   let html = `<option value="">영업사원 전체</option>`;
   for (const sh of order) {
     if (!byShow[sh]) continue;
+    if (limitToMine && sh !== myShow) continue; // 본인 전시장만
     const names = [...byShow[sh]].sort((a, b) => a.localeCompare(b, 'ko'));
     html += `<optgroup label="${esc(sh)}">` + names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('') + `</optgroup>`;
   }
