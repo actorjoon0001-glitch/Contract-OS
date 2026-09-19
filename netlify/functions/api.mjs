@@ -153,6 +153,21 @@ async function enforceShowroomBySalesperson(supa, data) {
   if (derived) data.showroom = derived; // 영업사원 소속으로 확정 — 모델·수동값보다 우선
 }
 
+// 직원 명부 전체를 이름→소속 전시장(KR) 맵으로. (목록 읽을 때 전시장 교정용)
+async function employeeShowroomMap(supa) {
+  const map = {};
+  try {
+    const { data } = await supa.from('employees').select('name, showroom');
+    for (const e of (data || [])) {
+      const nm = String(e.name || '').trim();
+      if (!nm) continue;
+      const code = String(e.showroom || '').trim();
+      map[nm] = SHOWROOM_CODE_TO_KR[code] || code || '';
+    }
+  } catch { /* 명부 조회 실패 시 교정 안 함 */ }
+  return map;
+}
+
 async function nextContractNo(supa, year) {
   const prefix = `${year}-`;
   const { data, error } = await supa
@@ -205,6 +220,14 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
         const { data, error } = await query;
         if (error) throw error;
         let rows = data || [];
+        // 전시장 교정: 저장값이 모델 소속 등으로 잘못돼도, 영업사원의 실제 소속으로 목록 표시·권한을 판정
+        const empMap = await employeeShowroomMap(supa);
+        if (Object.keys(empMap).length) {
+          for (const r of rows) {
+            const eff = empMap[String(r.salesperson || '').trim()];
+            if (eff) r.showroom = eff;
+          }
+        }
         // 중복 고객 감지: 같은 연락처가 '다른 전시장' 계약에도 있으면 요약(전시장·담당자·날짜) 첨부
         const phoneMap = {};
         for (const r of rows) {
@@ -253,6 +276,8 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
       const { data: row, error } = await supa.from(TABLE).select('*').eq('id', id).maybeSingle();
       if (error) throw error;
       if (!row) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
+      const effGet = await showroomOfEmployeeName(supa, row.salesperson);
+      if (effGet && row.data) row.data.showroom = effGet; // 영업사원 소속으로 전시장 교정(권한·표시)
       if (!canAccess(row.data, row.salesperson, auth)) return json({ error: '이 계약을 볼 권한이 없습니다.' }, 403);
       return json({ id: row.id, contract_no: row.contract_no, ...row, data: row.data });
     }
@@ -264,6 +289,8 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
       const { data: existing, error: exErr } = await supa.from(TABLE).select('data, salesperson').eq('id', id).maybeSingle();
       if (exErr) throw exErr;
       if (!existing) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
+      const effPut = await showroomOfEmployeeName(supa, existing.salesperson);
+      if (effPut && existing.data) existing.data.showroom = effPut; // 영업사원 소속으로 전시장 교정 후 권한 판정
       if (!canAccess(existing.data, existing.salesperson, auth)) return json({ error: '이 계약을 수정할 권한이 없습니다.' }, 403);
       // 소유자(담당자) 정보 규칙:
       //  - 관리자(개방모드 포함): 요청에 담긴 ownerEmail/ownerName 그대로 저장 (담당자 지정·변경 허용)
