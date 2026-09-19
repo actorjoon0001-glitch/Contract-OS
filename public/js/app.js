@@ -76,7 +76,7 @@ async function route() {
   if (hash === '#/' || hash === '') return renderList();
   if (hash === '#/admin') return renderAdmin();
   if (hash === '#/trash') return renderTrash();
-  if (hash === '#/new') return renderModelPicker();
+  if (hash === '#/new') return openEditor(null, null); // 모델 갤러리 없이 바로 기본 계약서(통합)
   const mNew = hash.match(/^#\/new\/([\w-]+)$/);
   if (mNew) return openEditor(null, mNew[1] === 'blank' ? null : mNew[1]);
   if (hash === `#/edit/${SAMPLE_ID}`) return openEditor(SAMPLE_ID);
