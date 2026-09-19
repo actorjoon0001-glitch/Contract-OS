@@ -160,7 +160,7 @@ function bindAccount(scope) {
 let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터는 클라이언트에서 처리)
 let listFiltered = []; // 현재 필터 적용된 목록 (인쇄용)
 let employeeList = [];  // 직원 목록(관리자 담당자 지정용) — 로드 시 1회 채움
-const listCols = () => (canManageList() ? 17 : 16); // 관리자면 '담당자' 열 추가
+const listCols = () => (canManageList() ? 16 : 15); // 관리자면 '담당자' 열 추가
 
 async function renderList() {
   current = null; currentId = null; dirty = false;
@@ -194,7 +194,7 @@ async function renderList() {
       <table class="list-table">
         <thead>
           <tr>
-            <th>계약번호</th><th>주택모델</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
+            <th>계약번호</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
             <th class="right">제품합계(만원)</th><th>계약일자</th><th class="right">계약금(만원)</th><th class="center">인허가</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th>${canManageList() ? '<th>담당자</th>' : ''}<th>메모</th><th>수정일</th><th></th>
           </tr>
         </thead>
@@ -371,7 +371,6 @@ function printList() {
   const body = rows.map((r, i) => `<tr>
     <td class="c">${i + 1}</td>
     <td>${esc(r.contract_no || '-')}</td>
-    <td>${esc(r.model_name || '통합')}</td>
     <td>${esc(r.salesperson || '-')}</td>
     <td>${esc(r.client_name || '-')}</td>
     <td>${esc(r.site_address || '-')}</td>
@@ -388,7 +387,7 @@ function printList() {
     </div>
     <table class="list-print-table">
       <thead><tr>
-        <th>#</th><th>계약번호</th><th>주택모델</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
+        <th>#</th><th>계약번호</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
         <th class="r">제품합계(만원)</th><th>계약일자</th><th class="r">계약금(만원)</th><th>인허가</th><th>진행상태</th>
       </tr></thead>
       <tbody>${body}</tbody>
@@ -669,7 +668,6 @@ function renderListRows(rows) {
   body.innerHTML = rows.map((r) => `
     <tr data-id="${r.id}" class="row">
       <td>${esc(r.contract_no || '-')}</td>
-      <td>${esc(r.model_name || '통합')}</td>
       <td>${esc(r.salesperson || '-')}</td>
       <td>${esc(r.client_name || '-')}${dupBadge(r)}</td>
       <td class="ellipsis">${esc(r.site_address || '-')}</td>
@@ -1243,11 +1241,11 @@ async function renderTrash() {
       <table class="list-table">
         <thead>
           <tr>
-            <th>계약번호</th><th>주택모델</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
+            <th>계약번호</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
             <th class="right">제품합계(만원)</th><th>계약일자</th><th>삭제일시</th><th></th>
           </tr>
         </thead>
-        <tbody id="trash-body"><tr><td colspan="9" class="muted center">불러오는 중...</td></tr></tbody>
+        <tbody id="trash-body"><tr><td colspan="8" class="muted center">불러오는 중...</td></tr></tbody>
       </table>
     </div>`;
   document.getElementById('back-btn').onclick = () => go('#/');
@@ -1259,13 +1257,12 @@ async function loadTrash() {
   try {
     const rows = await api.list('', { deleted: true });
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="9" class="muted center">휴지통이 비어 있습니다.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="8" class="muted center">휴지통이 비어 있습니다.</td></tr>`;
       return;
     }
     body.innerHTML = rows.map((r) => `
       <tr data-id="${r.id}">
         <td>${esc(r.contract_no || '-')}</td>
-        <td>${esc(r.model_name || '통합')}</td>
         <td>${esc(r.salesperson || '-')}</td>
         <td>${esc(r.client_name || '-')}</td>
         <td class="ellipsis">${esc(r.site_address || '-')}</td>
@@ -1279,7 +1276,7 @@ async function loadTrash() {
       </tr>`).join('');
     bindTrashActions();
   } catch (err) {
-    body.innerHTML = `<tr><td colspan="9" class="center danger">휴지통을 불러오지 못했습니다: ${esc(err.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="8" class="center danger">휴지통을 불러오지 못했습니다: ${esc(err.message)}</td></tr>`;
   }
 }
 
@@ -1378,8 +1375,8 @@ async function openEditor(id, modelId = null, { dup = false } = {}) {
     }
   } else {
     current = modelId ? modelContract(modelId) : emptyContract();
-    // 새 계약: 전시장은 모델에 따라 이미 설정됨(모델). 없으면(기본 계약서) 로그인 전시장. 영업사원은 로그인 이름.
-    if (me?.showroom && !current.showroom) current.showroom = me.showroom;
+    // 새 계약: 전시장은 항상 로그인 영업사원의 소속으로(모델 소속과 무관). 영업사원은 로그인 이름.
+    if (me?.showroom) current.showroom = me.showroom;
     if (me?.name && !current.salesperson) current.salesperson = me.name;
   }
   normalizeContract(current);
@@ -1735,11 +1732,16 @@ function field(path, value, cls = '', align = '') {
   const lc = editorLocked ? 'locked' : '';
   return `<input class="f ${cls} ${align} ${lc}" data-path="${path}" value="${esc(value)}" ${lock} />`;
 }
-// 전시장 선택 드롭다운 (고정 목록). 목록에 없는 기존 값은 보존해서 그대로 표시.
+// 전시장 선택 (편집기). 기본은 고정 표시. 관리자만 재지정 가능(잘못 분류된 계약 교정용).
 function showroomSelect(value) {
-  // 전시장은 영업사원 본인 소속으로 자동 지정되며 편집기에서는 고정(수정 불가). 재배정은 목록에서 관리자만.
-  const v = value || '미지정';
-  return `<span class="mb-fixed" title="전시장은 소속에 따라 자동 지정됩니다 (변경은 목록에서 관리자만 가능)">${esc(v)}</span>`;
+  const v = value || '';
+  if (canManageList()) {
+    const opts = ['<option value="">미지정</option>']
+      .concat(SHOWROOMS.map((s) => `<option value="${esc(s)}" ${v === s ? 'selected' : ''}>${esc(s)}</option>`));
+    if (v && !SHOWROOMS.includes(v)) opts.push(`<option value="${esc(v)}" selected>${esc(v)}</option>`); // 레거시 값 보존
+    return `<select id="showroom-select" class="mb-stage" title="관리자 전시장 재지정 (잘못 분류된 계약 교정용)">${opts.join('')}</select>`;
+  }
+  return `<span class="mb-fixed" title="전시장은 소속에 따라 자동 지정됩니다 (재지정은 관리자만)">${esc(v || '미지정')}</span>`;
 }
 // 비고/설명: 여러 줄로 줄바꿈되는 textarea (높이는 내용에 맞춰 자동 조절)
 function noteField(path, value) {
@@ -2577,7 +2579,7 @@ function bindEditor() {
     preset.extraNotes = current.extraNotes;
     preset.idCards = current.idCards; // 첨부한 신분증은 모델 전환과 무관하게 유지
     preset.drawings = current.drawings; // 첨부한 협의도면도 유지
-    if (!id) preset.showroom = current.showroom; // 통합 선택 시 기존 전시장 유지
+    preset.showroom = current.showroom; // 전시장은 모델과 무관하게 기존(영업사원 소속) 유지
     current = preset;
     normalizeContract(current);
     recalc(current);
