@@ -23,3 +23,24 @@ create index if not exists contracts_contract_no_idx on public.contracts (contra
 -- RLS: service_role 키(서버 함수 전용)는 RLS를 우회하므로 별도 정책 없이도 동작합니다.
 -- 브라우저에서 anon 키로 직접 접근하지 않도록, RLS는 켜 두고 공개 정책은 만들지 않습니다.
 alter table public.contracts enable row level security;
+
+-- ─────────────────────────────────────────────────────────────
+-- 활동/로그인 기록 테이블 (관리자 페이지의 '로그인 기록'·'활동 기록'용)
+-- 환경변수 SUPABASE_LOG_TABLE 로 이름을 바꿀 수 있으며, 미설정 시 아래 이름을 사용합니다.
+create table if not exists public.econtract_activity_log (
+  id           bigint generated always as identity primary key,
+  at           timestamptz not null default now(),
+  kind         text not null,          -- 'login' | 'activity'
+  type         text not null,          -- login | create | update | delete | restore | confirm
+  actor_email  text,                   -- 행위자 이메일
+  actor_name   text,                   -- 행위자 이름
+  showroom     text,                   -- 전시장
+  contract_id  bigint,                 -- 대상 계약 id (활동 기록)
+  contract_no  text,                   -- 대상 계약번호
+  client_name  text,                   -- 건축주명
+  detail       text                    -- 상세(휴지통 이동/영구삭제/확정 등)
+);
+
+create index if not exists econtract_activity_log_at_idx on public.econtract_activity_log (kind, at desc);
+
+alter table public.econtract_activity_log enable row level security;

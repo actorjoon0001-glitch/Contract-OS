@@ -485,6 +485,20 @@ input.f.pct-input:not([readonly]):focus { border-color: var(--brand); background
 /* 중복 고객 상세 팝업 */
 .dup-modal { width: 460px; }
 .dup-body { padding: 16px 18px; }
+/* 로그인/활동 기록 모달 */
+.log-modal { width: 860px; max-width: 96vw; }
+.log-body { padding: 12px 16px 16px; }
+.log-scroll { max-height: 66vh; overflow: auto; border: 1px solid #e6e9ee; border-radius: 8px; }
+.log-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.log-table th { position: sticky; top: 0; background: #f3f5f8; text-align: left; padding: 8px 10px; border-bottom: 1px solid #e0e4ea; white-space: nowrap; }
+.log-table td { padding: 7px 10px; border-bottom: 1px solid #f0f2f5; vertical-align: top; }
+.log-table tbody tr:hover { background: #fafbfc; }
+.log-type { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 20px; white-space: nowrap; }
+.log-create { background: #dff3e4; color: #1c7d3c; }
+.log-update { background: #e6eefb; color: #2b5fa8; }
+.log-confirm { background: #e8e0fb; color: #5b3aa8; }
+.log-delete { background: #fde8e6; color: #b5352a; }
+.log-restore { background: #fff2d6; color: #8a6d1a; }
 .dup-sub { margin: 0 0 12px; line-height: 1.5; }
 .dup-list { list-style: none; margin: 0; padding: 0; }
 .dup-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 8px 10px; border: 1px solid #eef0f2; border-radius: 8px; margin-bottom: 6px; font-size: 13px; background: #fafbfc; }
