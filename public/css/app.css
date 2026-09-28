@@ -524,6 +524,14 @@ input.f.pct-input:not([readonly]):focus { border-color: var(--brand); background
 /* 관리자 레이아웃: 좌측 권한 패널 + 우측 통계 */
 .admin-layout { display: flex; gap: 18px; align-items: flex-start; }
 .admin-main { flex: 1; min-width: 0; }
+/* 관리자 사이드바 메뉴 */
+.admin-side { flex: 0 0 190px; width: 190px; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 74px; }
+.adm-nav { text-align: left; border: 1px solid #e2e6ea; background: #fff; border-radius: 10px; padding: 11px 14px; font-size: 13.5px; font-weight: 600; color: #445; cursor: pointer; }
+.adm-nav:hover { background: #f4f7fb; border-color: #c9d6e6; }
+.adm-nav.active { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: 0 1px 5px rgba(28,90,153,.25); }
+.admin-main .perm-panel { width: 100%; flex: 1 1 auto; position: static; top: auto; }
+.log-panel { background: #fff; border: 1px solid #e2e6ea; border-radius: 12px; padding: 14px 16px 16px; box-shadow: 0 1px 5px rgba(0,0,0,.05); }
+.log-h { margin: 0 0 10px; font-size: 15px; color: #1c2533; }
 .perm-panel { width: 320px; flex: 0 0 320px; background: #fff; border: 1px solid #e2e6ea; border-radius: 12px; padding: 14px 14px 6px; box-shadow: 0 1px 5px rgba(0,0,0,.05); position: sticky; top: 74px; }
 .perm-title { margin: 0 0 6px; font-size: 15px; color: #1c2533; }
 .perm-hint { margin: 0 0 10px; line-height: 1.5; }
