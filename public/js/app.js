@@ -973,8 +973,6 @@ async function renderAdmin() {
           <button type="button" id="adm-date-clear" class="date-clear" title="날짜 초기화">✕</button>
         </span>
         <button class="btn" id="adm-print-btn" title="이 통계를 인쇄 / PDF">🖨 인쇄</button>
-        <button class="btn" id="adm-login-log" title="로그인(접속) 기록 보기">🔑 로그인 기록</button>
-        <button class="btn" id="adm-activity-log" title="계약 활동 기록 보기">📝 활동 기록</button>
         <button class="btn" id="back-btn">← 목록으로</button>
         ${accountChip()}
       </div>
@@ -984,8 +982,6 @@ async function renderAdmin() {
     </div>`;
   document.getElementById('back-btn').onclick = () => go('#/');
   document.getElementById('adm-print-btn').onclick = () => window.print();
-  document.getElementById('adm-login-log').onclick = () => openLogModal('login');
-  document.getElementById('adm-activity-log').onclick = () => openLogModal('activity');
   bindAccount(app);
   try {
     adminRows = (await api.list('')).filter((r) => !r.is_sample);
@@ -995,13 +991,21 @@ async function renderAdmin() {
     document.getElementById('admin-wrap').innerHTML = `<p class="center danger" style="padding:40px">통계를 불러오지 못했습니다: ${esc(err.message)}</p>`;
     return;
   }
-  // 레이아웃: 좌측 뷰어 권한 설정 패널 + 우측 통계 본문
+  // 레이아웃: 좌측 사이드바 메뉴 + 우측 내용(선택한 메뉴에 따라 전환)
   document.getElementById('admin-wrap').innerHTML = `
     <div class="admin-layout">
-      ${permissionPanelHtml()}
-      <div class="admin-main"><div id="admin-body"></div></div>
+      <nav class="admin-side no-print">
+        <button type="button" class="adm-nav active" data-view="kpi">📊 계약 통계·KPI</button>
+        <button type="button" class="adm-nav" data-view="perm">👁 권한 관리</button>
+        <button type="button" class="adm-nav" data-view="login">🔑 로그인 기록</button>
+        <button type="button" class="adm-nav" data-view="activity">📝 활동 기록</button>
+      </nav>
+      <div class="admin-main" id="admin-main"></div>
     </div>`;
-  bindPermissionPanel();
+  document.querySelectorAll('.adm-nav').forEach((b) => b.onclick = () => {
+    document.querySelectorAll('.adm-nav').forEach((x) => x.classList.toggle('active', x === b));
+    showAdminView(b.dataset.view);
+  });
   // 월 선택지 채우기
   const months = [...new Set(adminRows.map((r) => admDateStr(r).slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)))].sort((a, b) => b.localeCompare(a));
   const sel = document.getElementById('adm-month');
@@ -1013,7 +1017,31 @@ async function renderAdmin() {
   document.getElementById('adm-from').onchange = onAdmDate;
   document.getElementById('adm-to').onchange = onAdmDate;
   document.getElementById('adm-date-clear').onclick = () => { const f = document.getElementById('adm-from'), t = document.getElementById('adm-to'); if (f) f.value = ''; if (t) t.value = ''; renderAdminBody(); };
-  renderAdminBody();
+  showAdminView('kpi');
+}
+
+// 관리자 페이지 사이드바 메뉴 전환
+function showAdminView(view) {
+  const main = document.getElementById('admin-main');
+  if (!main) return;
+  // 월/날짜 필터는 통계 화면에서만 의미 있으므로 그 외 화면에선 숨김
+  const monthSel = document.getElementById('adm-month');
+  const dateRange = document.querySelector('.topbar .date-range');
+  const printBtn = document.getElementById('adm-print-btn');
+  const isKpi = view === 'kpi';
+  if (monthSel) monthSel.style.display = isKpi ? '' : 'none';
+  if (dateRange) dateRange.style.display = isKpi ? '' : 'none';
+  if (printBtn) printBtn.style.display = (view === 'login' || view === 'activity') ? 'none' : '';
+  if (view === 'kpi') {
+    main.innerHTML = `<div id="admin-body"></div>`;
+    renderAdminBody();
+  } else if (view === 'perm') {
+    main.innerHTML = permissionPanelHtml();
+    bindPermissionPanel();
+  } else {
+    main.innerHTML = `<div id="log-view"><p class="muted center" style="padding:32px">불러오는 중…</p></div>`;
+    loadLogInto(document.getElementById('log-view'), view);
+  }
 }
 
 // 활동/로그인 기록 라벨
@@ -1025,26 +1053,13 @@ function fmtLogTime(iso) {
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
-// 로그인/활동 기록 모달 (관리자 전용)
-async function openLogModal(kind) {
+// 로그인/활동 기록 뷰 (관리자 페이지 사이드바) — container에 표를 채운다
+async function loadLogInto(container, kind) {
+  if (!container) return;
   const title = kind === 'login' ? '🔑 로그인 기록' : '📝 활동 기록';
-  const overlay = document.createElement('div');
-  overlay.className = 'sign-modal-overlay no-print';
-  overlay.innerHTML = `
-    <div class="sign-modal log-modal" role="dialog" aria-modal="true" aria-label="${title}">
-      <div class="sign-modal-head"><h3>${title}</h3><button class="sign-x" type="button" aria-label="닫기">✕</button></div>
-      <div class="log-body"><p class="muted center" style="padding:28px">불러오는 중…</p></div>
-    </div>`;
-  document.body.appendChild(overlay);
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
-  const close = () => { overlay.remove(); window.removeEventListener('keydown', onKey); };
-  overlay.querySelector('.sign-x').onclick = close;
-  overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) close(); });
-  window.addEventListener('keydown', onKey);
-  const body = overlay.querySelector('.log-body');
   try {
     const rows = await api.activityLog(kind);
-    if (!rows.length) { body.innerHTML = '<p class="muted center" style="padding:28px">아직 기록이 없습니다.</p>'; return; }
+    if (!rows.length) { container.innerHTML = `<div class="log-panel"><h3 class="log-h">${title}</h3><p class="muted center" style="padding:28px">아직 기록이 없습니다.</p></div>`; return; }
     const head = kind === 'login'
       ? '<tr><th>시각</th><th>이름</th><th>이메일</th><th>전시장</th></tr>'
       : '<tr><th>시각</th><th>이름</th><th>동작</th><th>계약</th><th>전시장</th><th>상세</th></tr>';
@@ -1054,9 +1069,12 @@ async function openLogModal(kind) {
       const contract = [r.contract_no, r.client_name].filter(Boolean).join(' · ') || '-';
       return `<tr><td>${t}</td><td>${esc(r.actor_name || '-')}</td><td><span class="log-type log-${esc(r.type)}">${esc(ACT_TYPE[r.type] || r.type)}</span></td><td>${esc(contract)}</td><td>${esc(r.showroom || '-')}</td><td class="muted small">${esc(r.detail || '')}</td></tr>`;
     }).join('');
-    body.innerHTML = `<div class="log-scroll"><table class="log-table"><thead>${head}</thead><tbody>${rowHtml}</tbody></table></div><p class="muted small" style="padding:8px 4px 0">최근 ${rows.length}건</p>`;
+    container.innerHTML = `<div class="log-panel">
+      <h3 class="log-h">${title} <span class="muted small">최근 ${rows.length}건</span></h3>
+      <div class="log-scroll"><table class="log-table"><thead>${head}</thead><tbody>${rowHtml}</tbody></table></div>
+    </div>`;
   } catch (err) {
-    body.innerHTML = `<p class="danger center" style="padding:24px">기록을 불러오지 못했습니다: ${esc(err.message)}<br><span class="muted small">Supabase에 활동 로그 테이블(econtract_activity_log)이 필요합니다.</span></p>`;
+    container.innerHTML = `<div class="log-panel"><h3 class="log-h">${title}</h3><p class="danger center" style="padding:24px">기록을 불러오지 못했습니다: ${esc(err.message)}<br><span class="muted small">Supabase에 활동 로그 테이블(econtract_activity_log)이 필요합니다.</span></p></div>`;
   }
 }
 
@@ -1135,7 +1153,8 @@ function admShowroom(v) { const s = String(v ?? '').trim(); if (!s) return '미�
 const SHOWROOM_ORDER = ['본사 전시장', '1전시장', '3전시장', '강화전시장', '안동전시장', '광주전시장'];
 
 function renderAdminBody() {
-  const wrap = document.getElementById('admin-body') || document.getElementById('admin-wrap');
+  const wrap = document.getElementById('admin-body');
+  if (!wrap) return; // 통계·KPI 화면일 때만 렌더 (다른 사이드바 화면에선 무시)
   const period = document.getElementById('adm-month')?.value || '';
   const from = document.getElementById('adm-from')?.value || '';
   const to = document.getElementById('adm-to')?.value || '';
