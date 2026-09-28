@@ -57,6 +57,15 @@ async function boot() {
     await trySSO();
   }
   if (authEnabled() && currentUser() && !me) { try { me = await api.me(); } catch { /* 401이면 authLost가 처리 */ } }
+  // 로그인(접속) 기록 — 브라우저 세션당 1회만 기록(반복 렌더링 시 중복 방지)
+  if (authEnabled() && me && (me.isEmployee || me.isAdmin)) {
+    try {
+      if (!sessionStorage.getItem('seum-login-logged')) {
+        sessionStorage.setItem('seum-login-logged', '1');
+        api.logLogin().catch(() => {});
+      }
+    } catch { /* sessionStorage 접근 불가 시 무시 */ }
+  }
   // 등록된 직원 계정이 아니면 차단(로그아웃 + 안내)
   if (authEnabled() && me && !me.isAdmin && !me.isEmployee) {
     logout(); me = null;
@@ -964,6 +973,8 @@ async function renderAdmin() {
           <button type="button" id="adm-date-clear" class="date-clear" title="날짜 초기화">✕</button>
         </span>
         <button class="btn" id="adm-print-btn" title="이 통계를 인쇄 / PDF">🖨 인쇄</button>
+        <button class="btn" id="adm-login-log" title="로그인(접속) 기록 보기">🔑 로그인 기록</button>
+        <button class="btn" id="adm-activity-log" title="계약 활동 기록 보기">📝 활동 기록</button>
         <button class="btn" id="back-btn">← 목록으로</button>
         ${accountChip()}
       </div>
@@ -973,6 +984,8 @@ async function renderAdmin() {
     </div>`;
   document.getElementById('back-btn').onclick = () => go('#/');
   document.getElementById('adm-print-btn').onclick = () => window.print();
+  document.getElementById('adm-login-log').onclick = () => openLogModal('login');
+  document.getElementById('adm-activity-log').onclick = () => openLogModal('activity');
   bindAccount(app);
   try {
     adminRows = (await api.list('')).filter((r) => !r.is_sample);
@@ -1003,7 +1016,50 @@ async function renderAdmin() {
   renderAdminBody();
 }
 
-// 뷰어 권한 설정 패널 (관리자 전용) — 전시장별로 묶어 직원별 열람 범위 드롭다운
+// 활동/로그인 기록 라벨
+const ACT_TYPE = { create: '생성', update: '수정', delete: '삭제', restore: '복원', confirm: '확정', login: '로그인' };
+function fmtLogTime(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+// 로그인/활동 기록 모달 (관리자 전용)
+async function openLogModal(kind) {
+  const title = kind === 'login' ? '🔑 로그인 기록' : '📝 활동 기록';
+  const overlay = document.createElement('div');
+  overlay.className = 'sign-modal-overlay no-print';
+  overlay.innerHTML = `
+    <div class="sign-modal log-modal" role="dialog" aria-modal="true" aria-label="${title}">
+      <div class="sign-modal-head"><h3>${title}</h3><button class="sign-x" type="button" aria-label="닫기">✕</button></div>
+      <div class="log-body"><p class="muted center" style="padding:28px">불러오는 중…</p></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const close = () => { overlay.remove(); window.removeEventListener('keydown', onKey); };
+  overlay.querySelector('.sign-x').onclick = close;
+  overlay.addEventListener('pointerdown', (e) => { if (e.target === overlay) close(); });
+  window.addEventListener('keydown', onKey);
+  const body = overlay.querySelector('.log-body');
+  try {
+    const rows = await api.activityLog(kind);
+    if (!rows.length) { body.innerHTML = '<p class="muted center" style="padding:28px">아직 기록이 없습니다.</p>'; return; }
+    const head = kind === 'login'
+      ? '<tr><th>시각</th><th>이름</th><th>이메일</th><th>전시장</th></tr>'
+      : '<tr><th>시각</th><th>이름</th><th>동작</th><th>계약</th><th>전시장</th><th>상세</th></tr>';
+    const rowHtml = rows.map((r) => {
+      const t = esc(fmtLogTime(r.at));
+      if (kind === 'login') return `<tr><td>${t}</td><td>${esc(r.actor_name || '-')}</td><td class="muted small">${esc(r.actor_email || '-')}</td><td>${esc(r.showroom || '-')}</td></tr>`;
+      const contract = [r.contract_no, r.client_name].filter(Boolean).join(' · ') || '-';
+      return `<tr><td>${t}</td><td>${esc(r.actor_name || '-')}</td><td><span class="log-type log-${esc(r.type)}">${esc(ACT_TYPE[r.type] || r.type)}</span></td><td>${esc(contract)}</td><td>${esc(r.showroom || '-')}</td><td class="muted small">${esc(r.detail || '')}</td></tr>`;
+    }).join('');
+    body.innerHTML = `<div class="log-scroll"><table class="log-table"><thead>${head}</thead><tbody>${rowHtml}</tbody></table></div><p class="muted small" style="padding:8px 4px 0">최근 ${rows.length}건</p>`;
+  } catch (err) {
+    body.innerHTML = `<p class="danger center" style="padding:24px">기록을 불러오지 못했습니다: ${esc(err.message)}<br><span class="muted small">Supabase에 활동 로그 테이블(econtract_activity_log)이 필요합니다.</span></p>`;
+  }
+}
+
 function permissionPanelHtml() {
   const opt = (v, cur, label) => `<option value="${v}" ${(cur || 'own') === v ? 'selected' : ''}>${label}</option>`;
   // 전시장별 그룹핑 (세움os처럼)

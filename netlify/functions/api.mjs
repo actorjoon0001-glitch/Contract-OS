@@ -12,6 +12,8 @@ import { createClient } from '@supabase/supabase-js';
 // 계약 저장 테이블명. 세움os처럼 이미 `contracts` 테이블이 있는 프로젝트와 통합할 때는
 // 충돌을 피하려고 SUPABASE_TABLE=econtracts 로 지정한다. (미설정이면 기존처럼 contracts)
 const TABLE = process.env.SUPABASE_TABLE || 'contracts';
+// 활동/로그인 기록 테이블 (세움os와 충돌 피하려 econtract_ 접두어). 미설정 시 기본값.
+const LOG_TABLE = process.env.SUPABASE_LOG_TABLE || 'econtract_activity_log';
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -153,6 +155,22 @@ async function enforceShowroomBySalesperson(supa, data) {
   if (derived) data.showroom = derived; // 영업사원 소속으로 확정 — 모델·수동값보다 우선
 }
 
+// 활동/로그인 기록 남기기 — 베스트에포트(실패해도 요청 흐름은 계속, 테이블 없으면 조용히 무시)
+async function logEvent(supa, auth, { kind, type, contract, contractId, detail } = {}) {
+  try {
+    await supa.from(LOG_TABLE).insert({
+      kind, type,
+      actor_email: auth?.user?.email || '',
+      actor_name: auth?.user?.name || '',
+      showroom: contract?.showroom || auth?.user?.showroom || '',
+      contract_id: contractId != null ? contractId : null,
+      contract_no: contract?.contractNo || contract?.contract_no || '',
+      client_name: contract?.client?.name || '',
+      detail: detail || '',
+    });
+  } catch { /* 로그 테이블 미생성/실패 — 무시 */ }
+}
+
 // 직원 명부 전체를 이름→소속 전시장(KR) 맵으로. (목록 읽을 때 전시장 교정용)
 async function employeeShowroomMap(supa) {
   const map = {};
@@ -266,6 +284,7 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
         const row = { contract_no: contractNo, ...summarize(data), data };
         const { data: inserted, error } = await supa.from(TABLE).insert(row).select().single();
         if (error) throw error;
+        await logEvent(supa, auth, { kind: 'activity', type: 'create', contract: data, contractId: inserted.id, detail: '계약 생성' });
         return json({ id: inserted.id, contract_no: inserted.contract_no, ...inserted, data: inserted.data }, 201);
       }
       return json({ error: '허용되지 않은 메서드입니다.' }, 405);
@@ -310,6 +329,14 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
       const { data: updated, error } = await supa.from(TABLE).update(patch).eq('id', id).select().maybeSingle();
       if (error) throw error;
       if (!updated) return json({ error: '계약을 찾을 수 없습니다.' }, 404);
+      // 활동 기록: 휴지통 이동/복원 · 확정 · 일반 수정 구분
+      const wasDeleted = !!existing.data?.deletedAt, nowDeleted = !!data.deletedAt;
+      const wasConfirmed = existing.data?.status === 'confirmed', nowConfirmed = data.status === 'confirmed';
+      let actType = 'update', actDetail = '계약 수정';
+      if (!wasDeleted && nowDeleted) { actType = 'delete'; actDetail = '휴지통으로 이동'; }
+      else if (wasDeleted && !nowDeleted) { actType = 'restore'; actDetail = '휴지통에서 복원'; }
+      else if (!wasConfirmed && nowConfirmed) { actType = 'confirm'; actDetail = '계약서 확정(봉인)'; }
+      await logEvent(supa, auth, { kind: 'activity', type: actType, contract: data, contractId: id, detail: actDetail });
       return json({ id: updated.id, contract_no: updated.contract_no, ...updated, data: updated.data });
     }
 
@@ -321,6 +348,7 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
       if (existing && !canAccess(existing.data, existing.salesperson, auth)) return json({ error: '이 계약을 삭제할 권한이 없습니다.' }, 403);
       const { error } = await supa.from(TABLE).delete().eq('id', id);
       if (error) throw error;
+      await logEvent(supa, auth, { kind: 'activity', type: 'delete', contract: existing?.data, contractId: id, detail: '영구삭제' });
       return json({ ok: true });
     }
 
@@ -368,6 +396,34 @@ export default async (req, context) => {
   if (path === '/api/me') {
     if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
     return json({ email: auth.user?.email || '', name: auth.user?.name || '', showroom: auth.user?.showroom || '', isAdmin: !!auth.isAdmin, isEmployee: !!auth.isEmployee, authEnabled: auth.enabled });
+  }
+
+  // 로그인(접속) 기록 남기기 — 프론트가 세션당 1회 호출. 로그인한 직원 누구나.
+  if (path === '/api/login-log') {
+    if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
+    if (req.method !== 'POST') return json({ error: '허용되지 않은 메서드입니다.' }, 405);
+    await logEvent(supa, auth, { kind: 'login', type: 'login', detail: '로그인' });
+    return json({ ok: true });
+  }
+
+  // 활동/로그인 기록 조회 (관리자 전용). ?kind=activity|login, ?from=YYYY-MM-DD&to=YYYY-MM-DD
+  if (path === '/api/activity') {
+    if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
+    if (auth.enabled && !auth.isAdmin) return json({ error: '권한이 없습니다.' }, 403);
+    const url = new URL(req.url);
+    const kind = url.searchParams.get('kind') === 'login' ? 'login' : 'activity';
+    const from = url.searchParams.get('from') || '';
+    const to = url.searchParams.get('to') || '';
+    try {
+      let q = supa.from(LOG_TABLE).select('*').eq('kind', kind).order('at', { ascending: false }).limit(500);
+      if (from) q = q.gte('at', from);
+      if (to) q = q.lte('at', `${to}T23:59:59`);
+      const { data, error } = await q;
+      if (error) throw error;
+      return json(data || []);
+    } catch (err) {
+      return json({ error: '기록 조회 실패 (활동 로그 테이블이 필요합니다)', detail: String(err?.message || err) }, 500);
+    }
   }
 
   // 영업사원 명부 (로그인한 직원 누구나) — 영업사원 필터 드롭다운용.
@@ -445,5 +501,5 @@ export default async (req, context) => {
 };
 
 export const config = {
-  path: ['/api/config', '/api/me', '/api/salespeople', '/api/employees', '/api/contracts', '/api/contracts/:id'],
+  path: ['/api/config', '/api/me', '/api/salespeople', '/api/login-log', '/api/activity', '/api/employees', '/api/contracts', '/api/contracts/:id'],
 };

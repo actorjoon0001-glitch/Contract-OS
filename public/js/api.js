@@ -38,5 +38,12 @@ export const api = {
   me: () => req('/api/me'),
   employees: () => req('/api/employees'),
   salespeople: () => req('/api/salespeople'),
+  logLogin: () => req('/api/login-log', { method: 'POST', body: '{}' }),
+  activityLog: (kind = 'activity', { from = '', to = '' } = {}) => {
+    const p = new URLSearchParams({ kind });
+    if (from) p.set('from', from);
+    if (to) p.set('to', to);
+    return req(`/api/activity?${p.toString()}`);
+  },
   setEmployeeScope: (email, scope) => req('/api/employees', { method: 'PUT', body: JSON.stringify({ email, scope }) }),
 };
