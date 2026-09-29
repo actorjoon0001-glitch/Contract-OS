@@ -2255,8 +2255,9 @@ function fileToDrawing(file) {
 }
 
 // 3D 홈플래너 열기 — 계약서 창을 opener로 유지하고, 되돌려 보낼 대상(origin)·계약식별자(cid)를 전달
+//   ret=contract 를 넘겨야 홈플래너에 '계약서로 보내기' 버튼이 나타난다(도면·메모를 이 창으로 회신).
 function openPlanner() {
-  const params = new URLSearchParams({ origin: location.origin, cid: String(currentId || 'new') });
+  const params = new URLSearchParams({ ret: 'contract', origin: location.origin, cid: String(currentId || 'new') });
   window.open(`${PLANNER_URL}?${params.toString()}`, 'seum3dPlanner');
 }
 
@@ -2302,13 +2303,38 @@ async function onPlannerMessage(e) {
     return; // 알 수 없는 메시지·출처 무시
   }
   if (!current) { alert('먼저 계약서를 연 상태에서 보내 주세요.'); return; }
-  if (!shots.length) { alert('받은 이미지가 없습니다. 다시 시도해 주세요.'); return; }
+  // 홈플래너 건축주 요청사항 메모 → 서비스·기타 내용에 자동 반영
+  let noteApplied = false;
+  if (source === '3d-planner' && typeof msg.note === 'string' && msg.note.trim()) {
+    applyPlannerNote(msg.note.trim());
+    noteApplied = true;
+  }
+  if (!shots.length && !noteApplied) { alert('받은 이미지가 없습니다. 다시 시도해 주세요.'); return; }
   try {
-    await attachDrawingImages(shots, source);
-    alert(`${label} ${shots.length}장이 협의도면에 첨부되었습니다. (저장을 눌러야 최종 보관됩니다)`);
+    if (shots.length) await attachDrawingImages(shots, source);
+    const parts = [];
+    if (shots.length) parts.push(`${label} ${shots.length}장이 협의도면에 첨부`);
+    if (noteApplied) parts.push('건축주 메모가 서비스·기타 내용에 반영');
+    alert(`${parts.join(' · ')}되었습니다. (저장을 눌러야 최종 보관됩니다)`);
   } catch (err) {
     alert('첨부 실패: ' + (err.message || err));
   }
+}
+
+// 홈플래너에서 받은 건축주 요청사항 메모를 '서비스·기타 내용'에 '3D홈플래너 메모' 블록으로 반영.
+//   재전송 시 기존 홈플래너 메모 블록을 새 내용으로 교체(중복 누적 방지). 사용자가 직접 쓴 내용은 유지.
+const PLANNER_NOTE_TAG = '【3D홈플래너 메모】';
+function applyPlannerNote(note) {
+  if (!current || !note) return;
+  const block = `${PLANNER_NOTE_TAG}\n${note}`;
+  let ex = String(current.extraNotes || '');
+  const re = /【3D홈플래너 메모】[\s\S]*?(?=\n\n(?!【3D홈플래너 메모】)|$)/;   // 기존 블록(빈 줄 전까지)
+  if (re.test(ex)) ex = ex.replace(re, block);
+  else ex = ex.trim() ? `${ex.trim()}\n\n${block}` : block;
+  current.extraNotes = ex;
+  const ta = document.querySelector('textarea[data-path="extraNotes"]');
+  if (ta) { ta.value = ex; try { if (typeof autoGrow === 'function') autoGrow(ta); } catch { /* noop */ } }
+  markDirty();
 }
 
 // PDF 앱 내 미리보기 (data URL → Blob URL 로 iframe 렌더 — 브라우저 호환성↑)
