@@ -39,6 +39,7 @@ export const api = {
   employees: () => req('/api/employees'),
   salespeople: () => req('/api/salespeople'),
   logLogin: () => req('/api/login-log', { method: 'POST', body: '{}' }),
+  setDesignStatus: (contractNo, status) => req('/api/design-status', { method: 'POST', body: JSON.stringify({ contract_no: contractNo, status }) }),
   activityLog: (kind = 'activity', { from = '', to = '' } = {}) => {
     const p = new URLSearchParams({ kind });
     if (from) p.set('from', from);
