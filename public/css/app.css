@@ -129,6 +129,15 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 .lock { font-size: 11px; vertical-align: middle; }
 /* 목록에서 바로 바꾸는 진행상태 드롭다운 */
 .row-stage { border: 1px solid #d2d7dd; border-radius: 20px; padding: 3px 8px; font-size: 12px; font-weight: 700; cursor: pointer; background: #fff; }
+/* 설계 진행 상태 드롭다운 (설계OS 연동) */
+.row-design { border: 1px solid #d2d7dd; border-radius: 20px; padding: 3px 8px; font-size: 12px; font-weight: 700; cursor: pointer; background: #fff; color: #445; }
+.row-design.design-미착수 { background: #f1f3f5; color: #6b7280; border-color: #dde1e6; }
+.row-design.design-영업팀협의 { background: #fff3d6; color: #97700a; border-color: #f0e2b8; }
+.row-design.design-도면작업 { background: #dde2fb; color: #3a4fa0; border-color: #c7cef5; }
+.row-design.design-건축사전달 { background: #ede1fb; color: #6b3fa0; border-color: #ddc9f5; }
+.row-design.design-본부장검토 { background: #d4eef0; color: #0f6b73; border-color: #b8e2e6; }
+.row-design.design-완료 { background: #dff3e4; color: #1c7d3c; border-color: #c2e6cd; }
+.row-design.design-보류 { background: #fde8e6; color: #b5352a; border-color: #f3c4bf; }
 /* 필수 입력 표시 */
 .req { color: #d6342c; font-weight: 700; }
 /* 새 계약 모델 선택 화면 */

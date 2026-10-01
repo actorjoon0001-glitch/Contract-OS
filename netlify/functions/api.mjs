@@ -14,6 +14,8 @@ import { createClient } from '@supabase/supabase-js';
 const TABLE = process.env.SUPABASE_TABLE || 'contracts';
 // 활동/로그인 기록 테이블 (세움os와 충돌 피하려 econtract_ 접두어). 미설정 시 기본값.
 const LOG_TABLE = process.env.SUPABASE_LOG_TABLE || 'econtract_activity_log';
+// 설계 진행 상태 공유 테이블 (설계OS와 계약번호 기준으로 공유). 미설정 시 기본값.
+const DESIGN_TABLE = process.env.SUPABASE_DESIGN_TABLE || 'design_progress';
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -246,6 +248,15 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
             if (eff) r.showroom = eff;
           }
         }
+        // 설계 진행 상태 첨부 (설계OS와 공유하는 design_progress 테이블, 계약번호 기준)
+        try {
+          const { data: dp } = await supa.from(DESIGN_TABLE).select('contract_no, status');
+          if (dp && dp.length) {
+            const dmap = {};
+            for (const d of dp) dmap[d.contract_no] = d.status;
+            for (const r of rows) if (dmap[r.contract_no]) r.design_status = dmap[r.contract_no];
+          }
+        } catch { /* 공유 테이블 없거나 조회 실패 — 설계상태 없이 진행 */ }
         // 중복 고객 감지: 같은 연락처가 '다른 전시장' 계약에도 있으면 요약(전시장·담당자·날짜) 첨부
         const phoneMap = {};
         for (const r of rows) {
@@ -406,6 +417,28 @@ export default async (req, context) => {
     return json({ ok: true });
   }
 
+  // 설계 진행 상태 저장 (설계OS와 공유하는 design_progress 테이블에 upsert). 로그인한 직원 누구나.
+  if (path === '/api/design-status') {
+    if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
+    if (req.method !== 'POST') return json({ error: '허용되지 않은 메서드입니다.' }, 405);
+    const body = await req.json().catch(() => null);
+    const contractNo = String(body?.contract_no || '').trim();
+    const status = String(body?.status || '').trim();
+    if (!contractNo) return json({ error: '계약번호가 필요합니다.' }, 400);
+    try {
+      const { error } = await supa.from(DESIGN_TABLE).upsert({
+        contract_no: contractNo,
+        status,
+        updated_at: new Date().toISOString(),
+        updated_by: auth?.user?.name || auth?.user?.email || '',
+      }, { onConflict: 'contract_no' });
+      if (error) throw error;
+      return json({ ok: true, contract_no: contractNo, status });
+    } catch (err) {
+      return json({ error: '설계 진행 상태 저장 실패 (공유 테이블 design_progress 필요)', detail: String(err?.message || err) }, 500);
+    }
+  }
+
   // 활동/로그인 기록 조회 (관리자 전용). ?kind=activity|login, ?from=YYYY-MM-DD&to=YYYY-MM-DD
   if (path === '/api/activity') {
     if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
@@ -501,5 +534,5 @@ export default async (req, context) => {
 };
 
 export const config = {
-  path: ['/api/config', '/api/me', '/api/salespeople', '/api/login-log', '/api/activity', '/api/employees', '/api/contracts', '/api/contracts/:id'],
+  path: ['/api/config', '/api/me', '/api/salespeople', '/api/login-log', '/api/design-status', '/api/activity', '/api/employees', '/api/contracts', '/api/contracts/:id'],
 };
