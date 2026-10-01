@@ -40,6 +40,8 @@ export const api = {
   salespeople: () => req('/api/salespeople'),
   logLogin: () => req('/api/login-log', { method: 'POST', body: '{}' }),
   setDesignStatus: (refId, status) => req('/api/design-status', { method: 'POST', body: JSON.stringify({ ref_id: refId, status }) }),
+  designTeam: () => req('/api/design-team'),
+  setDesignAssignee: (refId, assignee) => req('/api/design-assignee', { method: 'POST', body: JSON.stringify({ ref_id: refId, assignee }) }),
   activityLog: (kind = 'activity', { from = '', to = '' } = {}) => {
     const p = new URLSearchParams({ kind });
     if (from) p.set('from', from);

@@ -170,9 +170,19 @@ let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터
 let listFiltered = []; // 현재 필터 적용된 목록 (인쇄용)
 let employeeList = [];  // 직원 목록(관리자 담당자 지정용) — 로드 시 1회 채움
 let salesRoster = [];   // 영업사원 명부(전시장 소속) — 영업사원 필터 드롭다운용(누구나 로드)
-const listCols = () => (canManageList() ? 17 : 16); // 관리자면 '담당자' 열 추가 (+설계진행)
+let designTeam = [];    // 설계팀 명단(설계담당 드롭다운용) — 설계OS employees.team='설계' 기준
+const listCols = () => (canManageList() ? 18 : 17); // 관리자면 '담당자' 열 추가 (+설계담당·설계진행)
 // 설계 진행 상태 (설계OS와 공유테이블로 연동) — 순서 = 진행 단계
 const DESIGN_STATES = ['미착수', '영업팀협의', '도면작업', '건축사전달', '본부장검토', '완료', '보류'];
+// 설계 담당 드롭다운 (설계OS와 연동) — 계약완료 건만
+function designAssigneeSelect(r) {
+  if (!CONTRACTED_STAGES.has(stageOf(r))) return '<span class="muted small">—</span>';
+  const cur = r.design_assignee || '';
+  const opts = ['<option value="">미지정</option>']
+    .concat(designTeam.map((n) => `<option value="${esc(n)}" ${cur === n ? 'selected' : ''}>${esc(n)}</option>`));
+  if (cur && !designTeam.includes(cur)) opts.push(`<option value="${esc(cur)}" selected>${esc(cur)}</option>`); // 명단에 없는 기존 값 보존
+  return `<select class="row-assignee" data-assignee-id="${esc(String(r.id))}" title="설계 담당 (설계OS와 연동)">${opts.join('')}</select>`;
+}
 function designSelect(r) {
   // 설계OS로는 '계약완료' 이후 건만 넘어가므로, 설계진행은 계약완료(및 이후 단계) 건만 표시
   if (!CONTRACTED_STAGES.has(stageOf(r))) return '<span class="muted small">—</span>';
@@ -220,7 +230,7 @@ async function renderList() {
         <thead>
           <tr>
             <th>계약번호</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
-            <th class="right">제품합계(만원)</th><th>계약일자</th><th class="right">계약금(만원)</th><th class="center">인허가</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th>${canManageList() ? '<th>담당자</th>' : ''}<th>메모</th><th>설계진행</th><th>수정일</th><th></th>
+            <th class="right">제품합계(만원)</th><th>계약일자</th><th class="right">계약금(만원)</th><th class="center">인허가</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th>${canManageList() ? '<th>담당자</th>' : ''}<th>메모</th><th>설계담당</th><th>설계진행</th><th>수정일</th><th></th>
           </tr>
         </thead>
         <tbody id="list-body"><tr><td colspan="${listCols()}" class="muted center">불러오는 중...</td></tr></tbody>
@@ -259,6 +269,10 @@ async function loadList() {
     // 영업사원 명부(전시장 소속) 1회 로드 — 영업사원 필터를 명부 기준으로 구성
     if (!salesRoster.length) {
       try { salesRoster = await api.salespeople(); } catch { /* 실패 시 계약서 기준으로 폴백 */ }
+    }
+    // 설계팀 명단 1회 로드 — 설계담당 드롭다운용
+    if (!designTeam.length) {
+      try { designTeam = await api.designTeam(); } catch { /* 실패 시 미지정만 */ }
     }
     const rows = await api.list('');
     // 필터 드롭다운은 실제 계약서 기준으로 채우고(샘플 값 제외), 샘플 행은 목록 맨 아래에 고정
@@ -728,6 +742,7 @@ function renderListRows(rows) {
         : `<button class="row-approve" data-approve-id="${r.id}" title="대표이사 승인 전자서명">✎ 승인</button>`)}</td>
       ${canManageList() ? `<td>${r.is_sample ? '' : rowOwnerSelect(r)}</td>` : ''}
       <td class="memo-cell">${r.is_sample ? '' : `<input class="row-memo" data-memo-id="${r.id}" value="${esc(r.memo || '')}" placeholder="메모..." title="직원 메모 · 입력 후 다른 곳을 클릭하면 저장됩니다" />`}</td>
+      <td class="design-cell">${r.is_sample ? '' : designAssigneeSelect(r)}</td>
       <td class="design-cell">${r.is_sample ? '' : designSelect(r)}</td>
       <td class="muted small">${esc((r.updated_at || '').slice(0, 16))}</td>
       <td>${r.is_sample ? '' : `<button class="btn tiny danger" data-del="${r.id}">삭제</button>`}</td>
@@ -735,7 +750,7 @@ function renderListRows(rows) {
 
   body.querySelectorAll('.row').forEach((tr) => {
     tr.onclick = (e) => {
-      if (e.target.dataset.del || e.target.closest('.row-stage') || e.target.closest('.row-approve') || e.target.closest('.row-memo') || e.target.closest('.row-design') || e.target.closest('.row-showroom') || e.target.closest('.row-owner') || e.target.closest('.dup-badge') || e.target.closest('.dep-btn')) return; // 인라인 조작은 행 이동 제외
+      if (e.target.dataset.del || e.target.closest('.row-stage') || e.target.closest('.row-approve') || e.target.closest('.row-memo') || e.target.closest('.row-design') || e.target.closest('.row-assignee') || e.target.closest('.row-showroom') || e.target.closest('.row-owner') || e.target.closest('.dup-badge') || e.target.closest('.dep-btn')) return; // 인라인 조작은 행 이동 제외
       go(`#/edit/${tr.dataset.id}`);
     };
   });
@@ -807,7 +822,7 @@ function renderListRows(rows) {
       }
     };
   });
-  // 설계 진행 상태: 설계OS와 공유테이블로 연동(계약번호 기준). 목록에서 바로 변경
+  // 설계 진행 상태: 설계OS와 공유테이블로 연동(계약 id 기준). 목록에서 바로 변경
   body.querySelectorAll('.row-design').forEach((sel) => {
     sel.onclick = (e) => e.stopPropagation();
     sel.onchange = async (e) => {
@@ -823,6 +838,26 @@ function renderListRows(rows) {
         sel.className = `row-design design-${val}`;
       } catch (err) {
         alert('설계 진행 상태 저장 실패: ' + err.message);
+      } finally {
+        sel.disabled = false;
+      }
+    };
+  });
+  // 설계 담당: 설계OS와 공유테이블로 연동(계약 id 기준). 목록에서 바로 변경
+  body.querySelectorAll('.row-assignee').forEach((sel) => {
+    sel.onclick = (e) => e.stopPropagation();
+    sel.onchange = async (e) => {
+      e.stopPropagation();
+      const id = sel.dataset.assigneeId;
+      const val = sel.value;
+      if (!id) { alert('계약 id가 없어 설계 담당을 저장할 수 없습니다.'); return; }
+      sel.disabled = true;
+      try {
+        await api.setDesignAssignee(id, val);
+        const cached = listRows.find((r) => String(r.id) === String(id));
+        if (cached) cached.design_assignee = val;
+      } catch (err) {
+        alert('설계 담당 저장 실패: ' + err.message);
       } finally {
         sel.disabled = false;
       }

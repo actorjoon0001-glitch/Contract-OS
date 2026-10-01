@@ -109,7 +109,7 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 /* ---------- 목록 ---------- */
 /* 목록: 화면 폭을 꽉 채워 표를 넓게 (좁은 화면에선 가로 스크롤) */
 .list-wrap { max-width: none; margin: 18px 0; padding: 0 24px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.list-wrap .list-table { min-width: 1360px; } /* 칸이 많아 좁은 화면에선 좌우 스크롤 (칸 겹침 방지) */
+.list-wrap .list-table { min-width: 1480px; } /* 칸이 많아 좁은 화면에선 좌우 스크롤 (칸 겹침 방지) */
 .list-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,.07); }
 .list-table th, .list-table td { padding: 11px 12px; text-align: left; border-bottom: 1px solid #eef0f2; word-break: keep-all; }
 /* 건축주·영업사원 등 이름 칸이 좁아서 글자 중간에 줄바꿈되지 않도록 (한글은 공백에서만 줄바꿈) */
@@ -138,6 +138,9 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 .row-design.design-본부장검토 { background: #d4eef0; color: #0f6b73; border-color: #b8e2e6; }
 .row-design.design-완료 { background: #dff3e4; color: #1c7d3c; border-color: #c2e6cd; }
 .row-design.design-보류 { background: #fde8e6; color: #b5352a; border-color: #f3c4bf; }
+/* 설계 담당 드롭다운 (설계OS 연동) */
+.row-assignee { border: 1px solid #d2d7dd; border-radius: 20px; padding: 3px 8px; font-size: 12px; font-weight: 600; cursor: pointer; background: #fff; color: #334; }
+.row-assignee:hover { border-color: var(--brand); }
 /* 필수 입력 표시 */
 .req { color: #d6342c; font-weight: 700; }
 /* 새 계약 모델 선택 화면 */
