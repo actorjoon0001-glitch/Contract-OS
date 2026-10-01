@@ -43,6 +43,7 @@ export const api = {
   designTeam: () => req('/api/design-team'),
   setDesignAssignee: (refId, assignee) => req('/api/design-assignee', { method: 'POST', body: JSON.stringify({ ref_id: refId, assignee }) }),
   deleteDesignLog: (id) => req('/api/design-log-delete', { method: 'POST', body: JSON.stringify({ id }) }),
+  deleteStageLog: (id) => req('/api/stage-log-delete', { method: 'POST', body: JSON.stringify({ id }) }),
   activityLog: (kind = 'activity', { from = '', to = '' } = {}) => {
     const p = new URLSearchParams({ kind });
     if (from) p.set('from', from);

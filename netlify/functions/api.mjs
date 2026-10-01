@@ -20,6 +20,8 @@ const LOG_TABLE = process.env.SUPABASE_LOG_TABLE || 'econtract_activity_log';
 const DESIGN_TABLE = process.env.SUPABASE_DESIGN_TABLE || 'design_assignees';
 const DESIGN_LOG_TABLE = process.env.SUPABASE_DESIGN_LOG_TABLE || 'design_status_log';
 const DESIGN_SOURCE = 'econtract';
+// 진행상태 변경 이력 테이블 (전자계약서 전용). 미설정 시 기본값.
+const STAGE_LOG_TABLE = process.env.SUPABASE_STAGE_LOG_TABLE || 'econtract_stage_log';
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -177,6 +179,18 @@ async function logEvent(supa, auth, { kind, type, contract, contractId, detail }
   } catch { /* 로그 테이블 미생성/실패 — 무시 */ }
 }
 
+// 진행상태 변경 이력 남기기 (계약 목록의 진행상태 아래 누적 표시용). 베스트에포트.
+async function logStage(supa, auth, contractId, stage) {
+  if (!stage || contractId == null) return;
+  try {
+    await supa.from(STAGE_LOG_TABLE).insert({
+      contract_id: contractId,
+      stage,
+      changed_by: auth?.user?.name || auth?.user?.email || '',
+    });
+  } catch { /* 진행상태 이력 테이블 없음 — 무시 */ }
+}
+
 // 직원 명부 전체를 이름→소속 전시장(KR) 맵으로. (목록 읽을 때 전시장 교정용)
 async function employeeShowroomMap(supa) {
   const map = {};
@@ -273,6 +287,15 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
             for (const r of rows) { const arr = lmap[String(r.id)]; if (arr) r.design_log = arr; }
           }
         } catch { /* 이력 테이블 없음 — 무시 */ }
+        // 진행상태 변경 이력 첨부 (econtract_stage_log) — 누가·언제·→진행상태
+        try {
+          const { data: sl } = await supa.from(STAGE_LOG_TABLE).select('id, contract_id, stage, changed_by, changed_at').order('changed_at', { ascending: false }).limit(2000);
+          if (sl && sl.length) {
+            const smap = {};
+            for (const e of sl) (smap[String(e.contract_id)] = smap[String(e.contract_id)] || []).push(e);
+            for (const r of rows) { const arr = smap[String(r.id)]; if (arr) r.stage_log = arr; }
+          }
+        } catch { /* 진행상태 이력 테이블 없음 — 무시 */ }
         // 중복 고객 감지: 같은 연락처가 '다른 전시장' 계약에도 있으면 요약(전시장·담당자·날짜) 첨부
         const phoneMap = {};
         for (const r of rows) {
@@ -312,6 +335,7 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
         const { data: inserted, error } = await supa.from(TABLE).insert(row).select().single();
         if (error) throw error;
         await logEvent(supa, auth, { kind: 'activity', type: 'create', contract: data, contractId: inserted.id, detail: '계약 생성' });
+        await logStage(supa, auth, inserted.id, data.stage); // 최초 진행상태 기록
         return json({ id: inserted.id, contract_no: inserted.contract_no, ...inserted, data: inserted.data }, 201);
       }
       return json({ error: '허용되지 않은 메서드입니다.' }, 405);
@@ -364,6 +388,7 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
       else if (wasDeleted && !nowDeleted) { actType = 'restore'; actDetail = '휴지통에서 복원'; }
       else if (!wasConfirmed && nowConfirmed) { actType = 'confirm'; actDetail = '계약서 확정(봉인)'; }
       await logEvent(supa, auth, { kind: 'activity', type: actType, contract: data, contractId: id, detail: actDetail });
+      if (existing.data?.stage !== data.stage) await logStage(supa, auth, id, data.stage); // 진행상태 바뀌면 이력 기록
       return json({ id: updated.id, contract_no: updated.contract_no, ...updated, data: updated.data });
     }
 
@@ -507,6 +532,23 @@ export default async (req, context) => {
     }
   }
 
+  // 진행상태 변경 이력 삭제 (관리자 전용)
+  if (path === '/api/stage-log-delete') {
+    if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
+    if (auth.enabled && !auth.isAdmin) return json({ error: '관리자만 삭제할 수 있습니다.' }, 403);
+    if (req.method !== 'POST') return json({ error: '허용되지 않은 메서드입니다.' }, 405);
+    const body = await req.json().catch(() => null);
+    const logId = Number(body?.id);
+    if (!Number.isFinite(logId) || logId <= 0) return json({ error: '이력 id가 필요합니다.' }, 400);
+    try {
+      const { error } = await supa.from(STAGE_LOG_TABLE).delete().eq('id', logId);
+      if (error) throw error;
+      return json({ ok: true, id: logId });
+    } catch (err) {
+      return json({ error: '이력 삭제 실패', detail: String(err?.message || err) }, 500);
+    }
+  }
+
   // 활동/로그인 기록 조회 (관리자 전용). ?kind=activity|login, ?from=YYYY-MM-DD&to=YYYY-MM-DD
   if (path === '/api/activity') {
     if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
@@ -602,5 +644,5 @@ export default async (req, context) => {
 };
 
 export const config = {
-  path: ['/api/config', '/api/me', '/api/salespeople', '/api/login-log', '/api/design-status', '/api/design-team', '/api/design-assignee', '/api/design-log-delete', '/api/activity', '/api/employees', '/api/contracts', '/api/contracts/:id'],
+  path: ['/api/config', '/api/me', '/api/salespeople', '/api/login-log', '/api/design-status', '/api/design-team', '/api/design-assignee', '/api/design-log-delete', '/api/stage-log-delete', '/api/activity', '/api/employees', '/api/contracts', '/api/contracts/:id'],
 };

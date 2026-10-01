@@ -59,3 +59,16 @@ create table if not exists public.design_progress (
 );
 
 alter table public.design_progress enable row level security;
+
+-- ─────────────────────────────────────────────────────────────
+-- 진행상태 변경 이력 (계약 목록 진행상태 아래 '누가·언제 → 상태' 누적 표시용)
+-- 환경변수 SUPABASE_STAGE_LOG_TABLE 로 이름 변경 가능, 미설정 시 아래 이름 사용.
+create table if not exists public.econtract_stage_log (
+  id          bigint generated always as identity primary key,
+  contract_id bigint,                 -- econtracts.id
+  stage       text,                   -- 진행상태 키(negotiating/completed 등)
+  changed_by  text,
+  changed_at  timestamptz not null default now()
+);
+create index if not exists econtract_stage_log_cid_idx on public.econtract_stage_log (contract_id, changed_at desc);
+alter table public.econtract_stage_log enable row level security;

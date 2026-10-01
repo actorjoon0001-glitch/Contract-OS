@@ -147,6 +147,8 @@ input.f.manage { min-width: 130px; font-weight: 600; }
 .design-log-txt { white-space: nowrap; }
 .design-log-del { border: 0; background: none; color: #c2c7cd; cursor: pointer; font-size: 10px; padding: 0 3px; border-radius: 4px; flex: none; }
 .design-log-del:hover { color: #b5352a; background: #fde8e6; }
+.stage-log-del { border: 0; background: none; color: #c2c7cd; cursor: pointer; font-size: 10px; padding: 0 3px; border-radius: 4px; flex: none; }
+.stage-log-del:hover { color: #b5352a; background: #fde8e6; }
 /* 필수 입력 표시 */
 .req { color: #d6342c; font-weight: 700; }
 /* 새 계약 모델 선택 화면 */
