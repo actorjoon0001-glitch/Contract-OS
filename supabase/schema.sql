@@ -46,12 +46,14 @@ create index if not exists econtract_activity_log_at_idx on public.econtract_act
 alter table public.econtract_activity_log enable row level security;
 
 -- ─────────────────────────────────────────────────────────────
--- 설계 진행 상태 공유 테이블 (전자계약서 목록 ↔ 설계OS 연동, 계약번호 기준)
--- 환경변수 SUPABASE_DESIGN_TABLE 로 이름을 바꿀 수 있으며, 미설정 시 아래 이름을 사용합니다.
--- 설계OS도 이 테이블의 같은 행(contract_no)을 읽고/쓰면 양쪽 상태가 함께 바뀝니다.
+-- 설계 진행 상태: 설계OS(SEUM-Plan-OS)가 관리하는 design_assignees 테이블을 그대로 공유합니다.
+-- 전자계약서 목록의 '설계진행' 드롭박스는 이 테이블을 읽고/씁니다.
+--   design_assignees(source='econtract', ref_id=econtracts.id, design_status) 기준.
+-- 이 테이블은 설계OS가 생성·관리하므로 여기서 따로 만들 필요가 없습니다.
+-- (아래 design_progress 는 초기 버전에서 쓰던 것으로 현재는 사용하지 않습니다. 남겨도 무방.)
 create table if not exists public.design_progress (
-  contract_no text primary key,     -- 계약번호 (연동 키)
-  status      text,                 -- 미착수 | 영업팀협의 | 도면작업 | 건축사전달 | 본부장검토 | 완료 | 보류
+  contract_no text primary key,     -- (미사용) 구버전 계약번호 기준 설계상태
+  status      text,
   updated_at  timestamptz not null default now(),
   updated_by  text
 );
