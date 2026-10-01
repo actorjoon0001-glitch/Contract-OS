@@ -205,6 +205,20 @@ function designLogHtml(r) {
   }).join('');
   return `<div class="design-log">${rows}</div>`;
 }
+// 진행상태 변경 이력 HTML (누가·언제 → 진행상태, 관리자는 ✕ 삭제)
+function stageLogHtml(r) {
+  const log = r.stage_log || [];
+  if (!log.length) return '';
+  const admin = canManageList();
+  const rows = log.map((e) => {
+    const who = esc(e.changed_by || '?');
+    const when = e.changed_at ? ` · ${esc(fmtLogWhen(e.changed_at))}` : '';
+    const st = e.stage ? ` → ${esc(stageLabel(e.stage))}` : '';
+    const del = admin ? `<button type="button" class="stage-log-del" data-log-id="${esc(String(e.id))}" title="이 기록 삭제 (관리자)">✕</button>` : '';
+    return `<span class="design-log-row"><span class="design-log-txt">${who}${when}${st}</span>${del}</span>`;
+  }).join('');
+  return `<div class="design-log">${rows}</div>`;
+}
 function designSelect(r) {
   // 설계OS로는 '계약완료' 이후 건만 넘어가므로, 설계진행은 계약완료(및 이후 단계) 건만 표시
   if (!CONTRACTED_STAGES.has(stageOf(r))) return '<span class="muted small">—</span>';
@@ -759,7 +773,7 @@ function renderListRows(rows) {
         ? '<span class="badge">샘플</span>'
         : `<select class="row-stage stage-${stageOf(r)}" data-stage-id="${r.id}" title="진행상태 변경">
             ${STAGES.filter((s) => !s.hidden || s.key === stageOf(r)).map((s) => `<option value="${s.key}" ${stageOf(r) === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
-          </select>${r.status === 'confirmed' ? ' <span class="lock" title="확정·봉인됨">🔒</span>' : ''}`}</td>
+          </select>${r.status === 'confirmed' ? ' <span class="lock" title="확정·봉인됨">🔒</span>' : ''}${stageLogHtml(r)}`}</td>
       <td>${r.is_sample ? '' : (r.approval_at
         ? `<button class="row-approve approved" data-approve-id="${r.id}" title="${esc(fmtSignDate(r.approval_at))} 승인됨 · 다시 서명">✅ 승인됨</button>`
         : `<button class="row-approve" data-approve-id="${r.id}" title="대표이사 승인 전자서명">✎ 승인</button>`)}</td>
@@ -883,6 +897,24 @@ function renderListRows(rows) {
       }
     };
   });
+  // 진행상태 변경 이력 삭제(관리자만): ✕
+  body.querySelectorAll('.stage-log-del').forEach((btn) => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const logId = btn.dataset.logId;
+      if (!logId) return;
+      if (!confirm('이 변경 기록을 삭제할까요?')) return;
+      btn.disabled = true;
+      try {
+        await api.deleteStageLog(logId);
+        for (const r of listRows) if (Array.isArray(r.stage_log)) r.stage_log = r.stage_log.filter((x) => String(x.id) !== String(logId));
+        applyListFilters();
+      } catch (err) {
+        alert('이력 삭제 실패: ' + err.message);
+        btn.disabled = false;
+      }
+    };
+  });
   // 설계 담당: 설계OS와 공유테이블로 연동(계약 id 기준). 목록에서 바로 변경
   body.querySelectorAll('.row-assignee').forEach((sel) => {
     sel.onclick = (e) => e.stopPropagation();
@@ -964,7 +996,7 @@ function renderListRows(rows) {
             if (deposit) { cached.deposit_amount = deposit.amount || null; cached.deposit_date = deposit.date || null; }
             if (clearDeposit) { cached.deposit_date = null; cached.deposit_amount = null; }
           }
-          if (deposit || clearDeposit) applyListFilters(); // 계약금·날짜 표시 즉시 갱신
+          await loadList(); // 진행상태 변경 이력(누가·언제)까지 최신으로 다시 표시
         } catch (err) {
           alert('진행상태 변경 실패: ' + err.message);
           loadList();
