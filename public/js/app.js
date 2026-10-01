@@ -183,13 +183,36 @@ function designAssigneeSelect(r) {
   if (cur && !designTeam.includes(cur)) opts.push(`<option value="${esc(cur)}" selected>${esc(cur)}</option>`); // 명단에 없는 기존 값 보존
   return `<select class="row-assignee" data-assignee-id="${esc(String(r.id))}" title="설계 담당 (설계OS와 연동)">${opts.join('')}</select>`;
 }
+// 설계 상태 변경 이력 시각 (MM/DD HH:mm)
+function fmtLogWhen(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+// 설계 상태 변경 이력 HTML (누가·언제 → 상태, 관리자는 ✕ 삭제)
+function designLogHtml(r) {
+  const log = r.design_log || [];
+  if (!log.length) return '';
+  const admin = canManageList();
+  const rows = log.map((e) => {
+    const who = esc(e.changed_by || '?');
+    const when = e.changed_at ? ` · ${esc(fmtLogWhen(e.changed_at))}` : '';
+    const st = e.status ? ` → ${esc(e.status)}` : '';
+    const del = admin ? `<button type="button" class="design-log-del" data-log-id="${esc(String(e.id))}" title="이 기록 삭제 (관리자)">✕</button>` : '';
+    return `<span class="design-log-row"><span class="design-log-txt">${who}${when}${st}</span>${del}</span>`;
+  }).join('');
+  return `<div class="design-log">${rows}</div>`;
+}
 function designSelect(r) {
   // 설계OS로는 '계약완료' 이후 건만 넘어가므로, 설계진행은 계약완료(및 이후 단계) 건만 표시
   if (!CONTRACTED_STAGES.has(stageOf(r))) return '<span class="muted small">—</span>';
   const cur = r.design_status || '미착수';
   return `<select class="row-design design-${esc(cur)}" data-design-id="${esc(String(r.id))}" title="설계 진행 상태 (설계OS와 연동)">`
     + DESIGN_STATES.map((s) => `<option value="${esc(s)}" ${cur === s ? 'selected' : ''}>${esc(s)}</option>`).join('')
-    + `</select>`;
+    + `</select>`
+    + designLogHtml(r);
 }
 
 async function renderList() {
@@ -835,11 +858,28 @@ function renderListRows(rows) {
         await api.setDesignStatus(id, val);
         const cached = listRows.find((r) => String(r.id) === String(id));
         if (cached) cached.design_status = val;
-        sel.className = `row-design design-${val}`;
+        await loadList(); // 변경 이력(누가·언제)까지 최신 상태로 다시 표시
       } catch (err) {
         alert('설계 진행 상태 저장 실패: ' + err.message);
-      } finally {
         sel.disabled = false;
+      }
+    };
+  });
+  // 설계 상태 변경 이력 삭제(관리자만): ✕
+  body.querySelectorAll('.design-log-del').forEach((btn) => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const logId = btn.dataset.logId;
+      if (!logId) return;
+      if (!confirm('이 변경 기록을 삭제할까요?')) return;
+      btn.disabled = true;
+      try {
+        await api.deleteDesignLog(logId);
+        for (const r of listRows) if (Array.isArray(r.design_log)) r.design_log = r.design_log.filter((x) => String(x.id) !== String(logId));
+        applyListFilters();
+      } catch (err) {
+        alert('이력 삭제 실패: ' + err.message);
+        btn.disabled = false;
       }
     };
   });

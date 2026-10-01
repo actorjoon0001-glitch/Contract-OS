@@ -264,6 +264,15 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
             }
           }
         } catch { /* 공유 테이블 없거나 조회 실패 — 설계상태 없이 진행 */ }
+        // 설계 상태 변경 이력 첨부 (design_status_log) — 누가·언제·→상태
+        try {
+          const { data: lg } = await supa.from(DESIGN_LOG_TABLE).select('id, ref_id, status, changed_by, changed_at').eq('source', DESIGN_SOURCE).order('changed_at', { ascending: false }).limit(2000);
+          if (lg && lg.length) {
+            const lmap = {};
+            for (const e of lg) (lmap[String(e.ref_id)] = lmap[String(e.ref_id)] || []).push(e);
+            for (const r of rows) { const arr = lmap[String(r.id)]; if (arr) r.design_log = arr; }
+          }
+        } catch { /* 이력 테이블 없음 — 무시 */ }
         // 중복 고객 감지: 같은 연락처가 '다른 전시장' 계약에도 있으면 요약(전시장·담당자·날짜) 첨부
         const phoneMap = {};
         for (const r of rows) {
@@ -481,6 +490,23 @@ export default async (req, context) => {
     }
   }
 
+  // 설계 상태 변경 이력 삭제 (관리자 전용) — 설계OS와 동일하게 관리자만 삭제 가능
+  if (path === '/api/design-log-delete') {
+    if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
+    if (auth.enabled && !auth.isAdmin) return json({ error: '관리자만 삭제할 수 있습니다.' }, 403);
+    if (req.method !== 'POST') return json({ error: '허용되지 않은 메서드입니다.' }, 405);
+    const body = await req.json().catch(() => null);
+    const logId = Number(body?.id);
+    if (!Number.isFinite(logId) || logId <= 0) return json({ error: '이력 id가 필요합니다.' }, 400);
+    try {
+      const { error } = await supa.from(DESIGN_LOG_TABLE).delete().eq('id', logId);
+      if (error) throw error;
+      return json({ ok: true, id: logId });
+    } catch (err) {
+      return json({ error: '이력 삭제 실패', detail: String(err?.message || err) }, 500);
+    }
+  }
+
   // 활동/로그인 기록 조회 (관리자 전용). ?kind=activity|login, ?from=YYYY-MM-DD&to=YYYY-MM-DD
   if (path === '/api/activity') {
     if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
@@ -576,5 +602,5 @@ export default async (req, context) => {
 };
 
 export const config = {
-  path: ['/api/config', '/api/me', '/api/salespeople', '/api/login-log', '/api/design-status', '/api/design-team', '/api/design-assignee', '/api/activity', '/api/employees', '/api/contracts', '/api/contracts/:id'],
+  path: ['/api/config', '/api/me', '/api/salespeople', '/api/login-log', '/api/design-status', '/api/design-team', '/api/design-assignee', '/api/design-log-delete', '/api/activity', '/api/employees', '/api/contracts', '/api/contracts/:id'],
 };
