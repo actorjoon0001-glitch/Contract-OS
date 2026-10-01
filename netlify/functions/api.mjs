@@ -252,13 +252,16 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
             if (eff) r.showroom = eff;
           }
         }
-        // 설계 진행 상태 첨부 (설계OS와 공유하는 design_assignees, source='econtract', ref_id=계약 id)
+        // 설계 진행 상태·담당 첨부 (설계OS와 공유하는 design_assignees, source='econtract', ref_id=계약 id)
         try {
-          const { data: dp } = await supa.from(DESIGN_TABLE).select('ref_id, design_status').eq('source', DESIGN_SOURCE);
+          const { data: dp } = await supa.from(DESIGN_TABLE).select('ref_id, design_status, assignee').eq('source', DESIGN_SOURCE);
           if (dp && dp.length) {
             const dmap = {};
-            for (const d of dp) dmap[String(d.ref_id)] = d.design_status;
-            for (const r of rows) { const s = dmap[String(r.id)]; if (s) r.design_status = s; }
+            for (const d of dp) dmap[String(d.ref_id)] = d;
+            for (const r of rows) {
+              const d = dmap[String(r.id)];
+              if (d) { if (d.design_status) r.design_status = d.design_status; if (d.assignee) r.design_assignee = d.assignee; }
+            }
           }
         } catch { /* 공유 테이블 없거나 조회 실패 — 설계상태 없이 진행 */ }
         // 중복 고객 감지: 같은 연락처가 '다른 전시장' 계약에도 있으면 요약(전시장·담당자·날짜) 첨부
@@ -445,6 +448,39 @@ export default async (req, context) => {
     }
   }
 
+  // 설계팀 명단 (설계담당 드롭다운용) — employees.team 에 '설계' 포함. 로그인한 직원 누구나.
+  if (path === '/api/design-team') {
+    if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
+    try {
+      const { data, error } = await supa.from('employees').select('name, team').ilike('team', '%설계%').order('name');
+      if (error) throw error;
+      const names = [...new Set((data || []).map((e) => String(e.name || '').trim()).filter(Boolean))];
+      return json(names);
+    } catch {
+      return json([]); // team 컬럼 없거나 실패 시 빈 목록(미지정만)
+    }
+  }
+
+  // 설계 담당 저장 (설계OS와 공유하는 design_assignees 에 upsert, 계약 id 기준). 로그인한 직원 누구나.
+  if (path === '/api/design-assignee') {
+    if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
+    if (req.method !== 'POST') return json({ error: '허용되지 않은 메서드입니다.' }, 405);
+    const body = await req.json().catch(() => null);
+    const refId = Number(body?.ref_id ?? body?.id);
+    const assignee = String(body?.assignee || '').trim();
+    if (!Number.isFinite(refId) || refId <= 0) return json({ error: '계약 id가 필요합니다.' }, 400);
+    try {
+      const { error } = await supa.from(DESIGN_TABLE).upsert(
+        { source: DESIGN_SOURCE, ref_id: refId, assignee: assignee || null },
+        { onConflict: 'source,ref_id' }
+      );
+      if (error) throw error;
+      return json({ ok: true, ref_id: refId, assignee });
+    } catch (err) {
+      return json({ error: '설계 담당 저장 실패 (공유 테이블 design_assignees 필요)', detail: String(err?.message || err) }, 500);
+    }
+  }
+
   // 활동/로그인 기록 조회 (관리자 전용). ?kind=activity|login, ?from=YYYY-MM-DD&to=YYYY-MM-DD
   if (path === '/api/activity') {
     if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
@@ -540,5 +576,5 @@ export default async (req, context) => {
 };
 
 export const config = {
-  path: ['/api/config', '/api/me', '/api/salespeople', '/api/login-log', '/api/design-status', '/api/activity', '/api/employees', '/api/contracts', '/api/contracts/:id'],
+  path: ['/api/config', '/api/me', '/api/salespeople', '/api/login-log', '/api/design-status', '/api/design-team', '/api/design-assignee', '/api/activity', '/api/employees', '/api/contracts', '/api/contracts/:id'],
 };
