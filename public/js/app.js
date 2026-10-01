@@ -177,7 +177,7 @@ function designSelect(r) {
   // 설계OS로는 '계약완료' 이후 건만 넘어가므로, 설계진행은 계약완료(및 이후 단계) 건만 표시
   if (!CONTRACTED_STAGES.has(stageOf(r))) return '<span class="muted small">—</span>';
   const cur = r.design_status || '미착수';
-  return `<select class="row-design design-${esc(cur)}" data-design-no="${esc(r.contract_no || '')}" title="설계 진행 상태 (설계OS와 연동)">`
+  return `<select class="row-design design-${esc(cur)}" data-design-id="${esc(String(r.id))}" title="설계 진행 상태 (설계OS와 연동)">`
     + DESIGN_STATES.map((s) => `<option value="${esc(s)}" ${cur === s ? 'selected' : ''}>${esc(s)}</option>`).join('')
     + `</select>`;
 }
@@ -812,13 +812,13 @@ function renderListRows(rows) {
     sel.onclick = (e) => e.stopPropagation();
     sel.onchange = async (e) => {
       e.stopPropagation();
-      const no = sel.dataset.designNo;
+      const id = sel.dataset.designId;
       const val = sel.value;
-      if (!no) { alert('계약번호가 없어 설계 상태를 저장할 수 없습니다.'); return; }
+      if (!id) { alert('계약 id가 없어 설계 상태를 저장할 수 없습니다.'); return; }
       sel.disabled = true;
       try {
-        await api.setDesignStatus(no, val);
-        const cached = listRows.find((r) => r.contract_no === no);
+        await api.setDesignStatus(id, val);
+        const cached = listRows.find((r) => String(r.id) === String(id));
         if (cached) cached.design_status = val;
         sel.className = `row-design design-${val}`;
       } catch (err) {

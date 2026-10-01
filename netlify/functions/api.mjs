@@ -15,7 +15,11 @@ const TABLE = process.env.SUPABASE_TABLE || 'contracts';
 // 활동/로그인 기록 테이블 (세움os와 충돌 피하려 econtract_ 접두어). 미설정 시 기본값.
 const LOG_TABLE = process.env.SUPABASE_LOG_TABLE || 'econtract_activity_log';
 // 설계 진행 상태 공유 테이블 (설계OS와 계약번호 기준으로 공유). 미설정 시 기본값.
-const DESIGN_TABLE = process.env.SUPABASE_DESIGN_TABLE || 'design_progress';
+// 설계 진행 상태: 설계OS(SEUM-Plan-OS)와 공유하는 테이블. 계약 id(ref_id) 기준.
+// 설계OS가 design_assignees(source='econtract', ref_id=econtracts.id, design_status)에 저장하므로 동일하게 연동.
+const DESIGN_TABLE = process.env.SUPABASE_DESIGN_TABLE || 'design_assignees';
+const DESIGN_LOG_TABLE = process.env.SUPABASE_DESIGN_LOG_TABLE || 'design_status_log';
+const DESIGN_SOURCE = 'econtract';
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -248,13 +252,13 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
             if (eff) r.showroom = eff;
           }
         }
-        // 설계 진행 상태 첨부 (설계OS와 공유하는 design_progress 테이블, 계약번호 기준)
+        // 설계 진행 상태 첨부 (설계OS와 공유하는 design_assignees, source='econtract', ref_id=계약 id)
         try {
-          const { data: dp } = await supa.from(DESIGN_TABLE).select('contract_no, status');
+          const { data: dp } = await supa.from(DESIGN_TABLE).select('ref_id, design_status').eq('source', DESIGN_SOURCE);
           if (dp && dp.length) {
             const dmap = {};
-            for (const d of dp) dmap[d.contract_no] = d.status;
-            for (const r of rows) if (dmap[r.contract_no]) r.design_status = dmap[r.contract_no];
+            for (const d of dp) dmap[String(d.ref_id)] = d.design_status;
+            for (const r of rows) { const s = dmap[String(r.id)]; if (s) r.design_status = s; }
           }
         } catch { /* 공유 테이블 없거나 조회 실패 — 설계상태 없이 진행 */ }
         // 중복 고객 감지: 같은 연락처가 '다른 전시장' 계약에도 있으면 요약(전시장·담당자·날짜) 첨부
@@ -417,25 +421,27 @@ export default async (req, context) => {
     return json({ ok: true });
   }
 
-  // 설계 진행 상태 저장 (설계OS와 공유하는 design_progress 테이블에 upsert). 로그인한 직원 누구나.
+  // 설계 진행 상태 저장 (설계OS와 공유하는 design_assignees 에 upsert, 계약 id 기준). 로그인한 직원 누구나.
   if (path === '/api/design-status') {
     if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
     if (req.method !== 'POST') return json({ error: '허용되지 않은 메서드입니다.' }, 405);
     const body = await req.json().catch(() => null);
-    const contractNo = String(body?.contract_no || '').trim();
+    const refId = Number(body?.ref_id ?? body?.id);
     const status = String(body?.status || '').trim();
-    if (!contractNo) return json({ error: '계약번호가 필요합니다.' }, 400);
+    if (!Number.isFinite(refId) || refId <= 0) return json({ error: '계약 id가 필요합니다.' }, 400);
+    const who = auth?.user?.name || auth?.user?.email || '';
     try {
-      const { error } = await supa.from(DESIGN_TABLE).upsert({
-        contract_no: contractNo,
-        status,
-        updated_at: new Date().toISOString(),
-        updated_by: auth?.user?.name || auth?.user?.email || '',
-      }, { onConflict: 'contract_no' });
+      // 1) 현재 상태 저장 (설계OS DesignStatusCell 과 동일: 같은 행의 담당자·메모는 보존)
+      const { error } = await supa.from(DESIGN_TABLE).upsert(
+        { source: DESIGN_SOURCE, ref_id: refId, design_status: status },
+        { onConflict: 'source,ref_id' }
+      );
       if (error) throw error;
-      return json({ ok: true, contract_no: contractNo, status });
+      // 2) 변경 이력 누적 (테이블 없으면 무시) — 설계OS와 이력 공유
+      try { await supa.from(DESIGN_LOG_TABLE).insert({ source: DESIGN_SOURCE, ref_id: refId, status, changed_by: who || null }); } catch { /* 이력 테이블 없음 — 무시 */ }
+      return json({ ok: true, ref_id: refId, status });
     } catch (err) {
-      return json({ error: '설계 진행 상태 저장 실패 (공유 테이블 design_progress 필요)', detail: String(err?.message || err) }, 500);
+      return json({ error: '설계 진행 상태 저장 실패 (공유 테이블 design_assignees 필요)', detail: String(err?.message || err) }, 500);
     }
   }
 
