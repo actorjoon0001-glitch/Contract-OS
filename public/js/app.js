@@ -194,6 +194,11 @@ async function renderList() {
         </span>
         <select id="filter-showroom" class="filter-sel"><option value="">전시장 전체</option></select>
         <select id="filter-sales" class="filter-sel"><option value="">영업사원 전체</option></select>
+        <select id="filter-permit" class="filter-sel" title="인허가 구분으로 조회">
+          <option value="">인허가 전체</option>
+          <option value="permit">주택(준공용 인허가)</option>
+          <option value="temporary">가설축조신고</option>
+        </select>
         <button class="btn" id="list-print-btn" title="현재 목록 인쇄 / PDF">🖨 인쇄</button>
         <button class="btn" id="trash-btn" title="삭제된 계약 보기/복원">🗑 휴지통</button>
         <button class="btn primary" id="new-btn">+ 새 계약서</button>
@@ -230,6 +235,7 @@ async function renderList() {
   document.getElementById('filter-date-clear').onclick = () => { setDateRange('', ''); applyListFilters(); };
   document.getElementById('filter-showroom').onchange = applyListFilters;
   document.getElementById('filter-sales').onchange = applyListFilters;
+  document.getElementById('filter-permit').onchange = applyListFilters;
   loadList();
 }
 
@@ -331,6 +337,7 @@ function applyListFilters() {
   const mo = document.getElementById('filter-month')?.value || '';
   const sr = document.getElementById('filter-showroom').value;
   const sp = document.getElementById('filter-sales').value;
+  const pm = document.getElementById('filter-permit')?.value || '';
   const from = document.getElementById('filter-from')?.value || '';
   const to = document.getElementById('filter-to')?.value || '';
   let rows = listRows;
@@ -343,6 +350,7 @@ function applyListFilters() {
   }
   if (sr) rows = rows.filter((r) => admShowroom(r.showroom) === sr); // 전시장 정규화 후 비교
   if (sp) rows = rows.filter((r) => String(r.salesperson || '').split(/[,\/]/).map((n) => n.trim()).includes(sp)); // 공동 계약도 포함
+  if (pm) rows = rows.filter((r) => (r.permit_type || '') === pm); // 인허가 구분 필터
   if (q) {
     const qDigits = q.replace(/\D/g, ''); // 연락처 뒷번호 검색용 (숫자만)
     rows = rows.filter((r) => {
@@ -372,6 +380,7 @@ function printList() {
   if (selText('filter-stage')) parts.push(selText('filter-stage'));
   if (selText('filter-showroom')) parts.push(selText('filter-showroom'));
   if (selText('filter-sales')) parts.push(selText('filter-sales'));
+  if (selText('filter-permit')) parts.push(selText('filter-permit'));
   if (q) parts.push(`검색 "${q}"`);
   const now = new Date();
   const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
