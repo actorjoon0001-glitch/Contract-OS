@@ -174,6 +174,8 @@ const listCols = () => (canManageList() ? 17 : 16); // 관리자면 '담당자' 
 // 설계 진행 상태 (설계OS와 공유테이블로 연동) — 순서 = 진행 단계
 const DESIGN_STATES = ['미착수', '영업팀협의', '도면작업', '건축사전달', '본부장검토', '완료', '보류'];
 function designSelect(r) {
+  // 설계OS로는 '계약완료' 이후 건만 넘어가므로, 설계진행은 계약완료(및 이후 단계) 건만 표시
+  if (!CONTRACTED_STAGES.has(stageOf(r))) return '<span class="muted small">—</span>';
   const cur = r.design_status || '미착수';
   return `<select class="row-design design-${esc(cur)}" data-design-no="${esc(r.contract_no || '')}" title="설계 진행 상태 (설계OS와 연동)">`
     + DESIGN_STATES.map((s) => `<option value="${esc(s)}" ${cur === s ? 'selected' : ''}>${esc(s)}</option>`).join('')
