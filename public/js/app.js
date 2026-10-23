@@ -774,7 +774,7 @@ function renderListRows(rows) {
         ? '<span class="badge">샘플</span>'
         : `<select class="row-stage stage-${stageOf(r)}" data-stage-id="${r.id}" title="진행상태 변경">
             ${STAGES.filter((s) => !s.hidden || s.key === stageOf(r)).map((s) => `<option value="${s.key}" ${stageOf(r) === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
-          </select>${r.status === 'confirmed' ? ' <span class="lock" title="확정·봉인됨">🔒</span>' : ''}${stageLogHtml(r)}`}</td>
+          </select>${(r.status === 'confirmed' || CONTRACTED_STAGES.has(stageOf(r))) ? ' <span class="lock" title="계약완료 — 수정 잠금(대표이사 서명 후 수정 가능)">🔒</span>' : ''}${stageLogHtml(r)}`}</td>
       <td>${r.is_sample ? '' : (r.approval_at
         ? `<button class="row-approve approved" data-approve-id="${r.id}" title="${esc(fmtSignDate(r.approval_at))} 승인됨 · 다시 서명">✅ 승인됨</button>`
         : `<button class="row-approve" data-approve-id="${r.id}" title="대표이사 승인 전자서명">✎ 승인</button>`)}</td>
@@ -1691,8 +1691,8 @@ function renderEditor() {
             ? '<span class="unlock-badge" title="대표 서명으로 수정 모드입니다. 저장하면 다시 봉인됩니다.">🔓 수정 모드 (대표 서명됨)</span>'
             : editorLocked
               ? (canManageList()
-                  ? '<button type="button" class="btn warn" id="edit-unlock-btn" title="마스터·관리자 권한 계정의 전자서명 후 수정할 수 있습니다">🔓 수정(관리자 서명)</button>'
-                  : '<span class="lock-badge" title="계약완료 확정 건 — 마스터·관리자 승인 후에만 수정 가능합니다">🔒 확정됨</span>')
+                  ? '<button type="button" class="btn warn" id="edit-unlock-btn" title="대표이사 전자서명 후 수정할 수 있습니다 (마스터·관리자 권한 계정)">🔓 수정(대표이사 서명)</button>'
+                  : '<span class="lock-badge" title="계약완료 확정 건 — 대표이사 서명 후에만 수정 가능합니다">🔒 확정됨</span>')
               : (canManageList() ? `<label class="status-toggle"><input type="checkbox" id="status-confirmed" ${c.status === 'confirmed' ? 'checked' : ''}/> 확정</label>` : '')}
         <button class="btn" id="print-btn">🖨 인쇄</button>
         <button class="btn" id="pdf-btn" title="PDF 파일로 저장 (저장 대화상자에서 'PDF로 저장' 선택)">📄 PDF 저장</button>
