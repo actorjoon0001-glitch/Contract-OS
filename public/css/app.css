@@ -48,6 +48,11 @@ html, body {
 .btn.danger { color: var(--danger); border-color: #e3b4ae; }
 .btn.tiny { padding: 3px 9px; font-size: 12px; }
 .status-toggle { font-size: 13px; color: #444; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+/* 계약완료 확정 건 수정 잠금 안내 배너 */
+.locked-notice { width: 1000px; max-width: 96%; margin: 10px auto -2px; background: #fff7e6; border: 1px solid #f0d9a8; border-radius: 10px; padding: 12px 16px; }
+.locked-notice .ln-title { font-size: 14px; font-weight: 800; color: #9a5a00; }
+.locked-notice .ln-body { margin-top: 4px; font-size: 13px; color: #6b4e13; line-height: 1.55; }
+.history-guide { margin: 2px 0 10px; }
 .btn.warn { background: #fff4e5; border-color: #f0c98a; color: #9a5a00; font-weight: 700; }
 .btn.warn:hover { background: #ffe9cc; border-color: #e0a95a; }
 .lock-badge { font-size: 12.5px; font-weight: 700; color: #b5352a; background: #fde8e6; border: 1px solid #f3c4bf; border-radius: 20px; padding: 4px 11px; }

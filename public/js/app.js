@@ -1721,6 +1721,14 @@ function renderEditor() {
       <span class="mb-hint muted small">※ 목록 분류·검색용 (계약서 인쇄에는 표시 안 됨) · <b>전시장·영업사원·현장주소·인허가 구분은 필수</b></span>
     </div>
 
+    ${editorLocked ? `
+    <div class="locked-notice no-print">
+      <div class="ln-title">🔒 계약금을 수령한 계약완료 계약서입니다.</div>
+      <div class="ln-body">${canManageList()
+        ? `원본 계약서는 되도록 수정하지 마시고, 추가금·변경사항은 아래 <b>‘추가 사항·변경 이력’</b>에 기록해 주세요. 꼭 수정해야 한다면 상단 <b>‘🔓 수정(대표이사 서명)’</b>으로 진행하세요.`
+        : `<b>대표이사만 수정할 수 있습니다. 대표님과 상의 후 진행 바랍니다.</b><br>추가금·변경사항은 아래 <b>‘추가 사항·변경 이력’</b>에 기록해 주세요. (신분증·협의도면 첨부는 계속 가능합니다)`}</div>
+    </div>` : ''}
+
     <div class="idcard-bar no-print">
       <div class="ic-head">
         <span class="mb-title">신분증 · 사업자등록증 첨부</span>
@@ -1818,6 +1826,7 @@ function renderEditor() {
     ${currentId ? `
     <div class="history-sec no-print">
       <div class="history-head">📌 추가 사항 · 변경 이력 <span class="muted small">(원본 계약서와 별개 · 인쇄 안 됨)</span></div>
+      <p class="history-guide muted small">원본 계약서는 되도록 수정하지 마시고, 추가금·설계/시공 변경 등은 아래에 기록해 주세요.</p>
       <div id="history-list" class="history-list"></div>
       <div class="history-add">
         <div class="hist-row">
