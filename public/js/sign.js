@@ -1,7 +1,7 @@
 // 전자 서명 패드 - 캔버스에 마우스/터치/펜으로 서명을 그려 PNG data URL 로 반환
 // 외부 라이브러리 없이 Pointer Events 만 사용 (마우스·터치·스타일러스 모두 지원)
 
-export function openSignaturePad({ title = '전자 서명', initial = '', onSave } = {}) {
+export function openSignaturePad({ title = '전자 서명', initial = '', note = '', onSave } = {}) {
   const overlay = document.createElement('div');
   overlay.className = 'sign-modal-overlay no-print';
   overlay.innerHTML = `
@@ -10,6 +10,7 @@ export function openSignaturePad({ title = '전자 서명', initial = '', onSave
         <h3>${title}</h3>
         <button class="sign-x" type="button" aria-label="닫기">✕</button>
       </div>
+      ${note ? `<p class="sign-note">${note}</p>` : ''}
       <div class="sign-canvas-wrap">
         <canvas class="sign-canvas"></canvas>
         <div class="sign-guide">이 칸에 서명해 주세요</div>

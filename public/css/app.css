@@ -364,6 +364,7 @@ input.f.locked { background: transparent; border-bottom-color: transparent; colo
 .sign-x { border: none; background: none; font-size: 18px; cursor: pointer; color: #888; line-height: 1; }
 .sign-x:hover { color: #222; }
 .sign-canvas-wrap { position: relative; margin: 18px; height: 240px; border: 1px solid #d0d4d9; border-radius: 8px; background: #fcfdff; overflow: hidden; }
+.sign-note { margin: 14px 18px -4px; padding: 10px 14px; background: #fff7e6; border: 1px solid #f0d9a8; border-radius: 8px; color: #8a5a0a; font-size: 13px; line-height: 1.55; font-weight: 600; }
 .sign-canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
 .sign-guide {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;

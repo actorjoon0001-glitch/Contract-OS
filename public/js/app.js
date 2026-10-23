@@ -2932,6 +2932,7 @@ function bindEditor() {
   const unlockBtn = document.getElementById('edit-unlock-btn');
   if (unlockBtn) unlockBtn.onclick = () => openSignaturePad({
     title: '대표이사 전자서명 — 계약서 수정 승인',
+    note: '계약금을 수령한 계약완료 계약서는 대표이사만이 수정할 수 있습니다.<br>대표님과 상의 후 진행 바랍니다.',
     onSave: (dataUrl) => {
       if (!dataUrl) return; // 빈 서명이면 취소
       current.editUnlock = { at: new Date().toISOString(), by: (me?.name || me?.email || '관리자'), image: dataUrl };
