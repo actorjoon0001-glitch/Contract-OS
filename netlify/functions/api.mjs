@@ -254,7 +254,7 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
         const buildListQuery = () => {
           let query = supa
             .from(TABLE)
-            .select('id, contract_no, status, stage:data->>stage, approval_at:data->signatures->approval->>signedAt, deleted_at:data->>deletedAt, id_count:data->>idCount, drawing_count:data->>drawingCount, memo:data->>memo, deposit_date:data->deposit->>date, deposit_amount:data->deposit->>amount, down_payment:data->amounts->>downPayment, permit_type:data->>permitType, model_name:data->>modelName, locked_once:data->>lockedOnce, owner_email:data->>ownerEmail, client_name, client_phone:data->client->>phone, site_address, showroom, salesperson, contract_date, total_amount, updated_at')
+            .select('id, contract_no, status, stage:data->>stage, approval_at:data->signatures->approval->>signedAt, deleted_at:data->>deletedAt, id_count:data->>idCount, drawing_count:data->>drawingCount, memo:data->>memo, deposit_date:data->deposit->>date, deposit_amount:data->deposit->>amount, down_payment:data->amounts->>downPayment, permit_type:data->>permitType, model_name:data->>modelName, locked_once:data->>lockedOnce, owner_email:data->>ownerEmail, history:data->history, client_name, client_phone:data->client->>phone, site_address, showroom, salesperson, contract_date, total_amount, updated_at')
             .order('created_at', { ascending: false })  // 작성(생성) 순 — 최근 계약이 위로 고정(수정해도 안 바뀜)
             .order('contract_no', { ascending: false }); // 동일 시각 대비 결정적 정렬
           query = deleted ? query.not('data->>deletedAt', 'is', null) : query.is('data->>deletedAt', null);
@@ -269,6 +269,16 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
         if (error) { await new Promise((r) => setTimeout(r, 300)); ({ data, error } = await buildListQuery()); }
         if (error) throw error;
         let rows = data || [];
+        // 계약금 추가금(이력)을 목록 계약금에 합산: 이력의 '계약금 추가금'(기존 '추가금') 금액 합계를 deposit_extra 로 첨부.
+        for (const r of rows) {
+          if (Array.isArray(r.history)) {
+            const extra = r.history
+              .filter((h) => h && !h.deleted && (h.kind === '계약금 추가금' || h.kind === '추가금'))
+              .reduce((a, h) => a + num(String(h.amount || '').replace(/[^\d.]/g, '')), 0);
+            if (extra) r.deposit_extra = extra;
+          }
+          delete r.history; // 목록 응답에는 이력 원본을 싣지 않음(용량 절감)
+        }
         // 보조 정보(직원 소속맵·설계배정·설계이력·진행이력)를 병렬로 조회 — 순차 지연/타임아웃 방지.
         // 각각 실패해도 목록은 정상 반환(없으면 해당 표시만 생략).
         const safeData = (p) => p.then((r) => (r && !r.error ? r.data : null)).catch(() => null);
