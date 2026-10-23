@@ -563,6 +563,12 @@ function expectedPayments(a = {}) {
 function bucketReceived(bucket = {}) {
   return (bucket.rounds || []).reduce((s, r) => s + (r.entries || []).reduce((a, e) => a + depNum(e.amount), 0), 0);
 }
+// 이력의 '계약금 추가금'(기존 '추가금') 합계 — 삭제된 항목 제외
+function historyDepositExtra(contract) {
+  return (contract?.history || [])
+    .filter((h) => h && !h.deleted && (h.kind === '계약금 추가금' || h.kind === '추가금'))
+    .reduce((a, h) => a + depNum(h.amount), 0);
+}
 
 // 기존 deposit → 장부(ledger) 구조로 정규화(구버전 {amount,date,method} 자동 이전)
 function toLedger(dep = {}) {
@@ -578,7 +584,8 @@ function toLedger(dep = {}) {
   return out;
 }
 
-function openPaymentDialog({ expected = {}, initial = {}, onSave, onCancel } = {}) {
+function openPaymentDialog({ expected = {}, initial = {}, extra = 0, onSave, onCancel } = {}) {
+  const extraDown = depNum(extra); // 이력의 '계약금 추가금' 합계 (계약금 받음액에 합산)
   const state = toLedger(initial);
   const overlay = document.createElement('div');
   overlay.className = 'sign-modal-overlay no-print';
@@ -608,7 +615,8 @@ function openPaymentDialog({ expected = {}, initial = {}, onSave, onCancel } = {
     body.querySelectorAll('.pay-bucket').forEach((sec, i) => {
       const b = PAY_BUCKETS[i];
       const exp = depNum(expected[b.key]);
-      const got = bucketReceived(state[b.key]);
+      const ex = b.key === 'down' ? extraDown : 0;
+      const got = bucketReceived(state[b.key]) + ex;
       const short = exp > 0 && got < exp;
       const gotEl = sec.querySelector('.pay-got');
       if (gotEl) { gotEl.className = `pay-got ${short ? 'short' : (got > 0 ? 'ok' : '')}`; gotEl.textContent = `받음 ${fmtMan(got) || 0}만${short ? ` · ${fmtMan(exp - got)}만 부족` : ''}`; }
@@ -619,7 +627,8 @@ function openPaymentDialog({ expected = {}, initial = {}, onSave, onCancel } = {
     body.innerHTML = PAY_BUCKETS.map((b) => {
       const bk = state[b.key];
       const exp = depNum(expected[b.key]);
-      const got = bucketReceived(bk);
+      const ex = b.key === 'down' ? extraDown : 0;
+      const got = bucketReceived(bk) + ex;
       const short = exp > 0 && got < exp;
       const roundsHtml = bk.rounds.map((r, ri) => {
         const entries = r.entries.map((e, ei) => `
@@ -649,6 +658,7 @@ function openPaymentDialog({ expected = {}, initial = {}, onSave, onCancel } = {
             ${exp > 0 ? `<span class="pay-exp">계약서 ${fmtMan(exp)}만</span>` : ''}
             <span class="pay-got ${short ? 'short' : (got > 0 ? 'ok' : '')}">받음 ${fmtMan(got) || 0}만${short ? ` · ${fmtMan(exp - got)}만 부족` : ''}</span>
           </div>
+          ${ex ? `<div class="pay-extra-note">↳ 이력 ‘계약금 추가금’ ${fmtMan(ex)}만 포함 (아래 금액 + 추가금)</div>` : ''}
           ${roundsHtml}
           ${bk.rounds.length < 2 ? `<button type="button" class="pay-add-round" data-b="${b.key}">+ 2차 추가</button>` : ''}
         </section>`;
@@ -809,6 +819,7 @@ function renderListRows(rows) {
       openPaymentDialog({
         expected: expectedPayments(rec.data?.amounts),
         initial: rec.data?.deposit || {},
+        extra: historyDepositExtra(rec.data),
         onSave: async (dep) => {
           try {
             const fresh = await api.get(id);
@@ -1025,6 +1036,7 @@ function renderListRows(rows) {
         openPaymentDialog({
           expected: expectedPayments(rec.data?.amounts),
           initial: rec.data?.deposit || {},
+          extra: historyDepositExtra(rec.data),
           onSave: (dep) => applyStage({ deposit: dep }),
           onCancel: () => { sel.value = prevStage; sel.className = `row-stage stage-${prevStage}`; },
         });
@@ -2607,6 +2619,7 @@ function renderDepositInfo() {
   const openEdit = () => openPaymentDialog({
     expected: expectedPayments(current.amounts),
     initial: current.deposit || {},
+    extra: historyDepositExtra(current),
     onSave: (dep) => { current.deposit = dep; renderDepositInfo(); markDirty(); },
   });
   if (d && (downGot > 0 || d.date)) {
@@ -2856,6 +2869,7 @@ function bindEditor() {
       openPaymentDialog({
         expected: expectedPayments(current.amounts),
         initial: current.deposit || {},
+        extra: historyDepositExtra(current),
         onSave: async (dep) => {
           current.deposit = dep;
           current.stage = 'completed';
