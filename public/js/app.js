@@ -725,19 +725,22 @@ function listDateCell(r) {
 function listDepositCell(r) {
   const contracted = CONTRACTED_STAGES.has(stageOf(r)) || !!r.deposit_date;
   if (!contracted) return '<span class="muted small">—</span>';
-  const explicit = String(r.deposit_amount || '').trim();
-  const amt = explicit || String(r.down_payment || '').trim();
-  if (!amt || amt === '0') return '<span class="muted small">—</span>';
-  const shown = fmtMan(amt) || esc(amt);
-  // 실제 받은 계약금(explicit)을 계약서상 계약금(down_payment)과 비교 → 부족/초과 표시
+  const base = depNum(r.deposit_amount);          // 입금창에서 받은 계약금
+  const extra = depNum(r.deposit_extra);          // 이력의 '계약금 추가금' 합계
+  const received = base + extra;                  // 실제 받은 계약금 합계
+  const hasExplicit = base > 0 || extra > 0;
+  const amt = received > 0 ? received : depNum(r.down_payment);
+  if (!amt) return '<span class="muted small">—</span>';
+  const shown = fmtMan(amt) || esc(String(amt));
+  // 실제 받은 계약금(received)을 계약서상 계약금(down_payment)과 비교 → 부족/초과 표시
   const expected = depNum(r.down_payment);
-  const received = depNum(r.deposit_amount);
   let diffTag = '';
-  if (explicit && expected > 0) {
+  if (hasExplicit && expected > 0) {
     if (received < expected) diffTag = ` <span class="dep-short" title="계약서 계약금 ${fmtMan(expected)}만 대비 부족">${fmtMan(expected - received)}만 부족</span>`;
     else if (received > expected) diffTag = ` <span class="dep-over" title="계약서 계약금 ${fmtMan(expected)}만 대비 초과">${fmtMan(received - expected)}만 초과</span>`;
   }
-  return `<button type="button" class="dep-mini dep-btn" data-deposit-id="${r.id}" title="클릭하면 계약금 입금 정보 수정">💰${shown}</button>${diffTag}`;
+  const extraTitle = extra ? ` (입금 ${fmtMan(base)}만 + 추가금 ${fmtMan(extra)}만)` : '';
+  return `<button type="button" class="dep-mini dep-btn" data-deposit-id="${r.id}" title="클릭하면 계약금 입금 정보 수정${extraTitle}">💰${shown}</button>${diffTag}`;
 }
 
 // 인허가 열 — 계약서에서 선택한 인허가 구분 (permit=준공용/인허가, temporary=가설축조신고, 미선택=—)
@@ -2754,7 +2757,7 @@ function renderHistory() {
     <div class="history-item ${h.deleted ? 'deleted' : ''}">
       <div class="history-meta"><b>${esc(fmtSignDate(h.at) || '-')}</b> · 기록: ${esc(h.by || '담당자')}${h.deleted ? ` <span class="history-deltag">삭제됨${h.deletedBy ? ' · ' + esc(h.deletedBy) : ''}</span>` : ''}</div>
       <div class="history-body">
-        ${h.kind ? `<span class="history-kind-tag">${esc(h.kind)}</span>` : ''}
+        ${h.kind ? `<span class="history-kind-tag">${esc(h.kind === '추가금' ? '계약금 추가금' : h.kind)}</span>` : ''}
         ${h.amount ? `<span class="history-amt">💰 ${esc(fmtMan(h.amount))}만원</span>` : ''}
         ${methodList.map((m) => `<span class="history-method-tag">${esc(m)}</span>`).join('')}
         ${h.text ? `<span class="history-text">${esc(h.text)}</span>` : ''}
