@@ -1833,7 +1833,7 @@ function renderEditor() {
         <div class="hist-row">
           <select id="history-kind" class="hist-kind" title="구분">
             <optgroup label="입금">
-              ${['추가금', '중도금 1차', '중도금 2차', '중도금 3차', '잔금 1차', '잔금 2차'].map((k) => `<option value="${k}">${k}</option>`).join('')}
+              ${['계약금 추가금', '중도금 1차', '중도금 2차', '중도금 3차', '잔금 1차', '잔금 2차'].map((k) => `<option value="${k}">${k}</option>`).join('')}
             </optgroup>
             <optgroup label="변경·기타">
               ${['계약변경', '설계변경', '시공변경', '특이사항', '기타'].map((k) => `<option value="${k}">${k}</option>`).join('')}
@@ -2806,7 +2806,7 @@ async function addHistoryEntry() {
     if (inp) inp.value = ''; if (amtEl) amtEl.value = '';
     document.querySelectorAll('input[name="history-method"]:checked').forEach((m) => { m.checked = false; });
     if (recvDateEl) recvDateEl.value = todayYmd();
-    if (kindEl) kindEl.value = '추가금';
+    if (kindEl) kindEl.value = '계약금 추가금';
     // 구분 초기화(추가금=입금류)에 맞춰 금액/수단 필드 다시 표시
     const pf = document.getElementById('history-pay-fields'); if (pf) pf.style.display = '';
     const mf = document.getElementById('history-method-fields'); if (mf) mf.style.display = '';
@@ -3052,7 +3052,7 @@ function bindEditor() {
   if (histAmt) histAmt.addEventListener('input', () => { histAmt.value = histAmt.value.replace(/[^\d.]/g, ''); });
   // 구분이 '변경·기타'류면 금액/수단 입력을 숨김(메모 위주), 입금류면 표시
   const histKind = document.getElementById('history-kind');
-  const PAY_KINDS = new Set(['추가금', '중도금 1차', '중도금 2차', '중도금 3차', '잔금 1차', '잔금 2차']);
+  const PAY_KINDS = new Set(['계약금 추가금', '중도금 1차', '중도금 2차', '중도금 3차', '잔금 1차', '잔금 2차']);
   const syncHistKindFields = () => {
     const pay = PAY_KINDS.has(histKind?.value || '');
     const pf = document.getElementById('history-pay-fields');
