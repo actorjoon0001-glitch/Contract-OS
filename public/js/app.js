@@ -2921,7 +2921,7 @@ function bindEditor() {
   // 수정 잠금 해제: 대표님 전자서명을 받아야 수정 가능 (관리자만)
   const unlockBtn = document.getElementById('edit-unlock-btn');
   if (unlockBtn) unlockBtn.onclick = () => openSignaturePad({
-    title: '마스터·관리자 전자서명 — 계약서 수정 승인',
+    title: '대표이사 전자서명 — 계약서 수정 승인',
     onSave: (dataUrl) => {
       if (!dataUrl) return; // 빈 서명이면 취소
       current.editUnlock = { at: new Date().toISOString(), by: (me?.name || me?.email || '관리자'), image: dataUrl };
