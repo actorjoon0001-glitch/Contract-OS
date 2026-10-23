@@ -48,6 +48,10 @@ html, body {
 .btn.danger { color: var(--danger); border-color: #e3b4ae; }
 .btn.tiny { padding: 3px 9px; font-size: 12px; }
 .status-toggle { font-size: 13px; color: #444; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.btn.warn { background: #fff4e5; border-color: #f0c98a; color: #9a5a00; font-weight: 700; }
+.btn.warn:hover { background: #ffe9cc; border-color: #e0a95a; }
+.lock-badge { font-size: 12.5px; font-weight: 700; color: #b5352a; background: #fde8e6; border: 1px solid #f3c4bf; border-radius: 20px; padding: 4px 11px; }
+.unlock-badge { font-size: 12.5px; font-weight: 700; color: #1c7d3c; background: #dff3e4; border: 1px solid #c2e6cd; border-radius: 20px; padding: 4px 11px; }
 
 .search {
   border: 1px solid #c4c9d0; border-radius: 7px; padding: 8px 12px; min-width: 320px; font-size: 14px;
