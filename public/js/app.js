@@ -1113,6 +1113,34 @@ function achHtml(actual, target) {
   const cls = p >= 100 ? 'ok' : (p >= 70 ? 'warn' : 'danger');
   return `<b class="ach-${cls}">${p}%</b>`;
 }
+// 계약완료(및 이후) 단계이면서 아직 확정 안 된 건을 모두 확정(봉인) — 관리자 일괄 처리
+async function bulkConfirmCompleted() {
+  let rows;
+  try { rows = await api.list(''); } catch (err) { alert('목록을 불러오지 못했습니다: ' + err.message); return; }
+  const targets = rows.filter((r) => !r.is_sample && CONTRACTED_STAGES.has(stageOf(r)) && r.status !== 'confirmed');
+  if (!targets.length) { alert('이미 모든 계약완료 건이 확정되어 있습니다.'); return; }
+  if (!confirm(`계약완료 건 ${targets.length}건을 모두 확정(봉인) 처리할까요?\n\n확정 후에는 영업사원이 수정할 수 없고, 대표 전자서명을 받아야 수정할 수 있습니다.`)) return;
+  const btn = document.getElementById('adm-bulk-confirm');
+  if (btn) btn.disabled = true;
+  let done = 0, fail = 0;
+  for (const r of targets) {
+    try {
+      const rec = await api.get(r.id);
+      const data = rec.data || {};
+      normalizeContract(data);
+      recalc(data);
+      data.status = 'confirmed';
+      data.integrity = { hash: '', sealedAt: new Date().toISOString(), agent: navigator.userAgent };
+      data.integrity.hash = await computeIntegrityHash(data);
+      await api.update(r.id, data);
+      done += 1;
+    } catch { fail += 1; }
+    if (btn) btn.textContent = `처리 중… (${done + fail}/${targets.length})`;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '🔒 계약완료 일괄 확정'; }
+  alert(`일괄 확정 완료: ${done}건 확정${fail ? ` · 실패 ${fail}건` : ''}`);
+}
+
 async function renderAdmin() {
   if (!canManageList()) return go('#/'); // 관리자 외 접근 차단
   current = null; currentId = null; dirty = false;
@@ -1128,6 +1156,7 @@ async function renderAdmin() {
           <button type="button" id="adm-date-clear" class="date-clear" title="날짜 초기화">✕</button>
         </span>
         <button class="btn" id="adm-print-btn" title="이 통계를 인쇄 / PDF">🖨 인쇄</button>
+        <button class="btn" id="adm-bulk-confirm" title="계약완료 건을 모두 확정(봉인) 처리">🔒 계약완료 일괄 확정</button>
         <button class="btn" id="back-btn">← 목록으로</button>
         ${accountChip()}
       </div>
@@ -1137,6 +1166,7 @@ async function renderAdmin() {
     </div>`;
   document.getElementById('back-btn').onclick = () => go('#/');
   document.getElementById('adm-print-btn').onclick = () => window.print();
+  document.getElementById('adm-bulk-confirm').onclick = bulkConfirmCompleted;
   bindAccount(app);
   try {
     adminRows = (await api.list('')).filter((r) => !r.is_sample);
@@ -1660,8 +1690,8 @@ function renderEditor() {
             ? '<span class="unlock-badge" title="대표 서명으로 수정 모드입니다. 저장하면 다시 봉인됩니다.">🔓 수정 모드 (대표 서명됨)</span>'
             : editorLocked
               ? (canManageList()
-                  ? '<button type="button" class="btn warn" id="edit-unlock-btn" title="대표님 전자서명 후 수정할 수 있습니다">🔓 수정(대표 서명)</button>'
-                  : '<span class="lock-badge" title="계약완료 확정 건 — 대표 승인 후에만 수정 가능합니다">🔒 확정됨</span>')
+                  ? '<button type="button" class="btn warn" id="edit-unlock-btn" title="마스터·관리자 권한 계정의 전자서명 후 수정할 수 있습니다">🔓 수정(관리자 서명)</button>'
+                  : '<span class="lock-badge" title="계약완료 확정 건 — 마스터·관리자 승인 후에만 수정 가능합니다">🔒 확정됨</span>')
               : (canManageList() ? `<label class="status-toggle"><input type="checkbox" id="status-confirmed" ${c.status === 'confirmed' ? 'checked' : ''}/> 확정</label>` : '')}
         <button class="btn" id="print-btn">🖨 인쇄</button>
         <button class="btn" id="pdf-btn" title="PDF 파일로 저장 (저장 대화상자에서 'PDF로 저장' 선택)">📄 PDF 저장</button>
@@ -2891,7 +2921,7 @@ function bindEditor() {
   // 수정 잠금 해제: 대표님 전자서명을 받아야 수정 가능 (관리자만)
   const unlockBtn = document.getElementById('edit-unlock-btn');
   if (unlockBtn) unlockBtn.onclick = () => openSignaturePad({
-    title: '대표님 전자서명 — 계약서 수정 승인',
+    title: '마스터·관리자 전자서명 — 계약서 수정 승인',
     onSave: (dataUrl) => {
       if (!dataUrl) return; // 빈 서명이면 취소
       current.editUnlock = { at: new Date().toISOString(), by: (me?.name || me?.email || '관리자'), image: dataUrl };

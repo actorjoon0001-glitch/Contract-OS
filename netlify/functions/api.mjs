@@ -88,6 +88,7 @@ async function authContext(req, supa) {
     let scope = 'own'; // 뷰어 범위: own(본인만) | showroom(같은 전시장) | all(전체). 미설정=본인만
     // 세움os employees 테이블에서 직원의 전시장·범위 조회 (auth_user_id 우선, 없으면 email)
     let isEmployee = false;
+    let roleAdmin = false; // 세움os 권한: role/permission 이 master 또는 admin 이면 관리자 권한
     try {
       let emp = (await supa.from('employees').select('*').eq('auth_user_id', data.user.id).maybeSingle()).data;
       if (!emp && email) emp = (await supa.from('employees').select('*').eq('email', email).maybeSingle()).data;
@@ -99,9 +100,13 @@ async function authContext(req, supa) {
         isEmployee = !st || st === 'approved' || st === 'active'; // 승인된 직원만 사용 허용
         const sc = String(emp.view_scope || '').trim().toLowerCase();
         if (['own', 'showroom', 'all'].includes(sc)) scope = sc;
+        // 세움os 권한(role/permission)이 master·admin 이면 관리자 권한 부여
+        const role = String(emp.role || '').trim().toLowerCase();
+        const perm = String(emp.permission || '').trim().toLowerCase();
+        roleAdmin = ['master', 'admin'].includes(role) || ['master', 'admin'].includes(perm);
       }
     } catch { /* employees 조회 실패 시 미확인 처리 */ }
-    return { enabled: true, user: { id: data.user.id, email, name, showroom, scope }, isAdmin: adminEmails().includes(email), isEmployee };
+    return { enabled: true, user: { id: data.user.id, email, name, showroom, scope }, isAdmin: adminEmails().includes(email) || roleAdmin, isEmployee };
   } catch {
     return { enabled: true, user: null, isAdmin: false };
   }
