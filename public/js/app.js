@@ -11,7 +11,8 @@ import {
 import { openSignaturePad } from './sign.js';
 import { loadAuthConfig, authEnabled, currentUser, login, logout, setOnAuthLost, trySSO } from './auth.js';
 
-let editorLocked = false; // 확정 상태이면 true (입력·서명 잠금)
+let editorLocked = false; // 확정·계약완료 상태이면 true (입력·서명 잠금)
+let editUnlocked = false; // 대표 전자서명으로 이번 편집 세션에서 잠금을 해제했는지
 let dupView = false;      // 중복 고객 타 전시장 계약 읽기전용 열람
 let me = null;            // 로그인 사용자 정보 { email, name, isAdmin }
 
@@ -989,6 +990,12 @@ function renderListRows(rows) {
           data.stage = stage;
           if (deposit) data.deposit = deposit;
           if (clearDeposit) data.deposit = {}; // 계약금 환불 → 표시 제거
+          // 계약완료 → 자동 확정(봉인): 영업사원이 임의로 본문 수정 못하게 잠금
+          if (stage === 'completed' && data.status !== 'confirmed') {
+            data.status = 'confirmed';
+            data.integrity = { hash: '', sealedAt: new Date().toISOString(), agent: navigator.userAgent };
+            data.integrity.hash = await computeIntegrityHash(data);
+          }
           await api.update(id, data);
           sel.className = `row-stage stage-${stage}`; // 색상 갱신
           if (cached) {
@@ -1590,6 +1597,7 @@ function renderModelPicker() {
 async function openEditor(id, modelId = null, { dup = false } = {}) {
   currentId = id;
   dupView = false;
+  editUnlocked = false; // 새로 열면 항상 잠금 상태에서 시작 (수정하려면 대표 서명)
   if (id === SAMPLE_ID) {
     // 샘플은 DB에 없는 참고용 양식 → 새 계약서처럼 다룬다(저장 시 새로 생성)
     current = sampleContract();
@@ -1632,7 +1640,9 @@ function syncShowroomFromSalesperson() {
 
 function renderEditor() {
   const c = current;
-  editorLocked = c.status === 'confirmed' || dupView; // 중복 열람은 읽기전용
+  // 계약완료(및 이후)·확정 건은 봉인·잠금. 대표 전자서명으로 이번 세션 해제(editUnlocked) 시에만 수정 가능.
+  const sealed = c.status === 'confirmed' || CONTRACTED_STAGES.has(stageOf(c));
+  editorLocked = dupView || (sealed && !editUnlocked);
   const [y, mo, d] = (c.contractDate || '').split('-');
 
   app.innerHTML = `
@@ -1645,7 +1655,14 @@ function renderEditor() {
         <span id="dirty-flag" class="muted"></span>
       </div>
       <div class="actions">
-        ${dupView ? '' : `<label class="status-toggle"><input type="checkbox" id="status-confirmed" ${c.status === 'confirmed' ? 'checked' : ''}/> 확정</label>`}
+        ${dupView ? ''
+          : editUnlocked
+            ? '<span class="unlock-badge" title="대표 서명으로 수정 모드입니다. 저장하면 다시 봉인됩니다.">🔓 수정 모드 (대표 서명됨)</span>'
+            : editorLocked
+              ? (canManageList()
+                  ? '<button type="button" class="btn warn" id="edit-unlock-btn" title="대표님 전자서명 후 수정할 수 있습니다">🔓 수정(대표 서명)</button>'
+                  : '<span class="lock-badge" title="계약완료 확정 건 — 대표 승인 후에만 수정 가능합니다">🔒 확정됨</span>')
+              : (canManageList() ? `<label class="status-toggle"><input type="checkbox" id="status-confirmed" ${c.status === 'confirmed' ? 'checked' : ''}/> 확정</label>` : '')}
         <button class="btn" id="print-btn">🖨 인쇄</button>
         <button class="btn" id="pdf-btn" title="PDF 파일로 저장 (저장 대화상자에서 'PDF로 저장' 선택)">📄 PDF 저장</button>
         ${dupView ? '' : '<button class="btn primary" id="save-btn">💾 저장</button>'}
@@ -2787,12 +2804,15 @@ function bindEditor() {
       openPaymentDialog({
         expected: expectedPayments(current.amounts),
         initial: current.deposit || {},
-        onSave: (dep) => {
+        onSave: async (dep) => {
           current.deposit = dep;
           current.stage = 'completed';
+          current.status = 'confirmed';   // 계약완료 → 자동 확정(봉인)
+          await sealContract();
           e.target.className = 'mb-stage stage-completed';
           renderDepositInfo();
           markDirty();
+          renderEditor();               // 잠금 상태로 다시 렌더
         },
         onCancel: () => { e.target.value = prev; },
       });
@@ -2868,6 +2888,18 @@ function bindEditor() {
     markDirty();
     renderEditor();
   };
+  // 수정 잠금 해제: 대표님 전자서명을 받아야 수정 가능 (관리자만)
+  const unlockBtn = document.getElementById('edit-unlock-btn');
+  if (unlockBtn) unlockBtn.onclick = () => openSignaturePad({
+    title: '대표님 전자서명 — 계약서 수정 승인',
+    onSave: (dataUrl) => {
+      if (!dataUrl) return; // 빈 서명이면 취소
+      current.editUnlock = { at: new Date().toISOString(), by: (me?.name || me?.email || '관리자'), image: dataUrl };
+      editUnlocked = true;
+      markDirty();
+      renderEditor();
+    },
+  });
 
   bindSign(app);
   renderIdCards();
@@ -3132,6 +3164,8 @@ async function saveContract() {
   }
   try {
     recalc(current);
+    // 확정(봉인) 건을 대표 서명으로 수정한 경우: 저장 시 무결성 봉인을 다시 계산
+    if (current.status === 'confirmed') await sealContract();
     let saved;
     if (currentId) {
       saved = await api.update(currentId, current);

@@ -22,6 +22,10 @@ const DESIGN_LOG_TABLE = process.env.SUPABASE_DESIGN_LOG_TABLE || 'design_status
 const DESIGN_SOURCE = 'econtract';
 // 진행상태 변경 이력 테이블 (전자계약서 전용). 미설정 시 기본값.
 const STAGE_LOG_TABLE = process.env.SUPABASE_STAGE_LOG_TABLE || 'econtract_stage_log';
+// 계약완료(및 이후) 단계 — 이 단계면 봉인(잠금)으로 간주
+const CONTRACTED_STAGE_SET = new Set(['completed', 'design_3d', 'production', 'installing', 'delivered']);
+// 확정·봉인 건에서 영업사원이 바꿀 수 있는 '관리용' 필드(본문·봉인은 제외) — 무결성 해시 제외 항목과 동일
+const SEAL_EDIT_WHITELIST = ['stage', 'deletedAt', 'modelId', 'modelName', 'idCards', 'idCount', 'drawings', 'drawingCount', 'memo', 'deposit', 'permitRequired', 'permitType', 'history', 'ownerEmail', 'ownerName'];
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -353,7 +357,7 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
     }
 
     if (method === 'PUT') {
-      const data = await req.json().catch(() => null);
+      let data = await req.json().catch(() => null);
       if (!data) return json({ error: '잘못된 요청 형식입니다.' }, 400);
       // 대상 계약의 현재 소유자 확인 후 권한 검사
       const { data: existing, error: exErr } = await supa.from(TABLE).select('data, salesperson').eq('id', id).maybeSingle();
@@ -362,6 +366,16 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
       const effPut = await showroomOfEmployeeName(supa, existing.salesperson);
       if (effPut && existing.data) existing.data.showroom = effPut; // 영업사원 소속으로 전시장 교정 후 권한 판정
       if (!canAccess(existing.data, existing.salesperson, auth)) return json({ error: '이 계약을 수정할 권한이 없습니다.' }, 403);
+      // 확정·계약완료(봉인) 건은 영업사원이 본문을 수정하거나 확정을 해제할 수 없음(대표만 가능).
+      // 관리용 필드(진행상태·메모·계약금·첨부·이력 등)만 반영하고 본문·봉인은 그대로 유지.
+      const sealedNow = existing.data?.status === 'confirmed' || CONTRACTED_STAGE_SET.has(existing.data?.stage);
+      if (sealedNow && auth.enabled && !auth.isAdmin) {
+        const merged = { ...existing.data };
+        for (const f of SEAL_EDIT_WHITELIST) if (f in data) merged[f] = data[f];
+        merged.status = existing.data?.status || 'confirmed'; // 확정 해제 불가
+        merged.integrity = existing.data?.integrity;           // 봉인 유지
+        data = merged;
+      }
       // 소유자(담당자) 정보 규칙:
       //  - 관리자(개방모드 포함): 요청에 담긴 ownerEmail/ownerName 그대로 저장 (담당자 지정·변경 허용)
       //  - 일반 직원: 최초 소유자 유지(가로채기 방지), 없으면 이번 저장자로 귀속
