@@ -251,60 +251,61 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
         const url = new URL(req.url);
         const q = (url.searchParams.get('q') || '').trim();
         const deleted = url.searchParams.get('deleted') === '1';
-        let query = supa
-          .from(TABLE)
-          .select('id, contract_no, status, stage:data->>stage, approval_at:data->signatures->approval->>signedAt, deleted_at:data->>deletedAt, id_count:data->>idCount, drawing_count:data->>drawingCount, memo:data->>memo, deposit_date:data->deposit->>date, deposit_amount:data->deposit->>amount, down_payment:data->amounts->>downPayment, permit_type:data->>permitType, model_name:data->>modelName, owner_email:data->>ownerEmail, client_name, client_phone:data->client->>phone, site_address, showroom, salesperson, contract_date, total_amount, updated_at')
-          .order('created_at', { ascending: false })  // 작성(생성) 순 — 최근 계약이 위로 고정(수정해도 안 바뀜)
-          .order('contract_no', { ascending: false }); // 동일 시각 대비 결정적 정렬
-        // 휴지통 분리: deletedAt 값 유무로 정상/삭제됨 구분
-        query = deleted ? query.not('data->>deletedAt', 'is', null) : query.is('data->>deletedAt', null);
-        if (q) {
-          const safe = q.replace(/[%,()]/g, ' ');
-          query = query.or(
-            `client_name.ilike.%${safe}%,site_address.ilike.%${safe}%,contract_no.ilike.%${safe}%,showroom.ilike.%${safe}%,salesperson.ilike.%${safe}%`
-          );
-        }
-        const { data, error } = await query;
+        const buildListQuery = () => {
+          let query = supa
+            .from(TABLE)
+            .select('id, contract_no, status, stage:data->>stage, approval_at:data->signatures->approval->>signedAt, deleted_at:data->>deletedAt, id_count:data->>idCount, drawing_count:data->>drawingCount, memo:data->>memo, deposit_date:data->deposit->>date, deposit_amount:data->deposit->>amount, down_payment:data->amounts->>downPayment, permit_type:data->>permitType, model_name:data->>modelName, owner_email:data->>ownerEmail, client_name, client_phone:data->client->>phone, site_address, showroom, salesperson, contract_date, total_amount, updated_at')
+            .order('created_at', { ascending: false })  // 작성(생성) 순 — 최근 계약이 위로 고정(수정해도 안 바뀜)
+            .order('contract_no', { ascending: false }); // 동일 시각 대비 결정적 정렬
+          query = deleted ? query.not('data->>deletedAt', 'is', null) : query.is('data->>deletedAt', null);
+          if (q) {
+            const kw = q.replace(/[%,()]/g, ' ');
+            query = query.or(`client_name.ilike.%${kw}%,site_address.ilike.%${kw}%,contract_no.ilike.%${kw}%,showroom.ilike.%${kw}%,salesperson.ilike.%${kw}%`);
+          }
+          return query;
+        };
+        // 일시적 DB 오류 대비 1회 재시도
+        let { data, error } = await buildListQuery();
+        if (error) { await new Promise((r) => setTimeout(r, 300)); ({ data, error } = await buildListQuery()); }
         if (error) throw error;
         let rows = data || [];
+        // 보조 정보(직원 소속맵·설계배정·설계이력·진행이력)를 병렬로 조회 — 순차 지연/타임아웃 방지.
+        // 각각 실패해도 목록은 정상 반환(없으면 해당 표시만 생략).
+        const safeData = (p) => p.then((r) => (r && !r.error ? r.data : null)).catch(() => null);
+        const [empMap, dp, lg, sl] = await Promise.all([
+          employeeShowroomMap(supa),
+          safeData(supa.from(DESIGN_TABLE).select('ref_id, design_status, assignee').eq('source', DESIGN_SOURCE)),
+          safeData(supa.from(DESIGN_LOG_TABLE).select('id, ref_id, status, changed_by, changed_at').eq('source', DESIGN_SOURCE).order('changed_at', { ascending: false }).limit(3000)),
+          safeData(supa.from(STAGE_LOG_TABLE).select('id, contract_id, stage, changed_by, changed_at').order('changed_at', { ascending: false }).limit(3000)),
+        ]);
         // 전시장 교정: 저장값이 모델 소속 등으로 잘못돼도, 영업사원의 실제 소속으로 목록 표시·권한을 판정
-        const empMap = await employeeShowroomMap(supa);
-        if (Object.keys(empMap).length) {
+        if (empMap && Object.keys(empMap).length) {
           for (const r of rows) {
             const eff = empMap[String(r.salesperson || '').trim()];
             if (eff) r.showroom = eff;
           }
         }
-        // 설계 진행 상태·담당 첨부 (설계OS와 공유하는 design_assignees, source='econtract', ref_id=계약 id)
-        try {
-          const { data: dp } = await supa.from(DESIGN_TABLE).select('ref_id, design_status, assignee').eq('source', DESIGN_SOURCE);
-          if (dp && dp.length) {
-            const dmap = {};
-            for (const d of dp) dmap[String(d.ref_id)] = d;
-            for (const r of rows) {
-              const d = dmap[String(r.id)];
-              if (d) { if (d.design_status) r.design_status = d.design_status; if (d.assignee) r.design_assignee = d.assignee; }
-            }
+        // 설계 진행 상태·담당 첨부 (design_assignees, source='econtract', ref_id=계약 id)
+        if (dp && dp.length) {
+          const dmap = {};
+          for (const d of dp) dmap[String(d.ref_id)] = d;
+          for (const r of rows) {
+            const d = dmap[String(r.id)];
+            if (d) { if (d.design_status) r.design_status = d.design_status; if (d.assignee) r.design_assignee = d.assignee; }
           }
-        } catch { /* 공유 테이블 없거나 조회 실패 — 설계상태 없이 진행 */ }
-        // 설계 상태 변경 이력 첨부 (design_status_log) — 누가·언제·→상태
-        try {
-          const { data: lg } = await supa.from(DESIGN_LOG_TABLE).select('id, ref_id, status, changed_by, changed_at').eq('source', DESIGN_SOURCE).order('changed_at', { ascending: false }).limit(2000);
-          if (lg && lg.length) {
-            const lmap = {};
-            for (const e of lg) (lmap[String(e.ref_id)] = lmap[String(e.ref_id)] || []).push(e);
-            for (const r of rows) { const arr = lmap[String(r.id)]; if (arr) r.design_log = arr; }
-          }
-        } catch { /* 이력 테이블 없음 — 무시 */ }
-        // 진행상태 변경 이력 첨부 (econtract_stage_log) — 누가·언제·→진행상태
-        try {
-          const { data: sl } = await supa.from(STAGE_LOG_TABLE).select('id, contract_id, stage, changed_by, changed_at').order('changed_at', { ascending: false }).limit(2000);
-          if (sl && sl.length) {
-            const smap = {};
-            for (const e of sl) (smap[String(e.contract_id)] = smap[String(e.contract_id)] || []).push(e);
-            for (const r of rows) { const arr = smap[String(r.id)]; if (arr) r.stage_log = arr; }
-          }
-        } catch { /* 진행상태 이력 테이블 없음 — 무시 */ }
+        }
+        // 설계 상태 변경 이력 첨부 (design_status_log)
+        if (lg && lg.length) {
+          const lmap = {};
+          for (const e of lg) (lmap[String(e.ref_id)] = lmap[String(e.ref_id)] || []).push(e);
+          for (const r of rows) { const arr = lmap[String(r.id)]; if (arr) r.design_log = arr; }
+        }
+        // 진행상태 변경 이력 첨부 (econtract_stage_log)
+        if (sl && sl.length) {
+          const smap = {};
+          for (const e of sl) (smap[String(e.contract_id)] = smap[String(e.contract_id)] || []).push(e);
+          for (const r of rows) { const arr = smap[String(r.id)]; if (arr) r.stage_log = arr; }
+        }
         // 중복 고객 감지: 같은 연락처가 '다른 전시장' 계약에도 있으면 요약(전시장·담당자·날짜) 첨부
         const phoneMap = {};
         for (const r of rows) {
