@@ -1831,23 +1831,28 @@ function renderEditor() {
       <div class="history-add">
         <div class="hist-row">
           <select id="history-kind" class="hist-kind" title="구분">
-            ${['추가금', '중도금 1차', '중도금 2차', '중도금 3차', '잔금 1차', '잔금 2차', '기타'].map((k) => `<option value="${k}">${k}</option>`).join('')}
+            <optgroup label="입금">
+              ${['추가금', '중도금 1차', '중도금 2차', '중도금 3차', '잔금 1차', '잔금 2차'].map((k) => `<option value="${k}">${k}</option>`).join('')}
+            </optgroup>
+            <optgroup label="변경·기타">
+              ${['계약변경', '설계변경', '시공변경', '특이사항', '기타'].map((k) => `<option value="${k}">${k}</option>`).join('')}
+            </optgroup>
           </select>
-          <div class="history-amount-wrap">
+          <div class="history-amount-wrap" id="history-pay-fields">
             <input id="history-amount" class="history-amount" type="text" inputmode="numeric" placeholder="금액" />
             <span class="history-amount-unit">만원</span>
           </div>
-          <div class="history-methods">
+          <div class="history-methods" id="history-method-fields">
             ${['계좌이체', '카드', '현금'].map((m) => `<label class="history-method"><input type="checkbox" name="history-method" value="${m}"/> ${m}</label>`).join('')}
           </div>
         </div>
         <div class="hist-row">
-          <input id="history-recv-date" class="hist-recv" type="date" title="받은 날짜" value="${esc(todayYmd())}" />
-          <input id="history-recv-team" class="hist-recv" type="text" placeholder="받은 팀 (예: 정산팀)" value="${esc(me?.showroom || '')}" />
-          <input id="history-recv-by" class="hist-recv" type="text" placeholder="받은 사람" value="${esc(me?.name || '')}" />
+          <input id="history-recv-date" class="hist-recv" type="date" title="날짜" value="${esc(todayYmd())}" />
+          <input id="history-recv-team" class="hist-recv" type="text" placeholder="소속 팀/전시장" value="${esc(me?.showroom || '')}" />
+          <input id="history-recv-by" class="hist-recv" type="text" placeholder="작성자" value="${esc(me?.name || '')}" />
         </div>
         <div class="hist-row">
-          <textarea id="history-input" class="history-input" rows="2" placeholder="메모 (변경 사유 · 분할 금액 등)"></textarea>
+          <textarea id="history-input" class="history-input" rows="2" placeholder="메모 (추가금 사유 · 계약 변경 내용 등)"></textarea>
           <button type="button" class="btn tiny primary" id="history-add-btn">＋ 이력 추가</button>
         </div>
       </div>
@@ -2801,6 +2806,9 @@ async function addHistoryEntry() {
     document.querySelectorAll('input[name="history-method"]:checked').forEach((m) => { m.checked = false; });
     if (recvDateEl) recvDateEl.value = todayYmd();
     if (kindEl) kindEl.value = '추가금';
+    // 구분 초기화(추가금=입금류)에 맞춰 금액/수단 필드 다시 표시
+    const pf = document.getElementById('history-pay-fields'); if (pf) pf.style.display = '';
+    const mf = document.getElementById('history-method-fields'); if (mf) mf.style.display = '';
     renderHistory();
   }
 }
@@ -3033,6 +3041,17 @@ function bindEditor() {
   if (histAdd) histAdd.onclick = addHistoryEntry;
   const histAmt = document.getElementById('history-amount');
   if (histAmt) histAmt.addEventListener('input', () => { histAmt.value = histAmt.value.replace(/[^\d.]/g, ''); });
+  // 구분이 '변경·기타'류면 금액/수단 입력을 숨김(메모 위주), 입금류면 표시
+  const histKind = document.getElementById('history-kind');
+  const PAY_KINDS = new Set(['추가금', '중도금 1차', '중도금 2차', '중도금 3차', '잔금 1차', '잔금 2차']);
+  const syncHistKindFields = () => {
+    const pay = PAY_KINDS.has(histKind?.value || '');
+    const pf = document.getElementById('history-pay-fields');
+    const mf = document.getElementById('history-method-fields');
+    if (pf) pf.style.display = pay ? '' : 'none';
+    if (mf) mf.style.display = pay ? '' : 'none';
+  };
+  if (histKind) { histKind.onchange = syncHistKindFields; syncHistKindFields(); }
 
   // 결제 항목 퍼센트(%) 수기 수정 — 표시값만 바뀌고 금액 자동배분엔 영향 없음
   app.querySelectorAll('.pct-input').forEach((inp) => {
