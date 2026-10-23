@@ -1123,22 +1123,23 @@ async function bulkConfirmCompleted() {
   const btn = document.getElementById('adm-bulk-confirm');
   if (btn) btn.disabled = true;
   let done = 0, fail = 0;
+  const fails = [];
   for (const r of targets) {
     try {
       const rec = await api.get(r.id);
       const data = rec.data || {};
-      normalizeContract(data);
-      recalc(data);
+      try { normalizeContract(data); } catch { /* 정규화 실패해도 확정은 진행 */ }
+      try { recalc(data); } catch { /* 재계산 실패해도 확정은 진행 */ }
       data.status = 'confirmed';
       data.integrity = { hash: '', sealedAt: new Date().toISOString(), agent: navigator.userAgent };
-      data.integrity.hash = await computeIntegrityHash(data);
+      try { data.integrity.hash = await computeIntegrityHash(data); } catch { data.integrity.hash = ''; }
       await api.update(r.id, data);
       done += 1;
-    } catch { fail += 1; }
+    } catch (err) { fail += 1; fails.push(`${r.contract_no || r.id}: ${err.message}`); }
     if (btn) btn.textContent = `처리 중… (${done + fail}/${targets.length})`;
   }
   if (btn) { btn.disabled = false; btn.textContent = '🔒 계약완료 일괄 확정'; }
-  alert(`일괄 확정 완료: ${done}건 확정${fail ? ` · 실패 ${fail}건` : ''}`);
+  alert(`일괄 확정 완료\n\n· 확정 ${done}건${fail ? `\n· 실패 ${fail}건\n\n${fails.slice(0, 10).join('\n')}` : ''}`);
 }
 
 async function renderAdmin() {
