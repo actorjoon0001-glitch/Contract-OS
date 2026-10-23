@@ -1690,9 +1690,7 @@ function renderEditor() {
           : editUnlocked
             ? '<span class="unlock-badge" title="대표 서명으로 수정 모드입니다. 저장하면 다시 봉인됩니다.">🔓 수정 모드 (대표 서명됨)</span>'
             : editorLocked
-              ? (canManageList()
-                  ? '<button type="button" class="btn warn" id="edit-unlock-btn" title="대표이사 전자서명 후 수정할 수 있습니다 (마스터·관리자 권한 계정)">🔓 수정(대표이사 서명)</button>'
-                  : '<span class="lock-badge" title="계약완료 확정 건 — 대표이사 서명 후에만 수정 가능합니다">🔒 확정됨</span>')
+              ? '<button type="button" class="btn warn" id="edit-unlock-btn" title="계약완료 확정 건 — 대표이사 전자서명 후에만 수정 가능">🔓 수정(대표이사 서명)</button>'
               : (canManageList() ? `<label class="status-toggle"><input type="checkbox" id="status-confirmed" ${c.status === 'confirmed' ? 'checked' : ''}/> 확정</label>` : '')}
         <button class="btn" id="print-btn">🖨 인쇄</button>
         <button class="btn" id="pdf-btn" title="PDF 파일로 저장 (저장 대화상자에서 'PDF로 저장' 선택)">📄 PDF 저장</button>
@@ -2936,19 +2934,26 @@ function bindEditor() {
     markDirty();
     renderEditor();
   };
-  // 수정 잠금 해제: 대표님 전자서명을 받아야 수정 가능 (관리자만)
+  // 수정 잠금 해제: 버튼은 모두에게 보이되, 마스터·관리자만 서명으로 해제 가능.
+  // 일반 직원이 누르면 서명창 대신 안내창만 표시.
   const unlockBtn = document.getElementById('edit-unlock-btn');
-  if (unlockBtn) unlockBtn.onclick = () => openSignaturePad({
-    title: '대표이사 전자서명 — 계약서 수정 승인',
-    note: '계약금을 수령한 계약완료 계약서는 대표이사만이 수정할 수 있습니다.<br>대표님과 상의 후 진행 바랍니다.',
-    onSave: (dataUrl) => {
-      if (!dataUrl) return; // 빈 서명이면 취소
-      current.editUnlock = { at: new Date().toISOString(), by: (me?.name || me?.email || '관리자'), image: dataUrl };
-      editUnlocked = true;
-      markDirty();
-      renderEditor();
-    },
-  });
+  if (unlockBtn) unlockBtn.onclick = () => {
+    if (!canManageList()) {
+      alert('계약금을 수령한 계약완료 계약서는 대표이사만 수정할 수 있습니다.\n\n대표님과 상의 후 진행 바랍니다.');
+      return;
+    }
+    openSignaturePad({
+      title: '대표이사 전자서명 — 계약서 수정 승인',
+      note: '계약금을 수령한 계약완료 계약서는 대표이사만이 수정할 수 있습니다.<br>대표님과 상의 후 진행 바랍니다.',
+      onSave: (dataUrl) => {
+        if (!dataUrl) return; // 빈 서명이면 취소
+        current.editUnlock = { at: new Date().toISOString(), by: (me?.name || me?.email || '관리자'), image: dataUrl };
+        editUnlocked = true;
+        markDirty();
+        renderEditor();
+      },
+    });
+  };
 
   bindSign(app);
   renderIdCards();
