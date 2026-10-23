@@ -774,7 +774,7 @@ function renderListRows(rows) {
         ? '<span class="badge">샘플</span>'
         : `<select class="row-stage stage-${stageOf(r)}" data-stage-id="${r.id}" title="진행상태 변경">
             ${STAGES.filter((s) => !s.hidden || s.key === stageOf(r)).map((s) => `<option value="${s.key}" ${stageOf(r) === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
-          </select>${(r.status === 'confirmed' || CONTRACTED_STAGES.has(stageOf(r))) ? ' <span class="lock" title="계약완료 — 수정 잠금(대표이사 서명 후 수정 가능)">🔒</span>' : ''}${stageLogHtml(r)}`}</td>
+          </select>${CONTRACTED_STAGES.has(stageOf(r)) ? ' <span class="lock" title="계약완료 — 수정 잠금(대표이사 서명 후 수정 가능)">🔒</span>' : ''}${stageLogHtml(r)}`}</td>
       <td>${r.is_sample ? '' : (r.approval_at
         ? `<button class="row-approve approved" data-approve-id="${r.id}" title="${esc(fmtSignDate(r.approval_at))} 승인됨 · 다시 서명">✅ 승인됨</button>`
         : `<button class="row-approve" data-approve-id="${r.id}" title="대표이사 승인 전자서명">✎ 승인</button>`)}</td>
@@ -1672,7 +1672,8 @@ function syncShowroomFromSalesperson() {
 function renderEditor() {
   const c = current;
   // 계약완료(및 이후)·확정 건은 봉인·잠금. 대표 전자서명으로 이번 세션 해제(editUnlocked) 시에만 수정 가능.
-  const sealed = c.status === 'confirmed' || CONTRACTED_STAGES.has(stageOf(c));
+  // 잠금은 '계약완료(및 이후)' 단계 기준으로만 판정. (협의중 등은 확정 플래그가 남아 있어도 잠그지 않음)
+  const sealed = CONTRACTED_STAGES.has(stageOf(c));
   editorLocked = dupView || (sealed && !editUnlocked);
   const [y, mo, d] = (c.contractDate || '').split('-');
 
