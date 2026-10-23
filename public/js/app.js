@@ -774,7 +774,7 @@ function renderListRows(rows) {
         ? '<span class="badge">샘플</span>'
         : `<select class="row-stage stage-${stageOf(r)}" data-stage-id="${r.id}" title="진행상태 변경">
             ${STAGES.filter((s) => !s.hidden || s.key === stageOf(r)).map((s) => `<option value="${s.key}" ${stageOf(r) === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
-          </select>${CONTRACTED_STAGES.has(stageOf(r)) ? ' <span class="lock" title="계약완료 — 수정 잠금(대표이사 서명 후 수정 가능)">🔒</span>' : ''}${stageLogHtml(r)}`}</td>
+          </select>${(CONTRACTED_STAGES.has(stageOf(r)) || r.locked_once) ? ' <span class="lock" title="계약완료 — 수정 잠금(대표이사 서명 후 수정 가능)">🔒</span>' : ''}${stageLogHtml(r)}`}</td>
       <td>${r.is_sample ? '' : (r.approval_at
         ? `<button class="row-approve approved" data-approve-id="${r.id}" title="${esc(fmtSignDate(r.approval_at))} 승인됨 · 다시 서명">✅ 승인됨</button>`
         : `<button class="row-approve" data-approve-id="${r.id}" title="대표이사 승인 전자서명">✎ 승인</button>`)}</td>
@@ -993,6 +993,7 @@ function renderListRows(rows) {
           // 계약완료 → 자동 확정(봉인): 영업사원이 임의로 본문 수정 못하게 잠금
           if (stage === 'completed' && data.status !== 'confirmed') {
             data.status = 'confirmed';
+            data.lockedOnce = true; // 완료 이력 — 되돌려도 잠금 유지
             data.integrity = { hash: '', sealedAt: new Date().toISOString(), agent: navigator.userAgent };
             data.integrity.hash = await computeIntegrityHash(data);
           }
@@ -1131,6 +1132,7 @@ async function bulkConfirmCompleted() {
       try { normalizeContract(data); } catch { /* 정규화 실패해도 확정은 진행 */ }
       try { recalc(data); } catch { /* 재계산 실패해도 확정은 진행 */ }
       data.status = 'confirmed';
+      data.lockedOnce = true; // 완료 이력 — 되돌려도 잠금 유지
       data.integrity = { hash: '', sealedAt: new Date().toISOString(), agent: navigator.userAgent };
       try { data.integrity.hash = await computeIntegrityHash(data); } catch { data.integrity.hash = ''; }
       await api.update(r.id, data);
@@ -1672,8 +1674,8 @@ function syncShowroomFromSalesperson() {
 function renderEditor() {
   const c = current;
   // 계약완료(및 이후)·확정 건은 봉인·잠금. 대표 전자서명으로 이번 세션 해제(editUnlocked) 시에만 수정 가능.
-  // 잠금은 '계약완료(및 이후)' 단계 기준으로만 판정. (협의중 등은 확정 플래그가 남아 있어도 잠그지 않음)
-  const sealed = CONTRACTED_STAGES.has(stageOf(c));
+  // 잠금: 계약완료(및 이후) 단계이거나, 한 번이라도 계약완료를 거친 건(lockedOnce)이면 잠금(되돌려도 유지)
+  const sealed = CONTRACTED_STAGES.has(stageOf(c)) || !!c.lockedOnce;
   editorLocked = dupView || (sealed && !editUnlocked);
   const [y, mo, d] = (c.contractDate || '').split('-');
 
@@ -2855,6 +2857,7 @@ function bindEditor() {
           current.deposit = dep;
           current.stage = 'completed';
           current.status = 'confirmed';   // 계약완료 → 자동 확정(봉인)
+          current.lockedOnce = true;      // 완료 이력 — 되돌려도 잠금 유지
           await sealContract();
           e.target.className = 'mb-stage stage-completed';
           renderDepositInfo();
