@@ -1691,7 +1691,7 @@ function renderEditor() {
             ? '<span class="unlock-badge" title="대표 서명으로 수정 모드입니다. 저장하면 다시 봉인됩니다.">🔓 수정 모드 (대표 서명됨)</span>'
             : editorLocked
               ? '<button type="button" class="btn warn" id="edit-unlock-btn" title="계약완료 확정 건 — 대표이사 전자서명 후에만 수정 가능">🔓 수정(대표이사 서명)</button>'
-              : (canManageList() ? `<label class="status-toggle"><input type="checkbox" id="status-confirmed" ${c.status === 'confirmed' ? 'checked' : ''}/> 확정</label>` : '')}
+              : (canManageList() && currentId ? `<label class="status-toggle"><input type="checkbox" id="status-confirmed" ${c.status === 'confirmed' ? 'checked' : ''}/> 확정</label>` : '')}
         <button class="btn" id="print-btn">🖨 인쇄</button>
         <button class="btn" id="pdf-btn" title="PDF 파일로 저장 (저장 대화상자에서 'PDF로 저장' 선택)">📄 PDF 저장</button>
         ${dupView ? '' : '<button class="btn primary" id="save-btn">💾 저장</button>'}
