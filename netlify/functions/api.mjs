@@ -374,7 +374,7 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
       if (!canAccess(existing.data, existing.salesperson, auth)) return json({ error: '이 계약을 수정할 권한이 없습니다.' }, 403);
       // 확정·계약완료(봉인) 건은 영업사원이 본문을 수정하거나 확정을 해제할 수 없음(대표만 가능).
       // 관리용 필드(진행상태·메모·계약금·첨부·이력 등)만 반영하고 본문·봉인은 그대로 유지.
-      const sealedNow = existing.data?.status === 'confirmed' || CONTRACTED_STAGE_SET.has(existing.data?.stage);
+      const sealedNow = CONTRACTED_STAGE_SET.has(existing.data?.stage);
       if (sealedNow && auth.enabled && !auth.isAdmin) {
         const merged = { ...existing.data };
         for (const f of SEAL_EDIT_WHITELIST) if (f in data) merged[f] = data[f];
