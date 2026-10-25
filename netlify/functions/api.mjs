@@ -88,7 +88,8 @@ async function authContext(req, supa) {
     let scope = 'own'; // 뷰어 범위: own(본인만) | showroom(같은 전시장) | all(전체). 미설정=본인만
     // 세움os employees 테이블에서 직원의 전시장·범위 조회 (auth_user_id 우선, 없으면 email)
     let isEmployee = false;
-    let roleAdmin = false; // 세움os 권한: role/permission 이 master 또는 admin 이면 관리자 권한
+    let roleAdmin = false; // 세움os 권한: role/permission 이 master 또는 admin 이면 관리자 권한(수정해제 등)
+    let roleAdminOnly = false; // 관리자(admin)만 — 관리자 페이지 접근용(마스터 제외)
     try {
       let emp = (await supa.from('employees').select('*').eq('auth_user_id', data.user.id).maybeSingle()).data;
       if (!emp && email) emp = (await supa.from('employees').select('*').eq('email', email).maybeSingle()).data;
@@ -104,9 +105,10 @@ async function authContext(req, supa) {
         const role = String(emp.role || '').trim().toLowerCase();
         const perm = String(emp.permission || '').trim().toLowerCase();
         roleAdmin = ['master', 'admin'].includes(role) || ['master', 'admin'].includes(perm);
+        roleAdminOnly = role === 'admin' || perm === 'admin'; // 관리자(admin)만 (마스터 제외)
       }
     } catch { /* employees 조회 실패 시 미확인 처리 */ }
-    return { enabled: true, user: { id: data.user.id, email, name, showroom, scope }, isAdmin: adminEmails().includes(email) || roleAdmin, isEmployee };
+    return { enabled: true, user: { id: data.user.id, email, name, showroom, scope }, isAdmin: adminEmails().includes(email) || roleAdmin, isAdminPage: adminEmails().includes(email) || roleAdminOnly, isEmployee };
   } catch {
     return { enabled: true, user: null, isAdmin: false };
   }
@@ -479,7 +481,7 @@ export default async (req, context) => {
   // 현재 로그인 사용자 정보 (계정 표시·관리자 여부)
   if (path === '/api/me') {
     if (auth.enabled && !auth.user) return json({ error: '로그인이 필요합니다.' }, 401);
-    return json({ email: auth.user?.email || '', name: auth.user?.name || '', showroom: auth.user?.showroom || '', isAdmin: !!auth.isAdmin, isEmployee: !!auth.isEmployee, authEnabled: auth.enabled });
+    return json({ email: auth.user?.email || '', name: auth.user?.name || '', showroom: auth.user?.showroom || '', isAdmin: !!auth.isAdmin, isAdminPage: !!auth.isAdminPage, isEmployee: !!auth.isEmployee, authEnabled: auth.enabled });
   }
 
   // 로그인(접속) 기록 남기기 — 프론트가 세션당 1회 호출. 로그인한 직원 누구나.

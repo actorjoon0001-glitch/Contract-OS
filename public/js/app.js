@@ -235,7 +235,7 @@ async function renderList() {
   app.innerHTML = `
     <div class="topbar no-print">
       <div class="brand"><span class="logo">SEUM</span> 전자 계약서 <small>Contract-OS</small>
-        ${canManageList() ? '<button class="btn tiny admin-btn" id="admin-btn" title="관리자 통계 페이지 (관리자 전용)">📊 관리자 페이지</button>' : ''}
+        ${canSeeAdminPage() ? '<button class="btn tiny admin-btn" id="admin-btn" title="관리자 통계 페이지 (관리자 전용)">📊 관리자 페이지</button>' : ''}
       </div>
       <div class="actions">
         <input id="search" class="search" type="search" placeholder="건축주 · 연락처(뒷번호) · 현장주소 · 계약번호 · 전시장 · 영업사원 검색" />
@@ -486,6 +486,8 @@ function printList() {
 
 // 관리자만: 목록에서 전시장을 바로 바꿔 다른 전시장으로 넘기기
 function canManageList() { return !authEnabled() || !!me?.isAdmin; }
+// 관리자 페이지 접근: '관리자(admin)' 권한만 (마스터 제외). 개방모드는 전원.
+function canSeeAdminPage() { return !authEnabled() || !!me?.isAdminPage; }
 function listShowroomSelect(r) {
   const v = r.showroom || '';
   const opts = [`<option value="" ${v ? '' : 'selected'}>- 미지정</option>`]
@@ -1160,7 +1162,7 @@ async function bulkConfirmCompleted() {
 }
 
 async function renderAdmin() {
-  if (!canManageList()) return go('#/'); // 관리자 외 접근 차단
+  if (!canSeeAdminPage()) return go('#/'); // 관리자(admin) 외 접근 차단 (마스터 제외)
   current = null; currentId = null; dirty = false;
   app.innerHTML = `
     <div class="topbar no-print">
