@@ -59,7 +59,7 @@ const STAGE_LOG_TABLE = process.env.SUPABASE_STAGE_LOG_TABLE || 'econtract_stage
 // 계약완료(및 이후) 단계 — 이 단계면 봉인(잠금)으로 간주
 const CONTRACTED_STAGE_SET = new Set(['completed', 'design_3d', 'production', 'installing', 'delivered']);
 // 확정·봉인 건에서 영업사원이 바꿀 수 있는 '관리용' 필드(본문·봉인은 제외) — 무결성 해시 제외 항목과 동일
-const SEAL_EDIT_WHITELIST = ['stage', 'deletedAt', 'modelId', 'modelName', 'idCards', 'idCount', 'drawings', 'drawingCount', 'memo', 'deposit', 'permitRequired', 'permitType', 'history', 'ownerEmail', 'ownerName', 'lockedOnce'];
+const SEAL_EDIT_WHITELIST = ['stage', 'deletedAt', 'modelId', 'modelName', 'idCards', 'idCount', 'drawings', 'drawingCount', 'memo', 'deposit', 'permitRequired', 'permitType', 'history', 'ownerEmail', 'ownerName', 'lockedOnce', 'editUnlock', 'origSnapshot'];
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
