@@ -37,6 +37,35 @@ function setPath(obj, path, value) {
   target[last] = value;
 }
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// 원본(수정 전) 스냅샷 대비 변경 여부 — 대표이사 서명 수정 시 바뀐 값을 '이전값(취소선)→새값(빨강)'으로 표시
+function origSnapVal(path) {
+  const snap = current && current.origSnapshot;
+  if (!snap) return undefined;
+  return getPath(snap, path);
+}
+function fieldDiff(path, curVal) {
+  const snap = current && current.origSnapshot;
+  if (!snap) return { changed: false, oldHtml: '' };
+  const ov = origSnapVal(path);
+  if (ov === undefined) return { changed: false, oldHtml: '' };
+  const o = String(ov ?? '').trim();
+  const n = String(curVal ?? '').trim();
+  if (o === n) return { changed: false, oldHtml: '' };
+  return { changed: true, oldHtml: `<span class="diff-old" title="수정 전">${o ? esc(o) : '(빈칸)'}</span>` };
+}
+// 수정 전 원본 스냅샷 저장(최초 1회) — 대표이사 서명으로 수정 창을 열 때 원본을 보존
+function captureOrigSnapshot() {
+  if (!current || current.origSnapshot) return;
+  const clone = (o) => (o == null ? o : JSON.parse(JSON.stringify(o)));
+  current.origSnapshot = {
+    client: clone(current.client),
+    siteAddress: current.siteAddress,
+    items: clone(current.items),
+    extraCosts: clone(current.extraCosts),
+    extraNotes: current.extraNotes,
+    terms: clone(current.terms),
+  };
+}
 
 // 3D 홈플래너 연동 — 홈플래너에서 만든 도면을 협의도면으로 직접 받는다(postMessage)
 const PLANNER_ORIGIN = 'https://seum-home-planner.netlify.app';
@@ -1816,7 +1845,8 @@ function renderEditor() {
         <tr><th class="sec extra-head">[ 서비스 · 기타 내용 ]</th></tr>
         <tr>
           <td class="extra-cell">
-            <textarea class="f extra ${editorLocked ? 'locked' : ''}" data-path="extraNotes" rows="2" placeholder="추가 계약 내용을 입력하세요. (특약·서비스 등)" ${editorLocked ? 'readonly' : ''}>${esc(c.extraNotes || '')}</textarea>
+            <textarea class="f extra ${editorLocked ? 'locked' : ''} ${fieldDiff('extraNotes', c.extraNotes || '').changed ? 'diff-new' : ''}" data-path="extraNotes" rows="2" placeholder="추가 계약 내용을 입력하세요. (특약·서비스 등)" ${editorLocked ? 'readonly' : ''}>${esc(c.extraNotes || '')}</textarea>
+            ${fieldDiff('extraNotes', c.extraNotes || '').oldHtml}
           </td>
         </tr>
       </table>
@@ -1997,11 +2027,15 @@ function rightCell(item, i) {
 
 function renderTerms() {
   const ro = editorLocked ? 'readonly' : '';
-  const rows = current.terms.map((t, i) => `
+  const rows = current.terms.map((t, i) => {
+    const d = fieldDiff(`terms.${i}`, t);
+    return `
     <li class="term-row">
-      <textarea class="f term-input" data-term="${i}" rows="1" ${ro}>${esc(t)}</textarea>
+      <textarea class="f term-input${d.changed ? ' diff-new' : ''}" data-term="${i}" rows="1" ${ro}>${esc(t)}</textarea>
+      ${d.changed ? d.oldHtml : ''}
       ${editorLocked ? '' : `<button type="button" class="term-del no-print" data-term-del="${i}" title="이 약관 삭제">✕</button>`}
-    </li>`).join('');
+    </li>`;
+  }).join('');
   const controls = editorLocked ? '' : `<li class="term-ctrl no-print">
       <button type="button" class="btn tiny" id="term-add">＋ 약관 추가</button>
       <button type="button" class="btn tiny" id="term-reset">기본 약관 복원</button>
@@ -2059,7 +2093,9 @@ function renderExtraCosts() {
 function field(path, value, cls = '', align = '') {
   const lock = editorLocked ? 'readonly' : '';
   const lc = editorLocked ? 'locked' : '';
-  return `<input class="f ${cls} ${align} ${lc}" data-path="${path}" value="${esc(value)}" ${lock} />`;
+  const d = fieldDiff(path, value);
+  const input = `<input class="f ${cls} ${align} ${lc} ${d.changed ? 'diff-new' : ''}" data-path="${path}" value="${esc(value)}" ${lock} />`;
+  return d.changed ? `<span class="diff-wrap">${input}${d.oldHtml}</span>` : input;
 }
 // 전시장 (편집기). 현직 영업사원은 명부 소속으로 자동 확정되므로 고정 표시.
 // 관리자는 드롭다운으로 재지정 가능 — 단, 명부에 있는 현직 영업사원은 저장 시 서버가 소속으로 되돌림.
@@ -2080,7 +2116,9 @@ function noteField(path, value) {
   const lc = editorLocked ? 'locked' : '';
   // 현장답사·협의 후 진행 등 '별도 협의 필요' 주의 문구는 다른 색으로 강조
   const hl = /협의\s*후\s*진행|현장\s*답사|현장답사|정화조/.test(value || '') ? ' note-hl' : '';
-  return `<textarea class="f note ${lc}${hl}" data-path="${path}" rows="1" ${lock}>${esc(value)}</textarea>`;
+  const d = fieldDiff(path, value);
+  const ta = `<textarea class="f note ${lc}${hl}${d.changed ? ' diff-new' : ''}" data-path="${path}" rows="1" ${lock}>${esc(value)}</textarea>`;
+  return d.changed ? `<span class="diff-wrap">${ta}${d.oldHtml}</span>` : ta;
 }
 // 내용 길이에 맞춰 textarea 높이 자동 조절
 function autoGrow(el) {
@@ -2983,6 +3021,7 @@ function bindEditor() {
       note: '대표이사 서명 후 <b>24시간 동안</b> 이 계약서를 수정할 수 있습니다. (24시간이 지나면 다시 잠깁니다)<br>서명하면 그 사이 다른 직원도 함께 수정할 수 있습니다.',
       onSave: async (dataUrl) => {
         if (!dataUrl) return; // 빈 서명이면 취소
+        captureOrigSnapshot(); // 수정 전 원본 보존(최초 1회)
         current.editUnlock = { at: new Date().toISOString(), by: (me?.name || me?.email || '관리자'), image: dataUrl };
         // 24시간 수정 창을 바로 저장해 다른 직원도 그 사이 수정할 수 있게 함
         if (currentId) { try { await api.update(currentId, current); } catch (err) { alert('수정 승인 저장 실패: ' + err.message); return; } }

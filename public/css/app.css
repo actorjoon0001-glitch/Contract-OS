@@ -445,6 +445,10 @@ textarea.f.note {
 }
 /* 별도 협의 필요 주의 문구 강조 (현장답사·협의 후 진행 등) */
 textarea.f.note.note-hl { color: #c0392b; font-weight: 700; }
+/* 대표이사 서명 수정: 원본 대비 변경 표시 (새값 빨강 + 이전값 취소선) */
+.diff-wrap { display: inline-flex; align-items: baseline; gap: 3px; flex-wrap: wrap; }
+.f.diff-new, textarea.f.diff-new { color: #c0392b !important; font-weight: 700; background: #fff4f2; border-color: #e6b0a6 !important; border-radius: 4px; }
+.diff-old { display: inline-block; color: #9aa1a9; text-decoration: line-through; font-size: 11px; white-space: nowrap; }
 input.f.site, input.f.addr, input.f.name { width: 92%; }
 input.f.date { width: 56px; text-align: center; }
 input.f.date.m, input.f.date.d { width: 36px; }
