@@ -423,11 +423,15 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
       // 관리용 필드(진행상태·메모·계약금·첨부·이력 등)만 반영하고 본문·봉인은 그대로 유지.
       // 한 번 계약완료(또는 이후)된 건은 협의중 등으로 되돌려도 '완료 이력(lockedOnce)'으로 계속 잠금 유지.
       const wasOrIsCompleted = CONTRACTED_STAGE_SET.has(existing.data?.stage) || CONTRACTED_STAGE_SET.has(data?.stage) || existing.data?.lockedOnce === true;
-      if (wasOrIsCompleted && auth.enabled && !auth.isAdmin) {
+      // 대표이사 서명 수정 창(24시간) 동안에는 봉인 건이라도 모든 직원이 본문을 수정할 수 있음
+      const unlockAt = existing.data?.editUnlock?.at ? new Date(existing.data.editUnlock.at).getTime() : 0;
+      const unlockOpen = unlockAt > 0 && (Date.now() - unlockAt) < 24 * 60 * 60 * 1000;
+      if (wasOrIsCompleted && !unlockOpen && auth.enabled && !auth.isAdmin) {
         const merged = { ...existing.data };
         for (const f of SEAL_EDIT_WHITELIST) if (f in data) merged[f] = data[f];
         merged.status = existing.data?.status || 'confirmed'; // 확정 해제 불가
         merged.integrity = existing.data?.integrity;           // 봉인 유지
+        merged.editUnlock = existing.data?.editUnlock;         // 수정 승인 서명 유지
         data = merged;
       }
       if (wasOrIsCompleted) data.lockedOnce = true; // 완료 이력 영구 표시(되돌려도 잠금 유지)

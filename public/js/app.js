@@ -12,7 +12,6 @@ import { openSignaturePad } from './sign.js';
 import { loadAuthConfig, authEnabled, currentUser, login, logout, setOnAuthLost, trySSO } from './auth.js';
 
 let editorLocked = false; // 확정·계약완료 상태이면 true (입력·서명 잠금)
-let editUnlocked = false; // 대표 전자서명으로 이번 편집 세션에서 잠금을 해제했는지
 let dupView = false;      // 중복 고객 타 전시장 계약 읽기전용 열람
 let me = null;            // 로그인 사용자 정보 { email, name, isAdmin }
 
@@ -1647,7 +1646,6 @@ function renderModelPicker() {
 async function openEditor(id, modelId = null, { dup = false } = {}) {
   currentId = id;
   dupView = false;
-  editUnlocked = false; // 새로 열면 항상 잠금 상태에서 시작 (수정하려면 대표 서명)
   if (id === SAMPLE_ID) {
     // 샘플은 DB에 없는 참고용 양식 → 새 계약서처럼 다룬다(저장 시 새로 생성)
     current = sampleContract();
@@ -1688,12 +1686,27 @@ function syncShowroomFromSalesperson() {
   if (emp && emp.showroom) current.showroom = emp.showroom;
 }
 
+// 대표이사 서명 수정 허용 창: 서명 시각부터 24시간
+const UNLOCK_WINDOW_MS = 24 * 60 * 60 * 1000;
+function unlockActive(c) {
+  const at = c && c.editUnlock && c.editUnlock.at ? new Date(c.editUnlock.at).getTime() : 0;
+  return at > 0 && (Date.now() - at) < UNLOCK_WINDOW_MS;
+}
+function unlockEndLabel(c) {
+  const at = c && c.editUnlock && c.editUnlock.at ? new Date(c.editUnlock.at).getTime() : 0;
+  if (!at) return '';
+  const end = new Date(at + UNLOCK_WINDOW_MS);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(end.getMonth() + 1)}/${p(end.getDate())} ${p(end.getHours())}:${p(end.getMinutes())}`;
+}
+
 function renderEditor() {
   const c = current;
-  // 계약완료(및 이후)·확정 건은 봉인·잠금. 대표 전자서명으로 이번 세션 해제(editUnlocked) 시에만 수정 가능.
-  // 잠금: 계약완료(및 이후) 단계이거나, 한 번이라도 계약완료를 거친 건(lockedOnce)이면 잠금(되돌려도 유지)
+  // 잠금: 계약완료(및 이후) 단계이거나, 한 번이라도 계약완료를 거친 건(lockedOnce)이면 봉인.
+  // 대표이사 서명으로 해제하면 24시간 동안(누구나) 수정 가능. 그 시간이 지나면 다시 잠김.
   const sealed = CONTRACTED_STAGES.has(stageOf(c)) || !!c.lockedOnce;
-  editorLocked = dupView || (sealed && !editUnlocked);
+  const unlocked = unlockActive(c);
+  editorLocked = dupView || (sealed && !unlocked);
   const [y, mo, d] = (c.contractDate || '').split('-');
 
   app.innerHTML = `
@@ -1707,10 +1720,10 @@ function renderEditor() {
       </div>
       <div class="actions">
         ${dupView ? ''
-          : editUnlocked
-            ? '<span class="unlock-badge" title="대표 서명으로 수정 모드입니다. 저장하면 다시 봉인됩니다.">🔓 수정 모드 (대표 서명됨)</span>'
+          : (sealed && unlocked)
+            ? `<span class="unlock-badge" title="대표이사 승인으로 수정 가능 상태입니다 (누구나 수정 가능). ${esc(unlockEndLabel(c))}까지">🔓 수정 가능 · ${esc(unlockEndLabel(c))}까지</span>`
             : editorLocked
-              ? '<button type="button" class="btn warn" id="edit-unlock-btn" title="계약완료 확정 건 — 대표이사 전자서명 후에만 수정 가능">🔓 수정(대표이사 서명)</button>'
+              ? '<button type="button" class="btn warn" id="edit-unlock-btn" title="계약완료 확정 건 — 대표이사 전자서명 후 24시간 동안 수정 가능">🔓 수정(대표이사 서명)</button>'
               : ''}
         <button class="btn" id="print-btn">🖨 인쇄</button>
         <button class="btn" id="pdf-btn" title="PDF 파일로 저장 (저장 대화상자에서 'PDF로 저장' 선택)">📄 PDF 저장</button>
@@ -2967,11 +2980,12 @@ function bindEditor() {
     }
     openSignaturePad({
       title: '대표이사 전자서명 — 계약서 수정 승인',
-      note: '계약금을 수령한 계약완료 계약서는 대표이사만이 수정할 수 있습니다.<br>대표님과 상의 후 진행 바랍니다.',
-      onSave: (dataUrl) => {
+      note: '대표이사 서명 후 <b>24시간 동안</b> 이 계약서를 수정할 수 있습니다. (24시간이 지나면 다시 잠깁니다)<br>서명하면 그 사이 다른 직원도 함께 수정할 수 있습니다.',
+      onSave: async (dataUrl) => {
         if (!dataUrl) return; // 빈 서명이면 취소
         current.editUnlock = { at: new Date().toISOString(), by: (me?.name || me?.email || '관리자'), image: dataUrl };
-        editUnlocked = true;
+        // 24시간 수정 창을 바로 저장해 다른 직원도 그 사이 수정할 수 있게 함
+        if (currentId) { try { await api.update(currentId, current); } catch (err) { alert('수정 승인 저장 실패: ' + err.message); return; } }
         markDirty();
         renderEditor();
       },
