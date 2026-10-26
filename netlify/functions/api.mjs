@@ -14,6 +14,40 @@ import { createClient } from '@supabase/supabase-js';
 const TABLE = process.env.SUPABASE_TABLE || 'contracts';
 // 활동/로그인 기록 테이블 (세움os와 충돌 피하려 econtract_ 접두어). 미설정 시 기본값.
 const LOG_TABLE = process.env.SUPABASE_LOG_TABLE || 'econtract_activity_log';
+// 잔디(JANDI) 인커밍 웹훅 — 계약완료 시 관리자 알림. 미설정(빈 값)이면 알림 안 보냄.
+const JANDI_WEBHOOK = () => (process.env.JANDI_WEBHOOK_URL || '').trim();
+async function notifyContractCompleted(data) {
+  const url = JANDI_WEBHOOK();
+  if (!url) return; // 웹훅 미설정이면 조용히 건너뜀
+  try {
+    const n = (v) => Number(String(v ?? '').replace(/[^\d.]/g, '')) || 0;
+    const client = data?.client?.name || '(건축주 미입력)';
+    const dep = n(data?.deposit?.amount);
+    const extra = (data?.history || []).filter((h) => h && !h.deleted && (h.kind === '계약금 추가금' || h.kind === '추가금')).reduce((a, h) => a + n(h.amount), 0);
+    const depTotal = dep + extra;
+    const no = data?.contractNo || '';
+    const sp = data?.salesperson || '';
+    const show = data?.showroom || '';
+    const site = data?.siteAddress || '';
+    const today = new Date().toISOString().slice(0, 10);
+    const desc = [
+      no ? `계약번호: ${no}` : '',
+      `계약금: ${depTotal ? depTotal.toLocaleString() + '만원' : '미입력'}${extra ? ` (입금 ${dep.toLocaleString()} + 추가금 ${extra.toLocaleString()})` : ''}`,
+      `영업사원: ${sp}${show ? ` · ${show}` : ''}`,
+      site ? `현장: ${site}` : '',
+      `일시: ${today}`,
+    ].filter(Boolean).join('\n');
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/vnd.tosslab.jandi-v2+json' },
+      body: JSON.stringify({
+        body: `✅ 계약완료 — ${client}`,
+        connectColor: '#1c7d3c',
+        connectInfo: [{ title: `건축주 ${client}`, description: desc }],
+      }),
+    });
+  } catch { /* 알림 실패는 무시(계약 저장엔 영향 없음) */ }
+}
 // 설계 진행 상태 공유 테이블 (설계OS와 계약번호 기준으로 공유). 미설정 시 기본값.
 // 설계 진행 상태: 설계OS(SEUM-Plan-OS)와 공유하는 테이블. 계약 id(ref_id) 기준.
 // 설계OS가 design_assignees(source='econtract', ref_id=econtracts.id, design_status)에 저장하므로 동일하게 연동.
@@ -358,6 +392,7 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
         if (error) throw error;
         await logEvent(supa, auth, { kind: 'activity', type: 'create', contract: data, contractId: inserted.id, detail: '계약 생성' });
         await logStage(supa, auth, inserted.id, data.stage); // 최초 진행상태 기록
+        if (data.stage === 'completed') await notifyContractCompleted({ ...data, contractNo }); // 생성 즉시 계약완료면 알림
         return json({ id: inserted.id, contract_no: inserted.contract_no, ...inserted, data: inserted.data }, 201);
       }
       return json({ error: '허용되지 않은 메서드입니다.' }, 405);
@@ -423,6 +458,7 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
       else if (!wasConfirmed && nowConfirmed) { actType = 'confirm'; actDetail = '계약서 확정(봉인)'; }
       await logEvent(supa, auth, { kind: 'activity', type: actType, contract: data, contractId: id, detail: actDetail });
       if (existing.data?.stage !== data.stage) await logStage(supa, auth, id, data.stage); // 진행상태 바뀌면 이력 기록
+      if (existing.data?.stage !== 'completed' && data.stage === 'completed') await notifyContractCompleted(data); // 계약완료 전환 → 관리자 알림
       return json({ id: updated.id, contract_no: updated.contract_no, ...updated, data: updated.data });
     }
 
