@@ -3221,11 +3221,6 @@ function updateTotals() {
       const inp = app.querySelector(`input[data-path="items.${i}.amount"]`);
       if (inp && document.activeElement !== inp) inp.value = fmtMan(it.amount);
     }
-    // 건물건축비: 구간단가 자동 적용 시 평당 단가 입력칸도 갱신(직접 입력 중/포커스면 유지)
-    if (it.priceRule === 'building' && !it.unitPriceManual) {
-      const pInp = app.querySelector(`input[data-path="items.${i}.unitPrice"]`);
-      if (pInp && document.activeElement !== pInp) pInp.value = fmtMan(it.unitPrice);
-    }
   });
   // 자동 배분 모드면 결제 입력칸도 비율대로 갱신 (포커스 중인 칸은 건드리지 않음)
   if (!current.amounts.payManual) {
