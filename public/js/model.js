@@ -107,7 +107,7 @@ export function defaultItems() {
     { no: '', name: '핸드레일 시공(평당)', unit: '평당', unitPrice: 15, area: '', amount: '', note: '' },
     { no: '7', name: '썬룸(평당)', unit: '평당', key: 'sunroom', unitPrice: 350, area: '', amount: '', note: '썬룸,포치는 하부3면 사이딩 마감. 폴딩도어는 추가금 발생' },
     { no: '', name: '└ 썬룸 약식기초(300T)', unit: '정액', key: 'sunroomFoundation', priceRule: 'sunroomFoundation', priceLabel: '평당 65만원', unitPrice: '', area: '', amount: '', note: '썬룸 선택(면적 입력) 시 자동 적용 · 300T' },
-    { no: '8', name: '습식난방 가스/기름(평당)', unit: '평당', priceRule: 'heating', priceLabel: '10~15평 600 / 16~22평 700 / 23~30평 800', unitPrice: '', area: '', amount: '', note: '토목공사 및 정화조는 현장답사하여 건축주와 협의 후 진행' },
+    { no: '8', name: '습식난방 가스/기름(평당)', unit: '평당', priceRule: 'heating', priceLabel: '10~15평 600 / 16~22평 700 / 23~30평 800', unitPrice: '', area: '', amount: '', note: '토목공사,정화조,야외수도,우수맨홀은 현장답사하여 건축주와 협의 후 진행' },
   ];
 }
 
