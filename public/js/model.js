@@ -99,7 +99,7 @@ export function defaultItems() {
     { no: '1', name: '<인허가> 토목설계', unit: '정액', unitPrice: 450, area: '', amount: '', note: '도서지역·임야 추가금 나올 수 있음 · 감리선정비 별도 · 인허가 기간 약 1~3개월 소요' },
     { no: '1', name: '<인허가> 건축설계', unit: '정액', unitPrice: 450, area: '', amount: '', note: '' },
     { no: '2', name: '약식 기초공사(평당)', unit: '평당', priceRule: 'foundation', priceLabel: '13평↓ 140 / 13평↑ 110', unitPrice: '', area: '', amount: '', note: '약식기초 200T+300T 합 500T · 동결심도기초 평당 160만원(700T+400T 합 1100T)' },
-    { no: '3', name: '건물건축비(평당)', unit: '평당', unitPrice: 400, area: '', amount: '', note: '체류형 쉼터 등 단가가 다른 경우 금액을 직접 입력' },
+    { no: '3', name: '건물건축비(평당)', unit: '평당', priceRule: 'building', priceLabel: '24평↓ 400 / 24평↑ 370', unitPrice: '', area: '', amount: '', note: '체류형 쉼터 등 단가가 다른 경우 금액을 직접 입력' },
     { no: '4', name: '현장 시공비(평당)', unit: '평당', unitPrice: 80, area: '', amount: '', note: '현장시공시 처마 가능함' },
     { no: '5', name: '이동 설치비', unit: '거리', unitPrice: '', area: '', amount: '', moveCategory: '', tier: '', truckQty: 0, lowbedQty: 0, note: '트럭+크레인(25톤기준) 또는 지게차 + 주춧돌 포함 (현장상황에 따른 추가금 있음)' },
     { no: '6', name: '포치(평당)', unit: '평당', unitPrice: 230, area: '', amount: '', note: '아연각관+합성데크판 사용(방부목X) · 포치시공 범위(기둥·지붕·바닥·하부3면 사이딩마감)' },
@@ -406,6 +406,10 @@ export function recalc(contract) {
     const a = num(it.area);
     if (it.amountManual) {
       // 영업사원이 금액을 직접 수정한 항목: 자동 계산 건너뛰고 입력값 유지
+    } else if (it.priceRule === 'building') {
+      // 건물건축비: 24평 미만 평당 400 / 24평 이상 평당 370 (평당 단가 직접 입력 시 그 값 우선)
+      if (!it.unitPriceManual) it.unitPrice = a >= 24 ? 370 : 400;
+      it.amount = a > 0 && num(it.unitPrice) > 0 ? a * num(it.unitPrice) : '';
     } else if (it.priceRule === 'foundation') {
       // 기초공사: 13평 미만 평당 140, 13평 이상 평당 110
       it.amount = a > 0 ? a * (a < 13 ? 140 : 110) : '';
