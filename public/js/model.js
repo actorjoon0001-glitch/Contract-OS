@@ -396,7 +396,10 @@ export const PAY_UNIT_MAN = 100;        // 계약금·중도금 내림 단위: �
 // 계약금·중도금은 백만원 단위로 내림, 잔금은 나머지(= 총액 - 계약금 - 중도금 합계)
 
 // 항목 금액(평당이면 평수×단가) 및 공급가/부가세/제품합계/결제스케줄 자동계산
-export function recalc(contract) {
+// reprice: 신규 계약은 true(단가 규칙으로 금액 자동 계산).
+//   기존에 저장된 계약은 false로 호출하여 저장된 금액을 그대로 보존한다.
+//   (단가표가 바뀌어도 이미 체결·저장된 계약서 금액은 소급 변경되지 않음)
+export function recalc(contract, { reprice = true } = {}) {
   // 썬룸 면적(썬룸 약식기초 계산용)
   const sun = contract.items.find((it) => it.key === 'sunroom');
   const sunArea = sun ? num(sun.area) : 0;
@@ -404,8 +407,8 @@ export function recalc(contract) {
   let itemsSum = 0;
   for (const it of contract.items) {
     const a = num(it.area);
-    if (it.amountManual) {
-      // 영업사원이 금액을 직접 수정한 항목: 자동 계산 건너뛰고 입력값 유지
+    if (!reprice || it.amountManual) {
+      // 저장된 계약(reprice=false) 또는 금액 직접 수정 항목: 저장값 그대로 유지
     } else if (it.priceRule === 'building') {
       // 건물건축비: 24평 미만 평당 400 / 24평 이상 평당 370 (평당 단가 직접 입력 시 그 값 우선)
       if (!it.unitPriceManual) it.unitPrice = a >= 24 ? 370 : 400;

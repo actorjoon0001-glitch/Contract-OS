@@ -1175,7 +1175,7 @@ async function bulkConfirmCompleted() {
       const rec = await api.get(r.id);
       const data = rec.data || {};
       try { normalizeContract(data); } catch { /* 정규화 실패해도 확정은 진행 */ }
-      try { recalc(data); } catch { /* 재계산 실패해도 확정은 진행 */ }
+      try { recalc(data, { reprice: false }); } catch { /* 재계산 실패해도 확정은 진행 */ }
       data.status = 'confirmed';
       data.lockedOnce = true; // 완료 이력 — 되돌려도 잠금 유지
       data.integrity = { hash: '', sealedAt: new Date().toISOString(), agent: navigator.userAgent };
@@ -1697,7 +1697,8 @@ async function openEditor(id, modelId = null, { dup = false } = {}) {
     if (me?.name && !current.salesperson) current.salesperson = me.name;
   }
   normalizeContract(current);
-  recalc(current);
+  // 기존에 저장된 계약(currentId 있음)은 단가표가 바뀌어도 저장 금액을 보존(소급 적용 금지)
+  recalc(current, { reprice: !currentId });
   // 관리자면 직원 명부를 확보해 전시장을 영업사원 소속으로 정렬(목록을 안 거치고 바로 연 경우 대비)
   if (canManageList() && !employeeList.length) {
     try { employeeList = await api.employees(); } catch { /* 명부 실패 시 서버 저장 시 강제됨 */ }
@@ -3205,7 +3206,8 @@ async function updateSealBanner() {
 
 // 자동계산 결과를 화면에 반영
 function updateTotals() {
-  recalc(current);
+  // 기존 저장 계약(currentId 있음)은 저장 금액 보존, 신규 계약만 단가 규칙 재계산
+  recalc(current, { reprice: !currentId });
   app.querySelectorAll('[data-total]').forEach((el) => {
     el.textContent = fmtMan(current.amounts[el.dataset.total]);
   });
@@ -3304,7 +3306,7 @@ async function saveContract() {
     return;
   }
   try {
-    recalc(current);
+    recalc(current, { reprice: !currentId });
     // 확정(봉인) 건을 대표 서명으로 수정한 경우: 저장 시 무결성 봉인을 다시 계산
     if (current.status === 'confirmed') await sealContract();
     let saved;
