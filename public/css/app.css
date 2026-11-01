@@ -26,12 +26,13 @@ html, body {
   background: #fff; border-bottom: 1px solid #d0d4d9;
   box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
-.brand { font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 8px; }
+.brand { font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; white-space: nowrap; }
 .brand small { color: #888; font-weight: 400; font-size: 12px; }
 .brand .back { color: var(--brand); text-decoration: none; font-weight: 600; }
 .logo {
   display: inline-block; background: var(--brand); color: #fff;
   font-weight: 800; letter-spacing: 1px; padding: 2px 7px; border-radius: 4px; font-size: 13px;
+  white-space: nowrap; flex-shrink: 0;
 }
 .doc-meta { margin-left: auto; color: #444; }
 .doc-meta b { color: var(--brand); }
