@@ -37,6 +37,13 @@ html, body {
 .doc-meta { margin-left: auto; color: #444; }
 .doc-meta b { color: var(--brand); }
 .actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; row-gap: 8px; }
+/* 목록 상단바: 2행 구조(위=브랜드·계정, 아래=검색·필터·액션) */
+.topbar-stack { flex-direction: column; align-items: stretch; gap: 10px; }
+.topbar-row { display: flex; align-items: center; gap: 10px; width: 100%; }
+.topbar-head { justify-content: space-between; }
+.topbar-tools { flex-wrap: wrap; row-gap: 8px; }
+.topbar-tools .search { flex: 1 1 240px; min-width: 200px; }
+.tool-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
 .topbar .doc-meta + .actions { margin-left: 16px; }
 
 .btn {

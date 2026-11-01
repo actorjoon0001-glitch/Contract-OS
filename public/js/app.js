@@ -261,11 +261,14 @@ function designSelect(r) {
 async function renderList() {
   current = null; currentId = null; dirty = false;
   app.innerHTML = `
-    <div class="topbar no-print">
-      <div class="brand"><span class="logo">SEUM</span> 전자 계약서 <small>Contract-OS</small>
-        ${canSeeAdminPage() ? '<button class="btn tiny admin-btn" id="admin-btn" title="관리자 통계 페이지 (관리자 전용)">📊 관리자 페이지</button>' : ''}
+    <div class="topbar topbar-stack no-print">
+      <div class="topbar-row topbar-head">
+        <div class="brand"><span class="logo">SEUM</span> 전자 계약서 <small>Contract-OS</small>
+          ${canSeeAdminPage() ? '<button class="btn tiny admin-btn" id="admin-btn" title="관리자 통계 페이지 (관리자 전용)">📊 관리자 페이지</button>' : ''}
+        </div>
+        ${accountChip()}
       </div>
-      <div class="actions">
+      <div class="topbar-row topbar-tools">
         <input id="search" class="search" type="search" placeholder="건축주 · 연락처(뒷번호) · 현장주소 · 계약번호 · 전시장 · 영업사원 검색" />
         <select id="filter-stage" class="filter-sel">
           <option value="">진행상태 전체</option>
@@ -285,10 +288,11 @@ async function renderList() {
           <option value="permit">주택(준공용 인허가)</option>
           <option value="temporary">가설축조신고</option>
         </select>
-        <button class="btn" id="list-print-btn" title="현재 목록 인쇄 / PDF">🖨 인쇄</button>
-        <button class="btn" id="trash-btn" title="삭제된 계약 보기/복원">🗑 휴지통</button>
-        <button class="btn primary" id="new-btn">+ 새 계약서</button>
-        ${accountChip()}
+        <div class="tool-actions">
+          <button class="btn" id="list-print-btn" title="현재 목록 인쇄 / PDF">🖨 인쇄</button>
+          <button class="btn" id="trash-btn" title="삭제된 계약 보기/복원">🗑 휴지통</button>
+          <button class="btn primary" id="new-btn">+ 새 계약서</button>
+        </div>
       </div>
     </div>
     <div class="list-wrap no-print">
