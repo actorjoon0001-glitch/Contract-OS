@@ -36,12 +36,13 @@ html, body {
 }
 .doc-meta { margin-left: auto; color: #444; }
 .doc-meta b { color: var(--brand); }
-.actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; row-gap: 8px; }
 .topbar .doc-meta + .actions { margin-left: 16px; }
 
 .btn {
   border: 1px solid #c4c9d0; background: #fff; color: #222;
   padding: 8px 14px; border-radius: 7px; cursor: pointer; font-size: 14px; font-weight: 600;
+  white-space: nowrap; flex-shrink: 0;
 }
 .btn:hover { background: #f1f3f5; }
 .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
@@ -64,6 +65,7 @@ html, body {
 }
 .filter-sel {
   border: 1px solid #c4c9d0; border-radius: 7px; padding: 8px 10px; font-size: 13px; background: #fff; cursor: pointer;
+  white-space: nowrap; flex-shrink: 0;
 }
 .date-range { display: inline-flex; align-items: center; gap: 4px; }
 .filter-date { border: 1px solid #c4c9d0; border-radius: 7px; padding: 7px 8px; font-size: 12.5px; background: #fff; }
@@ -642,7 +644,7 @@ input.f.pct-input:not([readonly]):focus { border-color: var(--brand); background
 .login-btn { padding: 11px; font-size: 15px; margin-top: 2px; }
 
 /* 상단 계정 표시 */
-.account-chip { display: inline-flex; align-items: center; gap: 8px; margin-left: 8px; padding-left: 10px; border-left: 1px solid #dde1e6; }
+.account-chip { display: inline-flex; align-items: center; gap: 8px; margin-left: 8px; padding-left: 10px; border-left: 1px solid #dde1e6; flex-shrink: 0; }
 .account-chip .acc-name { font-size: 13px; font-weight: 700; color: #33404f; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.account-chip .acc-admin { font-size: 11px; font-weight: 700; color: #6b3fa0; background: #ede1fb; padding: 2px 7px; border-radius: 20px; }
+.account-chip .acc-admin { font-size: 11px; font-weight: 700; color: #6b3fa0; background: #ede1fb; padding: 2px 7px; border-radius: 20px; white-space: nowrap; }
 .account-chip .acc-logout { color: #666; }
