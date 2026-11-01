@@ -17,6 +17,7 @@ async function req(url, options = {}) {
     try {
       const j = await res.json();
       if (j.error) msg = j.error;
+      if (j.detail) msg += ` [${j.detail}]`; // 서버 상세 원인까지 표시(진단용)
     } catch {}
     throw new Error(msg);
   }

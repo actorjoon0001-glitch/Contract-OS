@@ -300,10 +300,29 @@ export async function handle(req, idParam, supa, auth = { enabled: false, user: 
           }
           return query;
         };
+        // 핵심 컬럼만(JSON 경로 추출 없이) 조회 — 전체 쿼리가 계속 실패할 때 목록이라도 띄우는 폴백
+        const buildLiteListQuery = () => {
+          let query = supa
+            .from(TABLE)
+            .select('id, contract_no, status, client_name, site_address, showroom, salesperson, contract_date, total_amount, updated_at')
+            .order('created_at', { ascending: false })
+            .order('contract_no', { ascending: false });
+          query = deleted ? query.not('data->>deletedAt', 'is', null) : query.is('data->>deletedAt', null);
+          if (q) {
+            const kw = q.replace(/[%,()]/g, ' ');
+            query = query.or(`client_name.ilike.%${kw}%,site_address.ilike.%${kw}%,contract_no.ilike.%${kw}%,showroom.ilike.%${kw}%,salesperson.ilike.%${kw}%`);
+          }
+          return query;
+        };
         // 일시적 DB 오류 대비 1회 재시도
         let { data, error } = await buildListQuery();
         if (error) { await new Promise((r) => setTimeout(r, 300)); ({ data, error } = await buildListQuery()); }
-        if (error) throw error;
+        if (error) {
+          // 전체 쿼리가 계속 실패하면 핵심 컬럼만으로라도 목록 표시(일부 열은 비어 보일 수 있음)
+          const lite = await buildLiteListQuery();
+          if (lite.error) throw error; // 라이트도 실패하면 원래 오류 그대로 500
+          data = lite.data;
+        }
         let rows = data || [];
         // 계약금 추가금(이력)을 목록 계약금에 합산: 이력의 '계약금 추가금'(기존 '추가금') 금액 합계를 deposit_extra 로 첨부.
         for (const r of rows) {
