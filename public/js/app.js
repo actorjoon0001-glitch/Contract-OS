@@ -805,7 +805,7 @@ function renderListRows(rows) {
     <tr data-id="${r.id}" class="row">
       <td>${esc(r.contract_no || '-')}</td>
       <td>${esc(r.salesperson || '-')}</td>
-      <td>${esc(r.client_name || '-')}${dupBadge(r)}</td>
+      <td>${esc(r.client_name || '-')}${r.client_phone ? ` <span class="client-phone">${esc(r.client_phone)}</span>` : ''}${dupBadge(r)}</td>
       <td class="ellipsis">${esc(r.site_address || '-')}</td>
       <td class="right">${fmtMan(r.total_amount) || '-'}</td>
       <td>${listDateCell(r)}</td>

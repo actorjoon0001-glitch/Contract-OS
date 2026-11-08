@@ -527,6 +527,7 @@ input.f.pct-input:not([readonly]):focus { border-color: var(--brand); background
 /* 중복 고객(타 전시장 견적) 배지 */
 .dup-badge { display: inline-block; font-size: 11px; font-weight: 700; color: #b5560f; background: #ffe8d6; border: 1px solid #f6d2b3; padding: 1px 7px; border-radius: 20px; white-space: nowrap; cursor: pointer; vertical-align: middle; }
 .dup-badge:hover { background: #ffdcc0; }
+.client-phone { display: block; font-size: 12px; color: #8a929b; font-weight: 400; margin-top: 2px; white-space: nowrap; }
 /* 중복 고객 상세 팝업 */
 .dup-modal { width: 460px; }
 .dup-body { padding: 16px 18px; }
