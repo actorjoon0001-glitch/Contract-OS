@@ -200,7 +200,7 @@ let listFiltered = []; // 현재 필터 적용된 목록 (인쇄용)
 let employeeList = [];  // 직원 목록(관리자 담당자 지정용) — 로드 시 1회 채움
 let salesRoster = [];   // 영업사원 명부(전시장 소속) — 영업사원 필터 드롭다운용(누구나 로드)
 let designTeam = [];    // 설계팀 명단(설계담당 드롭다운용) — 설계OS employees.team='설계' 기준
-const listCols = () => (canManageList() ? 18 : 17); // 관리자면 '담당자' 열 추가 (+설계담당·설계진행)
+const listCols = () => (canManageList() ? 19 : 18); // 관리자면 '담당자' 열 추가 (+설계담당·설계진행), 모델명 열 포함
 // 설계 진행 상태 (설계OS와 공유테이블로 연동) — 순서 = 진행 단계
 const DESIGN_STATES = ['미착수', '영업팀협의', '도면작업', '건축사전달', '본부장검토', '완료', '보류'];
 // 설계 담당 드롭다운 (설계OS와 연동) — 계약완료 건만
@@ -299,7 +299,7 @@ async function renderList() {
       <table class="list-table">
         <thead>
           <tr>
-            <th>계약번호</th><th>영업사원</th><th>건축주</th><th>현장주소</th>
+            <th>계약번호</th><th>영업사원</th><th>건축주</th><th>모델명</th><th>현장주소</th>
             <th class="right">제품합계(만원)</th><th>계약일자</th><th class="right">계약금(만원)</th><th class="center">인허가</th><th>신분증</th><th>도면</th><th>진행상태</th><th>대표이사 승인</th>${canManageList() ? '<th>담당자</th>' : ''}<th>메모</th><th>설계담당</th><th>설계진행</th><th>수정일</th><th></th>
           </tr>
         </thead>
@@ -805,7 +805,8 @@ function renderListRows(rows) {
     <tr data-id="${r.id}" class="row">
       <td>${esc(r.contract_no || '-')}</td>
       <td>${esc(r.salesperson || '-')}</td>
-      <td>${esc(r.client_name || '-')}${r.model_name ? ` <span class="list-model">${esc(r.model_name)}</span>` : ''}${r.client_phone ? ` <span class="client-phone">${esc(r.client_phone)}</span>` : ''}${dupBadge(r)}</td>
+      <td>${esc(r.client_name || '-')}${r.client_phone ? ` <span class="client-phone">${esc(r.client_phone)}</span>` : ''}${dupBadge(r)}</td>
+      <td>${r.model_name ? `<span class="list-model">${esc(r.model_name)}</span>` : '<span class="muted">—</span>'}</td>
       <td class="ellipsis">${esc(r.site_address || '-')}</td>
       <td class="right">${fmtMan(r.total_amount) || '-'}</td>
       <td>${listDateCell(r)}</td>
