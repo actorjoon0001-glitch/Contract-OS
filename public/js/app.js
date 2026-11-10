@@ -45,7 +45,9 @@ function origSnapVal(path) {
 }
 function fieldDiff(path, curVal) {
   const snap = current && current.origSnapshot;
-  if (!snap) return { changed: false, oldHtml: '' };
+  // diff(수정 전 원본)는 대표이사 서명 수정창이 '열려있는 동안'에만 표시.
+  // 수정창(24시간)이 끝나면 origSnapshot이 데이터에 남아있어도 표시하지 않음(중복 표시 방지).
+  if (!snap || !unlockActive(current)) return { changed: false, oldHtml: '' };
   const ov = origSnapVal(path);
   if (ov === undefined) return { changed: false, oldHtml: '' };
   const o = String(ov ?? '').trim();
