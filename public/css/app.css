@@ -394,6 +394,7 @@ input.f.locked { background: transparent; border-bottom-color: transparent; colo
 .permit-badge.no { background: #e7f2ea; color: #1c7d3c; border: 1px solid #c6e3ce; }
 /* 관리바 인허가 구분 선택 색상 */
 #permit-select.permit-none { border-color: #d6342c; color: #b5352a; }
+#model-select.empty { border-color: #d6342c; color: #b5352a; }
 #permit-select.permit-permit { background: #fde8e6; color: #b5352a; border-color: #f3c4bf; }
 #permit-select.permit-temporary { background: #e7f2ea; color: #1c7d3c; border-color: #c6e3ce; }
 .dep-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #444; }
