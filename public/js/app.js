@@ -3296,7 +3296,7 @@ async function saveContract() {
   const getVal = (k) => k.split('.').reduce((o, p) => (o == null ? undefined : o[p]), current);
   const missing = required.filter((r) => !String(getVal(r.key) ?? '').trim());
   if (missing.length) {
-    alert(`다음 항목을 작성해 주세요:\n\n· ${missing.map((m) => m.label).join('\n· ')}\n\n건축주 이름·생년월일·연락처, 전시장·영업사원·현장주소는 필수 입력입니다.`);
+    alert(`다음 항목을 작성해 주세요:\n\n· ${missing.map((m) => m.label).join('\n· ')}\n\n건축주 이름·생년월일·연락처, 전시장·영업사원·현장주소·제품 모델명은 필수 입력입니다.`);
     const first = app.querySelector(`[data-path="${missing[0].key}"]`);
     if (first) { first.focus(); first.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     return;
