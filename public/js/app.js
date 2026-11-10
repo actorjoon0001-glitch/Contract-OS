@@ -1855,7 +1855,6 @@ function renderEditor() {
         <tr>
           <td class="extra-cell">
             <textarea class="f extra ${editorLocked ? 'locked' : ''} ${fieldDiff('extraNotes', c.extraNotes || '').changed ? 'diff-new' : ''}" data-path="extraNotes" rows="2" placeholder="추가 계약 내용을 입력하세요. (특약·서비스 등)" ${editorLocked ? 'readonly' : ''}>${esc(c.extraNotes || '')}</textarea>
-            ${fieldDiff('extraNotes', c.extraNotes || '').oldHtml}
           </td>
         </tr>
       </table>
