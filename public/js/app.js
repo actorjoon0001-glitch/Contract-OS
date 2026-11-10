@@ -5,7 +5,7 @@ import {
   MOVE_OPTIONS, computeMoveFee, moveTruckQty, moveLowbedQty,
   SAMPLE_ID, sampleContract, sampleListRow,
   STAGES, stageLabel,
-  MODELS, modelContract,
+  MODELS, modelContract, getModel,
   SHOWROOMS, defaultTerms,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
@@ -1776,6 +1776,7 @@ function renderEditor() {
       <span id="deposit-info" class="dep-info no-print"></span>
       <label>전시장 <span class="req">*</span> ${showroomSelect(c.showroom)}</label>
       <label>영업사원 <span class="req">*</span> ${field('salesperson', c.salesperson, 'manage')}</label>
+      <label>제품 모델명 <span class="req">*</span> ${modelSelect(c.modelId)}</label>
       <label>인허가 구분 <span class="req">*</span>
         <select id="permit-select" class="mb-stage permit-${esc(c.permitType || 'none')}">
           <option value="" ${!c.permitType ? 'selected' : ''}>- 선택</option>
@@ -1783,7 +1784,7 @@ function renderEditor() {
           <option value="permit" ${c.permitType === 'permit' ? 'selected' : ''}>주택 (준공용 인허가)</option>
         </select>
       </label>
-      <span class="mb-hint muted small">※ 목록 분류·검색용 (계약서 인쇄에는 표시 안 됨) · <b>전시장·영업사원·현장주소·인허가 구분은 필수</b></span>
+      <span class="mb-hint muted small">※ 목록 분류·검색용 (계약서 인쇄에는 표시 안 됨) · <b>전시장·영업사원·현장주소·제품 모델명·인허가 구분은 필수</b></span>
     </div>
 
     ${editorLocked ? `
@@ -2114,6 +2115,20 @@ function showroomSelect(value) {
     return `<select id="showroom-select" class="mb-stage" title="관리자 전시장 재지정 (퇴사 등 명부에 없는 영업사원의 계약 교정용)">${opts.join('')}</select>`;
   }
   return `<span class="mb-fixed" title="전시장은 영업사원 소속에 따라 자동 지정됩니다">${esc(v || '미지정')}</span>`;
+}
+// 제품 모델명 (편집기). 온라인 카탈로그(MODELS) 기준, 전시장별 그룹(optgroup)으로 분리.
+function modelSelect(selectedId) {
+  const order = [];
+  for (const m of MODELS) if (!order.includes(m.showroom)) order.push(m.showroom);
+  const groups = order.map((sr) => {
+    const opts = MODELS.filter((m) => m.showroom === sr)
+      .map((m) => `<option value="${m.id}" ${selectedId === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
+    return `<optgroup label="${esc(sr)}">${opts}</optgroup>`;
+  }).join('');
+  return `<select id="model-select" class="mb-stage model-sel${selectedId ? '' : ' empty'}" title="제품 모델명 (온라인 카탈로그 기준)">
+      <option value="" ${!selectedId ? 'selected' : ''}>- 선택</option>
+      ${groups}
+    </select>`;
 }
 // 비고/설명: 여러 줄로 줄바꿈되는 textarea (높이는 내용에 맞춰 자동 조절)
 function noteField(path, value) {
@@ -2967,33 +2982,17 @@ function bindEditor() {
   // 전시장: 드롭다운 선택 → current.showroom 반영
   const showroomSel = document.getElementById('showroom-select');
   if (showroomSel) showroomSel.onchange = (e) => { current.showroom = e.target.value; markDirty(); };
-  // 모델 전환: 주문내용 옵션·금액을 새 모델 기준으로 재설정 (고객/현장/일자 등 입력값은 유지)
+  // 제품 모델명 선택: 모델명(분류·저장용)만 기록 — 입력한 주문내용·금액은 그대로 유지
   const modelSel = document.getElementById('model-select');
   if (modelSel) modelSel.onchange = (e) => {
-    const id = e.target.value;
     if (editorLocked) { e.target.value = current.modelId || ''; return; }
-    if (!confirm('모델을 바꾸면 주문내용 옵션과 금액이 새 모델 기준으로 초기화됩니다.\n계속할까요?')) {
-      e.target.value = current.modelId || '';
-      return;
-    }
-    const preset = id ? modelContract(id) : emptyContract();
-    // 이미 입력한 고객/관리 정보는 유지
-    preset.client = current.client;
-    preset.siteAddress = current.siteAddress;
-    preset.contractDate = current.contractDate;
-    preset.salesperson = current.salesperson;
-    preset.stage = current.stage;
-    preset.status = current.status;
-    preset.contractNo = current.contractNo;
-    preset.extraNotes = current.extraNotes;
-    preset.idCards = current.idCards; // 첨부한 신분증은 모델 전환과 무관하게 유지
-    preset.drawings = current.drawings; // 첨부한 협의도면도 유지
-    preset.showroom = current.showroom; // 전시장은 모델과 무관하게 기존(영업사원 소속) 유지
-    current = preset;
-    normalizeContract(current);
-    recalc(current);
+    const id = e.target.value;
+    const m = id ? getModel(id) : null;
+    current.modelId = id;
+    current.modelName = m ? m.name : '';
+    e.target.classList.toggle('empty', !id);
     markDirty();
-    renderEditor();
+    renderEditor(); // 모델 배지 등 표시 갱신
   };
   const confirmToggle = document.getElementById('status-confirmed');
   if (confirmToggle) confirmToggle.onchange = async (e) => {
@@ -3306,6 +3305,13 @@ async function saveContract() {
   if (current.permitType !== 'temporary' && current.permitType !== 'permit') {
     alert('인허가 구분을 선택해 주세요.\n\n· 컨테이너·체류형쉼터 (가설건축물축조신고)\n· 주택 (준공용 인허가)\n\n둘 중 하나를 반드시 선택해야 저장됩니다.');
     const sel = document.getElementById('permit-select');
+    if (sel) { sel.focus(); sel.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    return;
+  }
+  // 제품 모델명 필수 — 온라인 카탈로그에 있는 모델이어야 저장 가능
+  if (!current.modelId || !getModel(current.modelId)) {
+    alert('제품 모델명을 선택해 주세요.\n\n온라인 카탈로그에 등록된 모델 중에서 선택해야 저장됩니다.');
+    const sel = document.getElementById('model-select');
     if (sel) { sel.focus(); sel.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     return;
   }
