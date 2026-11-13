@@ -290,6 +290,10 @@ async function renderList() {
           <option value="permit">주택(준공용 인허가)</option>
           <option value="temporary">가설축조신고</option>
         </select>
+        <select id="filter-sort" class="filter-sel" title="목록 정렬 기준">
+          <option value="">번호순(최신)</option>
+          <option value="date">계약일자순</option>
+        </select>
         <div class="tool-actions">
           <button class="btn" id="list-print-btn" title="현재 목록 인쇄 / PDF">🖨 인쇄</button>
           <button class="btn" id="trash-btn" title="삭제된 계약 보기/복원">🗑 휴지통</button>
@@ -328,6 +332,7 @@ async function renderList() {
   document.getElementById('filter-showroom').onchange = applyListFilters;
   document.getElementById('filter-sales').onchange = applyListFilters;
   document.getElementById('filter-permit').onchange = applyListFilters;
+  document.getElementById('filter-sort').onchange = applyListFilters;
   loadList();
 }
 
@@ -454,6 +459,18 @@ function applyListFilters() {
         .some((v) => (v || '').toLowerCase().includes(q));
       const phoneHit = qDigits && String(r.client_phone || '').replace(/\D/g, '').includes(qDigits);
       return textHit || phoneHit;
+    });
+  }
+  // 정렬: 기본은 서버 순서(번호순·최신), 'date'면 계약일자 내림차순(샘플은 항상 맨 아래)
+  const sortMode = document.getElementById('filter-sort')?.value || '';
+  if (sortMode === 'date') {
+    rows = rows.slice().sort((a, b) => {
+      if (a.is_sample) return 1;
+      if (b.is_sample) return -1;
+      const da = a.contract_date || a.deposit_date || '';
+      const db = b.contract_date || b.deposit_date || '';
+      if (da !== db) return db.localeCompare(da); // 최신 계약일자 먼저
+      return String(b.contract_no || '').localeCompare(String(a.contract_no || '')); // 동일 날짜는 번호 내림차순
     });
   }
   listFiltered = rows;
