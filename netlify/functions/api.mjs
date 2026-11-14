@@ -78,11 +78,13 @@ const adminEmails = () =>
 
 // ---- 전시장 코드/명 정규화 (employees.showroom 영어코드 ↔ 계약서 한글값 매칭용) ----
 const SHOWROOM_CODE_TO_KR = {
+  magok: '서울마곡지사',
   headquarters: '본사 전시장', showroom1: '1전시장', showroom3: '3전시장',
   ganghwa: '강화전시장', andong: '안동전시장', gwangju: '광주전시장',
 };
 // 여러 표기(영어코드·한글·레거시)를 하나의 키로 통일
 const SHOWROOM_KEY = {
+  magok: 'magok', '서울마곡지사': 'magok', '마곡': 'magok', '마곡전시장': 'magok',
   headquarters: 'hq', '본사 전시장': 'hq', '본점': 'hq', '본사': 'hq',
   showroom1: 'sr1', '1전시장': 'sr1', '제1전시장': 'sr1',
   showroom3: 'sr3', '3전시장': 'sr3', '제3전시장': 'sr3',
