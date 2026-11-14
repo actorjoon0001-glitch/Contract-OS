@@ -1405,9 +1405,9 @@ function admContracted(r) { return CONTRACTED_STAGES.has(stageOf(r)) || !!r.depo
 function admNum(v) { const n = Number(String(v ?? '').replace(/,/g, '')); return Number.isFinite(n) ? n : 0; }
 function admMonthLabel(m) { const [y, mo] = m.split('-'); return `${y}년 ${Number(mo)}월`; }
 // 전시장 표기 정규화 (광주/광주전시장, 본사/본사 전시장 등 통합)
-const SHOWROOM_ALIAS = { '본사': '본사 전시장', '본점': '본사 전시장', '1전시장': '1전시장', '제1전시장': '1전시장', '3전시장': '3전시장', '제3전시장': '3전시장', '강화': '강화전시장', '안동': '안동전시장', '광주': '광주전시장' };
+const SHOWROOM_ALIAS = { 'magok': '서울마곡지사', '마곡': '서울마곡지사', '마곡전시장': '서울마곡지사', '본사': '본사 전시장', '본점': '본사 전시장', '1전시장': '1전시장', '제1전시장': '1전시장', '3전시장': '3전시장', '제3전시장': '3전시장', '강화': '강화전시장', '안동': '안동전시장', '광주': '광주전시장' };
 function admShowroom(v) { const s = String(v ?? '').trim(); if (!s) return '미지정'; return SHOWROOM_ALIAS[s] || s; }
-const SHOWROOM_ORDER = ['본사 전시장', '1전시장', '3전시장', '강화전시장', '안동전시장', '광주전시장'];
+const SHOWROOM_ORDER = ['서울마곡지사', '본사 전시장', '1전시장', '3전시장', '강화전시장', '안동전시장', '광주전시장'];
 
 function renderAdminBody() {
   const wrap = document.getElementById('admin-body');
