@@ -159,9 +159,12 @@ function scopeAllows(auth, showroomVal, ownerEmail, salesperson) {
   if (scope === 'all') return true;
   const isOwn = () => {
     const owner = String(ownerEmail || '').toLowerCase();
-    if (owner) return owner === auth.user.email;
-    const sp = String(salesperson ?? '').trim();
-    return !!auth.user.name && sp === auth.user.name;
+    if (owner && owner === auth.user.email) return true; // 소유자 이메일 일치
+    const nm = String(auth.user.name || '').trim();
+    if (!nm) return false;
+    // 공동계약: 영업사원이 쉼표/슬래시로 여러 명이면, 본인 이름이 포함돼도 '본인 계약'으로 인정
+    // (전시장이 바뀌어도 본인이 참여한 계약은 계속 보이도록)
+    return String(salesperson ?? '').split(/[,\/]/).map((s) => s.trim()).includes(nm);
   };
   if (scope === 'showroom') {
     const vkey = normShowroom(auth.user.showroom);
