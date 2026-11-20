@@ -199,6 +199,8 @@ function bindAccount(scope) {
 // ---------- 목록 화면 ----------
 let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터는 클라이언트에서 처리)
 let listFiltered = []; // 현재 필터 적용된 목록 (인쇄용)
+const LIST_PAGE = 200;   // 화면 렌더 페이지 크기(데이터는 전부 로드, 표시만 나눠 렌더 → 렌더 속도↑)
+let listShown = LIST_PAGE; // 현재 표시 중인 행 수(‘더 보기’로 증가)
 let employeeList = [];  // 직원 목록(관리자 담당자 지정용) — 로드 시 1회 채움
 let salesRoster = [];   // 영업사원 명부(전시장 소속) — 영업사원 필터 드롭다운용(누구나 로드)
 let designTeam = [];    // 설계팀 명단(설계담당 드롭다운용) — 설계OS employees.team='설계' 기준
@@ -433,6 +435,7 @@ function setDateRange(from, to) {
 }
 
 function applyListFilters() {
+  listShown = LIST_PAGE; // 필터·검색이 바뀌면 첫 페이지부터 다시 표시
   const q = (document.getElementById('search').value || '').toLowerCase().trim();
   const st = document.getElementById('filter-stage').value;
   const mo = document.getElementById('filter-month')?.value || '';
@@ -820,7 +823,10 @@ function renderListRows(rows) {
     body.innerHTML = `<tr><td colspan="${listCols()}" class="muted center">조건에 맞는 계약서가 없습니다.</td></tr>`;
     return;
   }
-  body.innerHTML = rows.map((r) => `
+  // 렌더 페이지네이션: 표시 중인 수만큼만 DOM 생성(데이터는 전부 로드됨 → 검색·정렬은 전체 대상)
+  const shown = rows.slice(0, listShown);
+  const moreCount = rows.length - shown.length;
+  body.innerHTML = shown.map((r) => `
     <tr data-id="${r.id}" class="row">
       <td>${esc(r.contract_no || '-')}</td>
       <td>${esc(r.salesperson || '-')}</td>
@@ -851,7 +857,11 @@ function renderListRows(rows) {
       <td class="design-cell">${r.is_sample ? '' : designSelect(r)}</td>
       <td class="muted small">${esc((r.updated_at || '').slice(0, 16))}</td>
       <td>${r.is_sample ? '' : `<button class="btn tiny danger" data-del="${r.id}">삭제</button>`}</td>
-    </tr>`).join('');
+    </tr>`).join('')
+    + (moreCount > 0 ? `<tr class="list-more-row no-print"><td colspan="${listCols()}" class="center"><button class="btn" id="list-more">⬇ 남은 ${moreCount}건 더 보기 (현재 ${shown.length}건 표시)</button></td></tr>` : '');
+
+  const moreBtn = document.getElementById('list-more');
+  if (moreBtn) moreBtn.onclick = () => { listShown += LIST_PAGE; renderListRows(rows); };
 
   body.querySelectorAll('.row').forEach((tr) => {
     tr.onclick = (e) => {
