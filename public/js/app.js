@@ -199,7 +199,7 @@ function bindAccount(scope) {
 // ---------- 목록 화면 ----------
 let listRows = []; // 전체 목록 캐시 (전시장/영업사원/검색 필터는 클라이언트에서 처리)
 let listFiltered = []; // 현재 필터 적용된 목록 (인쇄용)
-const LIST_PAGE = 200;   // 화면 렌더 페이지 크기(데이터는 전부 로드, 표시만 나눠 렌더 → 렌더 속도↑)
+const LIST_PAGE = 100;   // 화면 렌더 페이지 크기(데이터는 전부 로드, 표시만 나눠 렌더 → 렌더 속도↑)
 let listShown = LIST_PAGE; // 현재 표시 중인 행 수(‘더 보기’로 증가)
 let employeeList = [];  // 직원 목록(관리자 담당자 지정용) — 로드 시 1회 채움
 let salesRoster = [];   // 영업사원 명부(전시장 소속) — 영업사원 필터 드롭다운용(누구나 로드)
