@@ -237,6 +237,119 @@ export function sampleListRow() {
 }
 
 // ──────────────────────────────────────────────────────────────
+// 고객 맞춤형 주택 계약서 (두 번째 양식) — 기본 계약서와 별개로 함께 사용
+//  · 건물건축비: 13~20평 평당 290 / 20평 이상 평당 280 (기본주택 사양 포함)
+//  · 외장재·난방·바닥재·창호·가구·벽지는 '추가 선택 옵션'에서 고른 것만 금액 반영
+//  · contract.template === 'custom' 으로 구분 (기존 계약에는 이 필드가 없음 → 기본 양식)
+export const CUSTOM_TEMPLATE = 'custom';
+export const CUSTOM_MODEL = { id: 'custom', showroom: '', name: '고객 맞춤형', category: '고객 맞춤형 주택', area: 0, startPrice: 0 };
+export const isCustom = (c) => !!c && c.template === CUSTOM_TEMPLATE;
+
+// 추가 선택 옵션 묶음 (표시 순서 = 배열 순서)
+export const CUSTOM_GROUPS = [
+  { key: 'exterior', label: '1. 외장재' },
+  { key: 'floor', label: '2. 바닥 난방 + 바닥재' },
+  { key: 'window', label: '3. 창호 (변경 시)', desc: '내부 백색·외부 흑색 · 유리 24mm 페어 로이 아르곤가스 충진 브론즈 유리' },
+  { key: 'furniture', label: '4. 싱크대 · 가구', desc: '하이그로시 유광·무광 색상 선택 가능' },
+  { key: 'wallpaper', label: '5. 내부 벽지' },
+  { key: 'bath', label: '6. 욕실 천정' },
+];
+
+// 옵션 단가표 — [묶음, 항목명, 단위(평|m|개|정액), 단가(만원), 비고]
+// ※ 단가 변경은 이 표만 고치면 새 계약에 반영됩니다(이미 저장된 계약은 소급 변경 안 됨).
+const CUSTOM_OPTION_TABLE = [
+  ['exterior', '스마트사이딩', '평', 60, '페인트 도장공사 포함'],
+  ['exterior', '메탈사이딩 (2세대 ROSER 제품)', '평', 60, ''],
+  ['exterior', '메탈사이딩 (3세대 국산 IM SIDING 제품)', '평', 95, ''],
+  ['exterior', '디자인 루바강판', '평', 85, '소·중·대·곡선 선택 가능'],
+  ['exterior', '세라믹 사이딩 16T', '평', 95, ''],
+  ['exterior', '하이클래딩', '평', 95, ''],
+  ['exterior', '롱브릭 파벽공사', '평', 105, ''],
+  ['exterior', '일반 파벽공사', '평', 102, ''],
+  ['exterior', '스타코 외장공사', '평', 98, ''],
+  ['floor', '전기 온돌판넬', '평', 15, '조절기 포함'],
+  ['floor', '수상한 난방', '평', 30, '보일러 기계 포함'],
+  ['floor', '한솔난방', '평', 30, '조절기 포함'],
+  ['floor', '습식 보일러 (가스·기름)', 'heating', '', '기계 포함 · 토목공사,정화조,야외수도,우수맨홀은 현장답사하여 건축주와 협의 후 진행'],
+  ['floor', '강화마루 8T', '평', 10.5, ''],
+  ['floor', 'SPC 돌마루 7.5T', '평', 12, ''],
+  ['floor', '모노륨 장판 3.2T', '평', 10.5, ''],
+  ['window', '영림 창호', '평', 12, ''],
+  ['window', 'KCC 창호', '평', 16, ''],
+  ['window', 'LX 창호', '평', 20, ''],
+  ['window', '기타 제품', '정액', '', '별도 견적'],
+  ['furniture', '상부장', 'm', 40, '기본 후드 포함'],
+  ['furniture', '하부장', 'm', 65, '기본 싱크볼·수전·하이라이트 포함'],
+  ['furniture', '현관 신발장 (반장)', '개', 65, '폭 1200~1500'],
+  ['furniture', '현관 신발장 (키큰장)', '개', 95, '폭 1200~1500'],
+  ['furniture', '붙박이장 (여닫이)', 'm', 68, ''],
+  ['furniture', '붙박이장 (슬라이딩도어)', 'm', 83, ''],
+  ['furniture', '아일랜드 식탁 (길이 1500 미만)', '개', 126, ''],
+  ['furniture', '아일랜드 식탁 (길이 1800 미만)', '개', 160, ''],
+  ['furniture', '냉장고장', '개', 38, '키큰장 상부장 및 EP판 포함 · 폭 1000'],
+  ['furniture', '가스렌지 변경 (3구)', '개', 26, ''],
+  ['furniture', '인덕션 변경 (3구)', '개', 45, ''],
+  ['furniture', '인덕션 변경 (2구)', '개', 32, ''],
+  ['furniture', '인덕션 변경 (1구)', '개', 18, ''],
+  ['furniture', '인덕션+하이라이트 변경 (3구)', '개', 42, ''],
+  ['furniture', '하이라이트 추가 (3구)', '개', 30, ''],
+  ['furniture', '하이라이트 추가 (2구)', '개', 25, ''],
+  ['furniture', '하이라이트 추가 (1구)', '개', 18, ''],
+  ['furniture', '단독형 침니후드 변경', '개', 65, ''],
+  ['furniture', '싱크 사각볼 + 수전 변경', '개', 48, ''],
+  ['furniture', '한샘 · 에넥스 · 기타 브랜드', '정액', '', '별도 견적'],
+  ['wallpaper', '합지 벽지', '평', 10.5, ''],
+  ['wallpaper', '실크 벽지', '평', 13, ''],
+  ['bath', '욕실 천정 돔 시공', '개', 40, '기본은 판넬 시공'],
+];
+
+function customOptionItems() {
+  return CUSTOM_OPTION_TABLE.map(([opt, name, u, price, note]) => {
+    const base = { no: '', opt, name, unitPrice: price, area: '', amount: '', note };
+    if (u === 'heating') return { ...base, unit: '평당', priceRule: 'heating', priceLabel: '10~15평 600 / 16~22평 700 / 23~30평 800' };
+    if (u === '정액') return { ...base, unit: '정액', priceLabel: '별도' };
+    if (u === '평') return { ...base, unit: '평당', priceLabel: `평당 ${price}만원` };
+    return { ...base, unit: '수량', qtyUnit: u, priceLabel: `${u}당 ${price}만원` };
+  });
+}
+
+// 맞춤형 주문내용 = 기본 양식 항목(건축비만 맞춤형 단가, 습식난방은 옵션으로 이동) + 추가 선택 옵션
+export function customItems() {
+  const base = defaultItems()
+    .filter((it) => it.priceRule !== 'heating')
+    .map((it) => (it.priceRule === 'building'
+      ? { ...it, priceRule: 'customBuilding', note: '고객 맞춤형 주택 · 13~20평 290 / 20평 이상 280 (단가가 다른 경우 평당 단가를 직접 입력)' }
+      : it));
+  return [...base, ...customOptionItems()];
+}
+
+// 맞춤형 '기본주택 포함 사항' — 서비스·기타 내용란 기본 문구(자유 수정 가능)
+export function customExtraNotes() {
+  return [
+    '본 계약은 고객 취향대로 선택하는 맞춤형 모듈러 주택이며, 추가 옵션은 ㈜세움디자인하우징 모델하우스를 기준으로 시공한다.',
+    '',
+    '[ 기본주택 포함 사항 ]',
+    '1. 지붕·천정 : 징크판넬 260T 준불연 + 경량철골(아연각파이프 두께 2.0T · 50×50, 50×100, 100×100) + 다루끼 각재 + 합판 5T + 석고 (내선전기·등기구 포함) ※ 벽지 선택 시 추가금 발생',
+    '2. 벽체 : 방습지 + OSB 합판 11.5T + 경량철골(아연각파이프 두께 2.0T · 50×50, 50×100, 100×100) + 비드법 가등급 단열재 50T 4겹 + 다루끼 각재 + 합판 5T + 석고 (전기 내선 포함) ※ 외장재·벽지 선택 시 추가금 발생',
+    '3. 창호 : 내부·외부 백색 이중창(방충망 포함) + 픽스창 · 유리 24mm 페어 로이 아르곤가스 충진 브론즈 유리',
+    '   기본 사이즈 — 거실창 2500×2100 이중창 1조 / 침실창(1개 이내) 1500×900 이중창 1조 + 1500×900 픽스창 1조 / 주방창 1500×700 이중창 1조 / 욕실창 600×500 이중창 1조',
+    '4. 욕실 : 벽·바닥, 현관 바닥, 주방 벽 타일 / 기구 세팅(세면대·양변기·샤워기·수건장·젠다이·기타 악세사리) / 천정 판넬 시공 (돔 시공은 별도 40만원)',
+  ].join('\n');
+}
+
+// 고객 맞춤형 새 계약 생성
+export function customContract() {
+  const c = emptyContract();
+  c.template = CUSTOM_TEMPLATE;
+  c.modelId = CUSTOM_MODEL.id;
+  c.modelName = CUSTOM_MODEL.name;
+  c.items = customItems();
+  c.extraNotes = customExtraNotes();
+  recalc(c);
+  return c;
+}
+
+// ──────────────────────────────────────────────────────────────
 // 모델 프리셋 카탈로그 — 전시장별 모델·시작가 (온라인 카탈로그 기준, 총 39종)
 //  id: 고유값, showroom: 소속 전시장, name: 모델명, category: 분류,
 //  area: 기본 평수, startPrice: 시작가(모델 기본 총액, 만원 · 원가÷10,000)
@@ -309,6 +422,7 @@ export const MODELS = [
 ];
 
 export function getModel(id) {
+  if (id === CUSTOM_MODEL.id) return CUSTOM_MODEL; // 고객 맞춤형 계약서(카탈로그 모델 없음)
   return MODELS.find((m) => m.id === id) || null;
 }
 
@@ -432,6 +546,10 @@ export function recalc(contract, { reprice = true } = {}) {
       // 건물건축비: 24평 미만 평당 400 / 24평 이상 평당 370 (평당 단가 직접 입력 시 그 값 우선)
       if (!it.unitPriceManual) it.unitPrice = a >= 24 ? 370 : 400;
       it.amount = a > 0 && num(it.unitPrice) > 0 ? a * num(it.unitPrice) : '';
+    } else if (it.priceRule === 'customBuilding') {
+      // 고객 맞춤형 건물건축비: 20평 미만 평당 290 / 20평 이상 평당 280 (평당 단가 직접 입력 시 그 값 우선)
+      if (!it.unitPriceManual) it.unitPrice = a >= 20 ? 280 : 290;
+      it.amount = a > 0 && num(it.unitPrice) > 0 ? a * num(it.unitPrice) : '';
     } else if (it.priceRule === 'foundation') {
       // 기초공사: 13평 미만 평당 140, 13평 이상 평당 110
       it.amount = a > 0 ? a * (a < 13 ? 140 : 110) : '';
@@ -441,9 +559,9 @@ export function recalc(contract, { reprice = true } = {}) {
     } else if (it.priceRule === 'sunroomFoundation') {
       // 썬룸 약식기초(300T): 썬룸 면적 × 65
       it.amount = sunArea > 0 ? sunArea * 65 : '';
-    } else if (it.unit === '평당' && num(it.unitPrice) > 0) {
-      // 평수 입력 시 평수×단가, 평수를 지우면 금액도 비움
-      it.amount = a > 0 ? a * num(it.unitPrice) : '';
+    } else if ((it.unit === '평당' || it.unit === '수량') && num(it.unitPrice) > 0) {
+      // 평수(또는 수량 m·개) 입력 시 수량×단가, 지우면 금액도 비움
+      it.amount = a > 0 ? Math.round(a * num(it.unitPrice) * 100) / 100 : '';
     } else if (it.unit === '거리') {
       const fee = computeMoveFee(it);
       if (fee !== '') it.amount = fee;

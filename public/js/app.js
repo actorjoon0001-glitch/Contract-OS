@@ -7,6 +7,7 @@ import {
   STAGES, stageLabel,
   MODELS, modelContract, getModel,
   SHOWROOMS, defaultTerms,
+  CUSTOM_MODEL, CUSTOM_GROUPS, isCustom, customContract,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
 import { loadAuthConfig, authEnabled, currentUser, login, logout, setOnAuthLost, trySSO } from './auth.js';
@@ -300,6 +301,7 @@ async function renderList() {
           <button class="btn" id="list-print-btn" title="현재 목록 인쇄 / PDF">🖨 인쇄</button>
           <button class="btn" id="trash-btn" title="삭제된 계약 보기/복원">🗑 휴지통</button>
           <button class="btn primary" id="new-btn">+ 새 계약서</button>
+          <button class="btn primary" id="new-custom-btn" title="고객 맞춤형 주택 계약서 (13~20평 평당 290 · 20평 이상 280) — 외장재·난방·바닥재·창호·가구·벽지를 옵션에서 골라 자동 계산">+ 고객 맞춤형 계약서</button>
         </div>
       </div>
     </div>
@@ -317,6 +319,7 @@ async function renderList() {
     <div id="list-print" class="list-print"></div>`;
 
   document.getElementById('new-btn').onclick = () => go('#/new');
+  document.getElementById('new-custom-btn').onclick = () => go(`#/new/${CUSTOM_MODEL.id}`); // 고객 맞춤형 양식
   document.getElementById('trash-btn').onclick = () => go('#/trash');
   document.getElementById('list-print-btn').onclick = printList;
   const adminBtn = document.getElementById('admin-btn');
@@ -1725,7 +1728,7 @@ async function openEditor(id, modelId = null, { dup = false } = {}) {
       return go('#/');
     }
   } else {
-    current = modelId ? modelContract(modelId) : emptyContract();
+    current = modelId === CUSTOM_MODEL.id ? customContract() : modelId ? modelContract(modelId) : emptyContract();
     // 새 계약: 전시장은 항상 로그인 영업사원의 소속으로(모델 소속과 무관). 영업사원은 로그인 이름.
     if (me?.showroom) current.showroom = me.showroom;
     if (me?.name && !current.salesperson) current.salesperson = me.name;
@@ -1854,7 +1857,7 @@ function renderEditor() {
     <div id="contract" class="contract">
       <header class="c-head">
         <div class="c-logo"><img class="c-logo-img" src="${SUPPLIER.logoImage}" alt="세움 로고" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block';" /><span class="logo" style="display:none">SEUM</span><div>㈜세움디자인하우징</div></div>
-        <h1>계 약 서</h1>
+        <h1>계 약 서${isCustom(c) ? '<span class="c-sub">〈 고객 맞춤형 주택 〉</span>' : ''}</h1>
         <div class="c-bank">[ (주)세움디자인하우징 : ${esc(SUPPLIER.bankAccount)} ]</div>
       </header>
 
@@ -1866,6 +1869,7 @@ function renderEditor() {
         </tr>
         ${renderRows()}
       </table>
+      ${renderOptionGrid()}
 
       <table class="grid extra-cost-grid ${hasExtraCosts(c) ? '' : 'ec-empty'}">
         <colgroup><col style="width:52%"><col style="width:33%"><col style="width:15%"></colgroup>
@@ -1878,7 +1882,7 @@ function renderEditor() {
       </table>
 
       <table class="grid extra-grid">
-        <tr><th class="sec extra-head">[ 서비스 · 기타 내용 ]</th></tr>
+        <tr><th class="sec extra-head">${isCustom(c) ? '[ 기본주택 포함 사항 · 서비스 · 기타 내용 ]' : '[ 서비스 · 기타 내용 ]'}</th></tr>
         <tr>
           <td class="extra-cell">
             <textarea class="f extra ${editorLocked ? 'locked' : ''} ${fieldDiff('extraNotes', c.extraNotes || '').changed ? 'diff-new' : ''}" data-path="extraNotes" rows="2" placeholder="추가 계약 내용을 입력하세요. (특약·서비스 등)" ${editorLocked ? 'readonly' : ''}>${esc(c.extraNotes || '')}</textarea>
@@ -1976,11 +1980,35 @@ function renderRows() {
   ];
 
   const rows = [];
-  const maxLen = Math.max(left.length, c.items.length);
+  // 추가 선택 옵션(opt) 항목은 아래 별도 표에 렌더 — 본표에는 기본 항목만(원래 인덱스 유지)
+  const main = c.items.map((item, idx) => ({ item, idx })).filter((x) => !x.item.opt);
+  const maxLen = Math.max(left.length, main.length);
   for (let i = 0; i < maxLen; i++) {
-    rows.push(`<tr>${leftCell(left[i])}${rightCell(c.items[i], i)}</tr>`);
+    const m = main[i];
+    rows.push(`<tr>${leftCell(left[i])}${rightCell(m && m.item, m ? m.idx : i)}</tr>`);
   }
   return rows.join('');
+}
+
+// 고객 맞춤형: 추가 선택 옵션 표 (묶음별). 금액이 없는 옵션은 인쇄·PDF에서 숨김(opt-off)
+function renderOptionGrid() {
+  const c = current;
+  if (!c.items.some((it) => it.opt)) return '';
+  const body = CUSTOM_GROUPS.map((g) => {
+    const rows = c.items.map((item, idx) => ({ item, idx })).filter((x) => x.item.opt === g.key);
+    if (!rows.length) return '';
+    return `<tbody class="opt-body" data-opt-group="${g.key}">
+        <tr class="opt-group"><th colspan="3">${esc(g.label)}${g.desc ? ` <span class="opt-desc">${esc(g.desc)}</span>` : ''}</th></tr>
+        ${rows.map(({ item, idx }) => `<tr class="opt-row" data-opt-row="${idx}">${rightCell(item, idx)}</tr>`).join('')}
+      </tbody>`;
+  }).join('');
+  return `
+      <table class="grid main-grid opt-grid" id="opt-grid">
+        <colgroup><col style="width:52%"><col style="width:15%"><col style="width:33%"></colgroup>
+        <thead><tr><th class="sec" colspan="3">추 가 선 택 옵 션
+          <span class="muted small no-print opt-hint">수량(평·m·개)을 입력한 옵션만 금액에 반영되고, 인쇄·PDF에는 선택한 옵션만 표시됩니다</span></th></tr></thead>
+        ${body}
+      </table>`;
 }
 
 // 결제 항목 표시용 퍼센트 (수기 수정값 우선, 없으면 기본 비율)
@@ -2049,10 +2077,10 @@ function rightCell(item, i) {
   }
   return `
     <td class="item-name">
-      <span class="item-no">${item.no}.</span> ${esc(item.name)}
+      <span class="item-no">${item.opt ? '·' : `${item.no}.`}</span> ${esc(item.name)}
       ${priceHtml}
-      ${item.unit === '평당'
-        ? `<span class="area-input">${field(`items.${i}.area`, item.area, 'area', 'right')}<span class="unit2">평</span></span>`
+      ${item.unit === '평당' || item.unit === '수량'
+        ? `<span class="area-input">${field(`items.${i}.area`, item.area, 'area', 'right')}<span class="unit2">${esc(item.qtyUnit || '평')}</span></span>`
         : ''}
       ${item.unit === '거리' ? moveControls(i, item) : ''}
     </td>
@@ -2156,6 +2184,7 @@ function modelSelect(selectedId) {
   }).join('');
   return `<select id="model-select" class="mb-stage model-sel${selectedId ? '' : ' empty'}" title="제품 모델명 (온라인 카탈로그 기준)">
       <option value="" ${!selectedId ? 'selected' : ''}>- 선택</option>
+      ${isCustom(current) || selectedId === CUSTOM_MODEL.id ? `<option value="${CUSTOM_MODEL.id}" ${selectedId === CUSTOM_MODEL.id ? 'selected' : ''}>${esc(CUSTOM_MODEL.name)} (모델 없음)</option>` : ''}
       ${groups}
     </select>`;
 }
@@ -2794,6 +2823,7 @@ async function savePdfFile() {
     await ensurePdfLibs();
     // 인쇄용 도장 미리 로드(캐시) — onclone에서 교체 시 바로 렌더되도록
     await new Promise((res) => { const im = new Image(); im.onload = res; im.onerror = res; im.src = '/img/seal-print.png'; });
+    el.classList.add('opt-compact'); // 미선택 옵션 행 숨김(캡처 높이 계산 포함) — finally에서 복원
     const fullW = Math.max(el.scrollWidth, el.offsetWidth);
     const canvas = await window.html2canvas(el, {
       scale: 2, backgroundColor: '#ffffff', useCORS: true,
@@ -2851,6 +2881,7 @@ async function savePdfFile() {
   } catch (err) {
     alert('PDF 저장 실패: ' + (err.message || err) + '\n\n인터넷 연결을 확인하시거나, [🖨 인쇄] → 대상을 "PDF로 저장"으로 바꿔서 저장해 주세요.');
   } finally {
+    el.classList.remove('opt-compact');
     if (btn) { btn.disabled = false; btn.textContent = prev; }
   }
 }
@@ -3251,9 +3282,14 @@ function updateTotals() {
   }
   // 자동계산 항목(평당·요금규칙·거리)은 금액칸도 자동 갱신
   current.items.forEach((it, i) => {
-    if (it.unit === '평당' || it.priceRule || it.unit === '거리') {
+    if (it.unit === '평당' || it.unit === '수량' || it.priceRule || it.unit === '거리') {
       const inp = app.querySelector(`input[data-path="items.${i}.amount"]`);
       if (inp && document.activeElement !== inp) inp.value = fmtMan(it.amount);
+    }
+    // 추가 선택 옵션: 금액이 없는 행은 미선택(opt-off) → 인쇄·PDF에서 숨김
+    if (it.opt) {
+      const tr = app.querySelector(`tr[data-opt-row="${i}"]`);
+      if (tr) tr.classList.toggle('opt-off', !(Number(String(it.amount ?? '').replace(/,/g, '')) > 0));
     }
     // 평당 단가 직접 입력 항목: 구간단가 자동 적용 시 단가 입력칸도 갱신(직접 입력 중/포커스면 유지)
     if (it.priceEditable && !it.unitPriceManual) {
@@ -3261,6 +3297,12 @@ function updateTotals() {
       if (pInp && document.activeElement !== pInp) pInp.value = fmtMan(it.unitPrice);
     }
   });
+  // 옵션 묶음·표 전체: 선택된 옵션이 하나도 없으면 인쇄·PDF에서 숨김
+  app.querySelectorAll('tbody.opt-body').forEach((tb) => {
+    tb.classList.toggle('opt-off', !tb.querySelector('tr.opt-row:not(.opt-off)'));
+  });
+  const optGrid = document.getElementById('opt-grid');
+  if (optGrid) optGrid.classList.toggle('opt-off', !optGrid.querySelector('tr.opt-row:not(.opt-off)'));
   // 자동 배분 모드면 결제 입력칸도 비율대로 갱신 (포커스 중인 칸은 건드리지 않음)
   if (!current.amounts.payManual) {
     ['downPayment', 'interim1', 'interim2', 'interim3', 'balance'].forEach((k) => {

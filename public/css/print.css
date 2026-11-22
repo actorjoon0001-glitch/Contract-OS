@@ -10,6 +10,10 @@
 
   /* 기타 비용이 비어 있으면 인쇄본에서 섹션 숨김 */
   .extra-cost-grid.ec-empty { display: none !important; }
+  /* 고객 맞춤형: 선택하지 않은 옵션(행·묶음·표)은 인쇄본에서 숨김, 옵션 표는 페이지 넘김 허용 */
+  .opt-off { display: none !important; }
+  table.opt-grid { page-break-inside: auto; }
+  .opt-grid tr.opt-row td { background: transparent !important; }
 
   #app { min-height: 0; }
 
