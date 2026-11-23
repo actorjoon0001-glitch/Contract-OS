@@ -329,10 +329,12 @@ const CUSTOM_BASE_SPEC = [
   '1. 지붕·천정 : 징크판넬 260T 준불연 + 경량철골(아연각파이프 두께 2.0T · 50×50, 50×100, 100×100) + 다루끼 각재 + 합판 5T + 석고 (내선전기·등기구 포함) ※ 벽지 선택 시 추가금 발생',
   '2. 벽체 : 방습지 + OSB 합판 11.5T + 경량철골(아연각파이프 두께 2.0T · 50×50, 50×100, 100×100) + 비드법 가등급 단열재 50T 4겹 + 다루끼 각재 + 합판 5T + 석고 (전기 내선 포함) ※ 외장재·벽지 선택 시 추가금 발생',
   '3. 창호 : 내부·외부 백색 이중창(방충망 포함) + 픽스창 · 유리 24mm 페어 로이 아르곤가스 충진 브론즈 유리',
-  '   기본 사이즈 — 거실창 2500×2100 이중창 / 침실창 1500×900 이중창 + 1500×900 픽스창 / 주방창 1500×700 이중창 / 욕실창 600×500 이중창 (창 개수는 도면 기준)',
+  '   기본 사이즈 — 거실창 2500×2100 / 침실창 1500×900 + 1500×900 픽스창 / 주방창 1500×700 / 욕실창 600×500 (창 개수는 도면 기준)',
   '4. 욕실 : 벽·바닥, 현관 바닥, 주방 벽 타일 / 기구 세팅(세면대·양변기·샤워기·수건장·젠다이·기타 악세사리) / 천정 편백 시공 (돔 시공은 별도 40만원)',
 ];
 // 창호 기본 사이즈 옛 문구(개수 표기 포함) → 새 문구 교정용
+// 개수 표기만 뺐던 직전 문구(이중창 표기 포함)
+const PREV_WINDOW_SIZE_LINE = '   기본 사이즈 — 거실창 2500×2100 이중창 / 침실창 1500×900 이중창 + 1500×900 픽스창 / 주방창 1500×700 이중창 / 욕실창 600×500 이중창 (창 개수는 도면 기준)';
 const OLD_WINDOW_SIZE_LINE = '   기본 사이즈 — 거실창 2500×2100 이중창 1조 / 침실창(1개 이내) 1500×900 이중창 1조 + 1500×900 픽스창 1조 / 주방창 1500×700 이중창 1조 / 욕실창 600×500 이중창 1조';
 export function customBaseSpec() {
   return CUSTOM_BASE_SPEC.join('\n');
@@ -477,7 +479,8 @@ export function normalizeContract(contract) {
   // 고객 맞춤형: 욕실 천정 '판넬 시공' → '편백 시공' 교정(봉인 전 계약)
   if (isCustom(contract) && !(contract.integrity && contract.integrity.hash)) {
     if (typeof contract.baseSpec === 'string') contract.baseSpec = contract.baseSpec.replace('천정 판넬 시공', '천정 편백 시공')
-      .replace(OLD_WINDOW_SIZE_LINE, CUSTOM_BASE_SPEC.find((l) => l.startsWith('   기본 사이즈'))); // 창 개수 표기 제거(도면 기준)
+      .replace(OLD_WINDOW_SIZE_LINE, CUSTOM_BASE_SPEC.find((l) => l.startsWith('   기본 사이즈'))) // 창 개수 표기 제거(도면 기준)
+      .replace(PREV_WINDOW_SIZE_LINE, CUSTOM_BASE_SPEC.find((l) => l.startsWith('   기본 사이즈'))); // 사이즈 줄 '이중창' 표기 제거
     for (const it of contract.items || []) if (it && it.opt === 'bath' && it.note === '기본은 판넬 시공') it.note = '기본은 편백 시공';
   }
   // 고객 맞춤형: 건물건축비 비고의 옛 표기(13~20평)를 13~19평으로 교정(봉인 전 계약, 기본 문구 그대로인 경우만)
