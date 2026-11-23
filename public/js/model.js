@@ -159,7 +159,7 @@ export function emptyContract() {
       productTotal: 0,   // 제품 합계 (자동)
       downPayment: 0,    // 계약금 (총액 10%, 자동)
       interim1: 0,       // 중도금1 (총액 30%, 기초공사 시작 전)
-      interim2: 0,       // 중도금2 (총액 40%, 철골·외장·지붕 시작 전)
+      interim2: 0,       // 중도금2 (총액 40%, 철골 공사 시작 전)
       interim3: 0,       // 중도금3 (총액 17%, 지붕·외장공사 시작 전)
       balance: 0,        // 잔금 (나머지 3%, 자동)
       payManual: false,  // 결제 스케줄 수동 조정 여부 (true면 자동 배분 건너뜀)
@@ -556,14 +556,14 @@ const num = (v) => {
 
 // 결제 스케줄 자동 배분 비율 (제품합계 기준) — 결제 조건(payPlan)별
 //  v1(기존 계약): 계약금 10% · 중도금1 30%(기초공사 완료 후) · 중도금2 40%(철골·외장·지붕 완료 후) · 중도금3 15%(내장목공 완료 시) · 잔금 5%(나머지)
-//  v2(새 계약):   계약금 10% · 중도금1 30%(기초공사 시작 전) · 중도금2 40%(철골·외장·지붕 시작 전) · 중도금3 17%(지붕·외장공사 시작 전) · 잔금 3%(나머지)
+//  v2(새 계약):   계약금 10% · 중도금1 30%(기초공사 시작 전) · 중도금2 40%(철골 공사 시작 전) · 중도금3 17%(지붕·외장공사 시작 전) · 잔금 3%(나머지)
 // ※ 새 계약은 작성 시 payPlan을 기록 → 비율을 바꿔도 이미 저장된 계약의 배분은 소급 변경되지 않음
 export const PAY_PLAN_CURRENT = 'v2';
 export const PAY_PLANS = {
   v1: { down: 0.10, interim1: 0.30, interim2: 0.40, interim3: 0.15, balance: 5,
         desc: { downPayment: '계약 시 입금', interim1: '기초공사 완료 후 입금', interim2: '철골·외장·지붕 완료 후 입금', interim3: '내장목공 완료 시 입금', balance: '준공서류 전달 / 이동설치시 출고 전 입금' } },
   v2: { down: 0.10, interim1: 0.30, interim2: 0.40, interim3: 0.17, balance: 3,
-        desc: { downPayment: '계약 시 입금', interim1: '기초공사 시작 전 입금', interim2: '철골·외장·지붕 시작 전 입금', interim3: '지붕·외장공사 시작 전 입금', balance: '준공서류 전달 전 / 이동설치시 출고 전 입금' } },
+        desc: { downPayment: '계약 시 입금', interim1: '기초공사 시작 전 입금', interim2: '철골 공사 시작 전 입금', interim3: '지붕·외장공사 시작 전 입금', balance: '준공서류 전달 전 / 이동설치시 출고 전 입금' } },
 };
 // payPlan이 없는 계약(이 기능 이전에 저장된 계약)은 v1
 export const payPlanOf = (c) => PAY_PLANS[c && c.payPlan] || PAY_PLANS.v1;
