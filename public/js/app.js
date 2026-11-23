@@ -1992,7 +1992,7 @@ function renderRows() {
   return rows.join('');
 }
 
-// 고객 맞춤형: 추가 선택 옵션 표 (묶음별). 금액이 없는 옵션은 인쇄·PDF에서 숨김(opt-off)
+// 고객 맞춤형: 추가 선택 옵션 표 (묶음별). 인쇄·PDF에는 선택 여부와 관계없이 전체 옵션을 표시
 function renderOptionGrid() {
   const c = current;
   if (!c.items.some((it) => it.opt)) return '';
@@ -2008,7 +2008,7 @@ function renderOptionGrid() {
       <table class="grid main-grid opt-grid" id="opt-grid">
         <colgroup><col style="width:52%"><col style="width:15%"><col style="width:33%"></colgroup>
         <thead><tr><th class="sec" colspan="3">추 가 선 택 옵 션
-          <span class="muted small no-print opt-hint">수량(평·m·개)을 입력한 옵션만 금액에 반영되고, 인쇄·PDF에는 선택한 옵션만 표시됩니다</span></th></tr></thead>
+          <span class="muted small no-print opt-hint">수량(평·m·개)을 입력한 옵션만 금액에 반영됩니다 · 인쇄·PDF에는 전체 옵션이 표시됩니다</span></th></tr></thead>
         ${body}
       </table>`;
 }
@@ -2825,7 +2825,6 @@ async function savePdfFile() {
     await ensurePdfLibs();
     // 인쇄용 도장 미리 로드(캐시) — onclone에서 교체 시 바로 렌더되도록
     await new Promise((res) => { const im = new Image(); im.onload = res; im.onerror = res; im.src = '/img/seal-print.png'; });
-    el.classList.add('opt-compact'); // 미선택 옵션 행 숨김(캡처 높이 계산 포함) — finally에서 복원
     const fullW = Math.max(el.scrollWidth, el.offsetWidth);
     const canvas = await window.html2canvas(el, {
       scale: 2, backgroundColor: '#ffffff', useCORS: true,
@@ -2883,7 +2882,6 @@ async function savePdfFile() {
   } catch (err) {
     alert('PDF 저장 실패: ' + (err.message || err) + '\n\n인터넷 연결을 확인하시거나, [🖨 인쇄] → 대상을 "PDF로 저장"으로 바꿔서 저장해 주세요.');
   } finally {
-    el.classList.remove('opt-compact');
     if (btn) { btn.disabled = false; btn.textContent = prev; }
   }
 }
@@ -3289,7 +3287,7 @@ function updateTotals() {
       const inp = app.querySelector(`input[data-path="items.${i}.amount"]`);
       if (inp && document.activeElement !== inp) inp.value = fmtMan(it.amount);
     }
-    // 추가 선택 옵션: 금액이 없는 행은 미선택(opt-off) → 인쇄·PDF에서 숨김
+    // 추가 선택 옵션: 금액이 없는 행은 미선택(opt-off) → 화면에서 선택한 행만 강조 (인쇄는 전체)
     if (it.opt) {
       const tr = app.querySelector(`tr[data-opt-row="${i}"]`);
       if (tr) tr.classList.toggle('opt-off', !(Number(String(it.amount ?? '').replace(/,/g, '')) > 0));
