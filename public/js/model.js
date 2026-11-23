@@ -532,16 +532,21 @@ export const PAY_UNIT_MAN = 100;        // 계약금·중도금 내림 단위: �
 // reprice: 신규 계약은 true(단가 규칙으로 금액 자동 계산).
 //   기존에 저장된 계약은 false로 호출하여 저장된 금액을 그대로 보존한다.
 //   (단가표가 바뀌어도 이미 체결·저장된 계약서 금액은 소급 변경되지 않음)
-export function recalc(contract, { reprice = true } = {}) {
+// touched: 사용자가 이번 편집에서 평수·수량·단가를 직접 고친 항목 인덱스(Set).
+//   reprice=false여도 이 항목은 다시 계산한다(저장된 계약에서 수량을 새로 입력하는 경우).
+export function recalc(contract, { reprice = true, touched = null } = {}) {
   // 썬룸 면적(썬룸 약식기초 계산용)
   const sun = contract.items.find((it) => it.key === 'sunroom');
   const sunArea = sun ? num(sun.area) : 0;
+  const isTouched = (idx) => !!touched && touched.has(idx);
+  const sunTouched = contract.items.some((it, idx) => it.key === 'sunroom' && isTouched(idx));
 
   let itemsSum = 0;
-  for (const it of contract.items) {
+  contract.items.forEach((it, idx) => {
     const a = num(it.area);
-    if (!reprice || it.amountManual) {
-      // 저장된 계약(reprice=false) 또는 금액 직접 수정 항목: 저장값 그대로 유지
+    const live = reprice || isTouched(idx) || (it.priceRule === 'sunroomFoundation' && sunTouched);
+    if (!live || it.amountManual) {
+      // 저장된 계약(reprice=false)에서 손대지 않은 항목 또는 금액 직접 수정 항목: 저장값 그대로 유지
     } else if (it.priceRule === 'building') {
       // 건물건축비: 24평 미만 평당 400 / 24평 이상 평당 370 (평당 단가 직접 입력 시 그 값 우선)
       if (!it.unitPriceManual) it.unitPrice = a >= 24 ? 370 : 400;
@@ -567,7 +572,7 @@ export function recalc(contract, { reprice = true } = {}) {
       if (fee !== '') it.amount = fee;
     }
     itemsSum += num(it.amount);
-  }
+  });
   // 기타 비용(어닝 등 추가 옵션) 금액도 공급가 합계에 포함
   for (const ec of contract.extraCosts || []) itemsSum += num(ec.amount);
   const a = contract.amounts;

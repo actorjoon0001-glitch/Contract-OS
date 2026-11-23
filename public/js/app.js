@@ -25,6 +25,7 @@ function stageOf(row) {
 const app = document.getElementById('app');
 let current = null;     // 편집 중인 계약 객체
 let currentId = null;   // 저장된 계약 id (신규는 null)
+let touchedItems = new Set(); // 이번 편집에서 평수·수량·단가를 직접 고친 항목 인덱스(저장된 계약도 이 항목은 재계산)
 let dirty = false;      // 미저장 변경 여부
 
 // ---------- 유틸: 경로 기반 객체 접근 ----------
@@ -1712,6 +1713,7 @@ function renderModelPicker() {
 async function openEditor(id, modelId = null, { dup = false } = {}) {
   currentId = id;
   dupView = false;
+  touchedItems = new Set();
   if (id === SAMPLE_ID) {
     // 샘플은 DB에 없는 참고용 양식 → 새 계약서처럼 다룬다(저장 시 새로 생성)
     current = sampleContract();
@@ -1735,7 +1737,7 @@ async function openEditor(id, modelId = null, { dup = false } = {}) {
   }
   normalizeContract(current);
   // 기존에 저장된 계약(currentId 있음)은 단가표가 바뀌어도 저장 금액을 보존(소급 적용 금지)
-  recalc(current, { reprice: !currentId });
+  recalc(current, { reprice: !currentId, touched: touchedItems });
   // 관리자면 직원 명부를 확보해 전시장을 영업사원 소속으로 정렬(목록을 안 거치고 바로 연 경우 대비)
   if (canManageList() && !employeeList.length) {
     try { employeeList = await api.employees(); } catch { /* 명부 실패 시 서버 저장 시 강제됨 */ }
@@ -3118,6 +3120,7 @@ function bindEditor() {
       if (im) {
         const it = current.items[Number(im[1])];
         if (it) {
+          if (im[2] !== 'amount') touchedItems.add(Number(im[1])); // 평수·수량·단가를 고친 항목은 저장된 계약에서도 재계산
           it.amountManual = im[2] === 'amount' ? String(v).trim() !== '' : false;
           // 평당 단가를 직접 입력하면 자동 구간단가보다 그 값 우선(비우면 자동 복귀)
           if (im[2] === 'unitPrice') it.unitPriceManual = String(v).trim() !== '';
@@ -3270,7 +3273,7 @@ async function updateSealBanner() {
 // 자동계산 결과를 화면에 반영
 function updateTotals() {
   // 기존 저장 계약(currentId 있음)은 저장 금액 보존, 신규 계약만 단가 규칙 재계산
-  recalc(current, { reprice: !currentId });
+  recalc(current, { reprice: !currentId, touched: touchedItems });
   app.querySelectorAll('[data-total]').forEach((el) => {
     el.textContent = fmtMan(current.amounts[el.dataset.total]);
   });
@@ -3387,7 +3390,7 @@ async function saveContract() {
     return;
   }
   try {
-    recalc(current, { reprice: !currentId });
+    recalc(current, { reprice: !currentId, touched: touchedItems });
     // 확정(봉인) 건을 대표 서명으로 수정한 경우: 저장 시 무결성 봉인을 다시 계산
     if (current.status === 'confirmed') await sealContract();
     let saved;
