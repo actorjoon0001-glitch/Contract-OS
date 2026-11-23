@@ -296,7 +296,7 @@ const CUSTOM_OPTION_TABLE = [
   ['furniture', '하이라이트 추가 (2구)', '개', 25, ''],
   ['furniture', '하이라이트 추가 (1구)', '개', 18, ''],
   ['furniture', '단독형 침니후드 변경', '개', 65, ''],
-  ['furniture', '싱크 사각볼 + (폭포)수전 변경', '개', 48, ''],
+  ['furniture', '싱크 사각볼 + 폭포수전 변경', '개', 48, ''],
   ['furniture', '한샘 · 에넥스 · 기타 브랜드', '정액', '', '별도 견적'],
   ['wallpaper', '합지 벽지', '평', 10.5, ''],
   ['wallpaper', '실크 벽지', '평', 13, ''],
@@ -463,6 +463,10 @@ const oneSig = (s) => ({ image: s?.image || '', signedAt: s?.signedAt || '', age
 
 // 이전에 저장된 계약(서명/무결성 필드 없음)도 안전하게 다루도록 기본 구조 보정
 export function normalizeContract(contract) {
+  // 고객 맞춤형: '싱크 사각볼 + (폭포)수전 변경' 괄호 제거(봉인 전 계약)
+  if (isCustom(contract) && !(contract.integrity && contract.integrity.hash)) {
+    for (const it of contract.items || []) if (it && it.name === '싱크 사각볼 + (폭포)수전 변경') it.name = '싱크 사각볼 + 폭포수전 변경';
+  }
   // 고객 맞춤형: 디자인 루바강판 비고 '소·중·대·곡선' → '소·중·대골' 교정(봉인 전 계약)
   if (isCustom(contract) && !(contract.integrity && contract.integrity.hash)) {
     for (const it of contract.items || []) if (it && it.note === '소·중·대·곡선 선택 가능') it.note = '소·중·대골 선택 가능';
