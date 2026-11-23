@@ -238,7 +238,7 @@ export function sampleListRow() {
 
 // ──────────────────────────────────────────────────────────────
 // 고객 맞춤형 주택 계약서 (두 번째 양식) — 기본 계약서와 별개로 함께 사용
-//  · 건물건축비: 13~20평 평당 290 / 20평 이상 평당 280 (기본주택 사양 포함)
+//  · 건물건축비: 13~19평 평당 290 / 20평 이상 평당 280 (기본주택 사양 포함)
 //  · 외장재·난방·바닥재·창호·가구·벽지는 '추가 선택 옵션'에서 고른 것만 금액 반영
 //  · contract.template === 'custom' 으로 구분 (기존 계약에는 이 필드가 없음 → 기본 양식)
 export const CUSTOM_TEMPLATE = 'custom';
@@ -318,7 +318,7 @@ export function customItems() {
   const base = defaultItems()
     .filter((it) => it.priceRule !== 'heating')
     .map((it) => (it.priceRule === 'building'
-      ? { ...it, priceRule: 'customBuilding', note: '고객 맞춤형 주택 · 13~20평 290 / 20평 이상 280 (단가가 다른 경우 평당 단가를 직접 입력)' }
+      ? { ...it, priceRule: 'customBuilding', note: '고객 맞춤형 주택 · 13~19평 290 / 20평 이상 280 (단가가 다른 경우 평당 단가를 직접 입력)' }
       : it));
   return [...base, ...customOptionItems()];
 }
@@ -463,6 +463,11 @@ const oneSig = (s) => ({ image: s?.image || '', signedAt: s?.signedAt || '', age
 
 // 이전에 저장된 계약(서명/무결성 필드 없음)도 안전하게 다루도록 기본 구조 보정
 export function normalizeContract(contract) {
+  // 고객 맞춤형: 건물건축비 비고의 옛 표기(13~20평)를 13~19평으로 교정(봉인 전 계약, 기본 문구 그대로인 경우만)
+  if (isCustom(contract) && !(contract.integrity && contract.integrity.hash) && Array.isArray(contract.items)) {
+    const OLD_NOTE = '고객 맞춤형 주택 · 13~20평 290 / 20평 이상 280 (단가가 다른 경우 평당 단가를 직접 입력)';
+    for (const it of contract.items) if (it && it.note === OLD_NOTE) it.note = OLD_NOTE.replace('13~20평', '13~19평');
+  }
   // 고객 맞춤형: 예전에 서비스·기타 내용에 넣던 기본주택 포함 사항은 제목 아래 칸과 중복되므로 제거
   // (봉인되지 않은 계약만 — 봉인 건은 무결성 유지를 위해 손대지 않음)
   if (isCustom(contract) && !(contract.integrity && contract.integrity.hash) && typeof contract.extraNotes === 'string'
