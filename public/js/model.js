@@ -544,7 +544,9 @@ export function recalc(contract, { reprice = true, touched = null } = {}) {
   let itemsSum = 0;
   contract.items.forEach((it, idx) => {
     const a = num(it.area);
-    const live = reprice || isTouched(idx) || (it.priceRule === 'sunroomFoundation' && sunTouched);
+    // 수량(평수)은 있는데 금액이 빈 항목은 합의된 금액이 없는 미완성 항목 → 기존 계약이어도 계산
+    const unpriced = a > 0 && (it.amount === '' || it.amount == null);
+    const live = reprice || isTouched(idx) || unpriced || (it.priceRule === 'sunroomFoundation' && sunTouched);
     if (!live || it.amountManual) {
       // 저장된 계약(reprice=false)에서 손대지 않은 항목 또는 금액 직접 수정 항목: 저장값 그대로 유지
     } else if (it.priceRule === 'building') {
