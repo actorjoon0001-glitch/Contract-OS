@@ -261,7 +261,7 @@ const CUSTOM_OPTION_TABLE = [
   ['exterior', '스마트사이딩', '평', 60, '페인트 도장공사 포함'],
   ['exterior', '메탈사이딩 (2세대 ROSER 제품)', '평', 60, ''],
   ['exterior', '메탈사이딩 (3세대 국산 IM SIDING 제품)', '평', 75, ''],
-  ['exterior', '디자인 루바강판', '평', 85, '소·중·대·곡선 선택 가능'],
+  ['exterior', '디자인 루바강판', '평', 85, '소·중·대골 선택 가능'],
   ['exterior', '세라믹 사이딩 16T', '평', 95, ''],
   ['exterior', '하이클래딩', '평', 95, ''],
   ['exterior', '롱브릭 파벽공사', '평', 105, ''],
@@ -463,6 +463,10 @@ const oneSig = (s) => ({ image: s?.image || '', signedAt: s?.signedAt || '', age
 
 // 이전에 저장된 계약(서명/무결성 필드 없음)도 안전하게 다루도록 기본 구조 보정
 export function normalizeContract(contract) {
+  // 고객 맞춤형: 디자인 루바강판 비고 '소·중·대·곡선' → '소·중·대골' 교정(봉인 전 계약)
+  if (isCustom(contract) && !(contract.integrity && contract.integrity.hash)) {
+    for (const it of contract.items || []) if (it && it.note === '소·중·대·곡선 선택 가능') it.note = '소·중·대골 선택 가능';
+  }
   // 고객 맞춤형: 욕실 천정 '판넬 시공' → '편백 시공' 교정(봉인 전 계약)
   if (isCustom(contract) && !(contract.integrity && contract.integrity.hash)) {
     if (typeof contract.baseSpec === 'string') contract.baseSpec = contract.baseSpec.replace('천정 판넬 시공', '천정 편백 시공');
