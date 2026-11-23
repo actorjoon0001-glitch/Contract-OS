@@ -73,6 +73,26 @@
   /* 계약금액·주문내용 표는 남은 공간이 부족하면 행 단위로 다음 페이지로 넘김(첫 장이 비지 않도록) */
   table.main-grid { page-break-inside: auto; }
 
+  /* 고객 맞춤형: 첫 장에 제목~계약금액·주문내용 표까지 한 번에 들어가도록 간격·글자 축소 */
+  .tpl-custom .c-head { padding: 2px 10px; }
+  .tpl-custom .c-head h1 { font-size: 22px; letter-spacing: 12px; }
+  .tpl-custom .c-head h1 .c-sub { font-size: 11px; margin-top: 0; }
+  .tpl-custom .c-head h1 .c-sub2 { font-size: 10px; margin-top: 0; }
+  .tpl-custom .c-logo-img { height: 24px; }
+  .tpl-custom .c-logo, .tpl-custom .c-bank { font-size: 11px; }
+  .tpl-custom .c-tagline { padding: 2px 8px; font-size: 11px; }
+  .tpl-custom td.base-spec { font-size: 10.5px; line-height: 1.4; padding: 3px 8px; }
+  .tpl-custom .sec { font-size: 12px; padding: 2px 3px; }
+  .tpl-custom .grid th, .tpl-custom .grid td { padding: 2px 5px; }
+  .tpl-custom .main-grid td, .tpl-custom .main-grid th { font-size: 11px; }
+  .tpl-custom .main-grid .lbl { letter-spacing: 1px; }
+  .tpl-custom .main-grid input.f { font-size: 11px; }
+  .tpl-custom textarea.f.note { font-size: 9.5px; line-height: 1.3; }
+  /* 비고 칸 높이를 인쇄 폭 기준 내용 높이로(화면에서 잡힌 높이 무시) */
+  .tpl-custom textarea.f { field-sizing: content; height: auto !important; min-height: 0 !important; }
+  /* 추가 선택 옵션은 다음 장부터 */
+  .tpl-custom table.opt-grid { page-break-before: always; margin-top: 0; }
+
   /* 목록 인쇄 (필터된 계약 목록) */
   .list-print { display: block !important; }
   .list-print-head { margin-bottom: 8px; }
