@@ -563,7 +563,7 @@ export const PAY_PLANS = {
   v1: { down: 0.10, interim1: 0.30, interim2: 0.40, interim3: 0.15, balance: 5,
         desc: { downPayment: '계약 시 입금', interim1: '기초공사 완료 후 입금', interim2: '철골·외장·지붕 완료 후 입금', interim3: '내장목공 완료 시 입금', balance: '준공서류 전달 / 이동설치시 출고 전 입금' } },
   v2: { down: 0.10, interim1: 0.30, interim2: 0.40, interim3: 0.17, balance: 3,
-        desc: { downPayment: '계약 시 입금', interim1: '기초공사 시작 전 입금', interim2: '철골·외장·지붕 시작 전 입금', interim3: '지붕·외장공사 시작 전 입금', balance: '준공서류 전달 / 이동설치시 출고 전 입금' } },
+        desc: { downPayment: '계약 시 입금', interim1: '기초공사 시작 전 입금', interim2: '철골·외장·지붕 시작 전 입금', interim3: '지붕·외장공사 시작 전 입금', balance: '준공서류 전달 전 / 이동설치시 출고 전 입금' } },
 };
 // payPlan이 없는 계약(이 기능 이전에 저장된 계약)은 v1
 export const payPlanOf = (c) => PAY_PLANS[c && c.payPlan] || PAY_PLANS.v1;
