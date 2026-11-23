@@ -302,7 +302,7 @@ async function renderList() {
           <button class="btn" id="list-print-btn" title="현재 목록 인쇄 / PDF">🖨 인쇄</button>
           <button class="btn" id="trash-btn" title="삭제된 계약 보기/복원">🗑 휴지통</button>
           <button class="btn primary" id="new-btn">+ 새 계약서</button>
-          <button class="btn primary" id="new-custom-btn" title="고객 맞춤형 주택 계약서 (13~20평 평당 290 · 20평 이상 280) — 외장재·난방·바닥재·창호·가구·벽지를 옵션에서 골라 자동 계산">+ 고객 맞춤형 계약서</button>
+          <button class="btn primary" id="new-custom-btn" title="고객 맞춤형 주택 계약서 (13~19평 평당 290 · 20평 이상 280) — 외장재·난방·바닥재·창호·가구·벽지를 옵션에서 골라 자동 계산">+ 고객 맞춤형 계약서</button>
         </div>
       </div>
     </div>
@@ -1859,7 +1859,7 @@ function renderEditor() {
     <div id="contract" class="contract">
       <header class="c-head">
         <div class="c-logo"><img class="c-logo-img" src="${SUPPLIER.logoImage}" alt="세움 로고" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block';" /><span class="logo" style="display:none">SEUM</span><div>㈜세움디자인하우징</div></div>
-        <h1>계 약 서${isCustom(c) ? '<span class="c-sub">〈 고객 맞춤형 주택 〉</span><span class="c-sub2">(13~20평 기본 평당 290만원 · 20평 이상 평당 280만원)</span>' : ''}</h1>
+        <h1>계 약 서${isCustom(c) ? '<span class="c-sub">〈 고객 맞춤형 주택 〉</span><span class="c-sub2">(13~19평 기본 평당 290만원 · 20평 이상 평당 280만원)</span>' : ''}</h1>
         <div class="c-bank">[ (주)세움디자인하우징 : ${esc(SUPPLIER.bankAccount)} ]</div>
       </header>
       ${isCustom(c) ? `<div class="c-tagline">※ 모듈러주택, 새로운 가격 혁신 변화 — 고객 취향대로 선택하는 맞춤형 주택 <span class="c-tagline-sub">(㈜세움디자인하우징 모델하우스 기준으로 시공)</span></div>` : ''}
