@@ -323,19 +323,25 @@ export function customItems() {
   return [...base, ...customOptionItems()];
 }
 
-// 맞춤형 '기본주택 포함 사항' — 서비스·기타 내용란 기본 문구(자유 수정 가능)
-export function customExtraNotes() {
-  return [
-    '본 계약은 고객 취향대로 선택하는 맞춤형 모듈러 주택이며, 추가 옵션은 ㈜세움디자인하우징 모델하우스를 기준으로 시공한다.',
-    '',
-    '[ 기본주택 포함 사항 ]',
-    '1. 지붕·천정 : 징크판넬 260T 준불연 + 경량철골(아연각파이프 두께 2.0T · 50×50, 50×100, 100×100) + 다루끼 각재 + 합판 5T + 석고 (내선전기·등기구 포함) ※ 벽지 선택 시 추가금 발생',
-    '2. 벽체 : 방습지 + OSB 합판 11.5T + 경량철골(아연각파이프 두께 2.0T · 50×50, 50×100, 100×100) + 비드법 가등급 단열재 50T 4겹 + 다루끼 각재 + 합판 5T + 석고 (전기 내선 포함) ※ 외장재·벽지 선택 시 추가금 발생',
-    '3. 창호 : 내부·외부 백색 이중창(방충망 포함) + 픽스창 · 유리 24mm 페어 로이 아르곤가스 충진 브론즈 유리',
-    '   기본 사이즈 — 거실창 2500×2100 이중창 1조 / 침실창(1개 이내) 1500×900 이중창 1조 + 1500×900 픽스창 1조 / 주방창 1500×700 이중창 1조 / 욕실창 600×500 이중창 1조',
-    '4. 욕실 : 벽·바닥, 현관 바닥, 주방 벽 타일 / 기구 세팅(세면대·양변기·샤워기·수건장·젠다이·기타 악세사리) / 천정 판넬 시공 (돔 시공은 별도 40만원)',
-  ].join('\n');
+// 맞춤형 '기본주택 포함 사항' — 계약서 제목 아래 고정 표시(새 계약은 작성 시점 문구를 baseSpec에 보관)
+const CUSTOM_BASE_SPEC = [
+  '1. 지붕·천정 : 징크판넬 260T 준불연 + 경량철골(아연각파이프 두께 2.0T · 50×50, 50×100, 100×100) + 다루끼 각재 + 합판 5T + 석고 (내선전기·등기구 포함) ※ 벽지 선택 시 추가금 발생',
+  '2. 벽체 : 방습지 + OSB 합판 11.5T + 경량철골(아연각파이프 두께 2.0T · 50×50, 50×100, 100×100) + 비드법 가등급 단열재 50T 4겹 + 다루끼 각재 + 합판 5T + 석고 (전기 내선 포함) ※ 외장재·벽지 선택 시 추가금 발생',
+  '3. 창호 : 내부·외부 백색 이중창(방충망 포함) + 픽스창 · 유리 24mm 페어 로이 아르곤가스 충진 브론즈 유리',
+  '   기본 사이즈 — 거실창 2500×2100 이중창 1조 / 침실창(1개 이내) 1500×900 이중창 1조 + 1500×900 픽스창 1조 / 주방창 1500×700 이중창 1조 / 욕실창 600×500 이중창 1조',
+  '4. 욕실 : 벽·바닥, 현관 바닥, 주방 벽 타일 / 기구 세팅(세면대·양변기·샤워기·수건장·젠다이·기타 악세사리) / 천정 판넬 시공 (돔 시공은 별도 40만원)',
+];
+export function customBaseSpec() {
+  return CUSTOM_BASE_SPEC.join('\n');
 }
+
+// 예전(기본주택 포함 사항을 서비스·기타 내용에 넣던 때)의 기본 문구 — 기존 계약에서 중복 제거용
+const LEGACY_CUSTOM_EXTRA_NOTES = [
+  '본 계약은 고객 취향대로 선택하는 맞춤형 모듈러 주택이며, 추가 옵션은 ㈜세움디자인하우징 모델하우스를 기준으로 시공한다.',
+  '',
+  '[ 기본주택 포함 사항 ]',
+  ...CUSTOM_BASE_SPEC,
+].join('\n');
 
 // 고객 맞춤형 새 계약 생성
 export function customContract() {
@@ -344,7 +350,8 @@ export function customContract() {
   c.modelId = CUSTOM_MODEL.id;
   c.modelName = CUSTOM_MODEL.name;
   c.items = customItems();
-  c.extraNotes = customExtraNotes();
+  c.baseSpec = customBaseSpec(); // 기본주택 포함 사항(작성 시점 문구 보관)
+  c.extraNotes = ''; // 서비스·기타 내용은 특약 등 자유 기입
   recalc(c);
   return c;
 }
@@ -456,6 +463,12 @@ const oneSig = (s) => ({ image: s?.image || '', signedAt: s?.signedAt || '', age
 
 // 이전에 저장된 계약(서명/무결성 필드 없음)도 안전하게 다루도록 기본 구조 보정
 export function normalizeContract(contract) {
+  // 고객 맞춤형: 예전에 서비스·기타 내용에 넣던 기본주택 포함 사항은 제목 아래 칸과 중복되므로 제거
+  // (봉인되지 않은 계약만 — 봉인 건은 무결성 유지를 위해 손대지 않음)
+  if (isCustom(contract) && !(contract.integrity && contract.integrity.hash) && typeof contract.extraNotes === 'string'
+      && contract.extraNotes.trim().startsWith(LEGACY_CUSTOM_EXTRA_NOTES.trim())) {
+    contract.extraNotes = contract.extraNotes.trim().slice(LEGACY_CUSTOM_EXTRA_NOTES.trim().length).replace(/^\s+/, '');
+  }
   const s = contract.signatures || {};
   contract.signatures = { supplier: oneSig(s.supplier), approval: oneSig(s.approval), client: oneSig(s.client) };
   const i = contract.integrity || {};

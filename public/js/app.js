@@ -7,7 +7,7 @@ import {
   STAGES, stageLabel,
   MODELS, modelContract, getModel,
   SHOWROOMS, defaultTerms,
-  CUSTOM_MODEL, CUSTOM_GROUPS, isCustom, customContract,
+  CUSTOM_MODEL, CUSTOM_GROUPS, isCustom, customContract, customBaseSpec,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
 import { loadAuthConfig, authEnabled, currentUser, login, logout, setOnAuthLost, trySSO } from './auth.js';
@@ -1863,6 +1863,7 @@ function renderEditor() {
         <div class="c-bank">[ (주)세움디자인하우징 : ${esc(SUPPLIER.bankAccount)} ]</div>
       </header>
       ${isCustom(c) ? `<div class="c-tagline">※ 모듈러주택, 새로운 가격 혁신 변화 — 고객 취향대로 선택하는 맞춤형 주택 <span class="c-tagline-sub">(㈜세움디자인하우징 모델하우스 기준으로 시공)</span></div>` : ''}
+      ${isCustom(c) ? `<table class="grid base-spec-grid"><tr><th class="sec">[ 기 본 주 택 포 함 사 항 ]</th></tr><tr><td class="base-spec">${esc(c.baseSpec || customBaseSpec())}</td></tr></table>` : ''}
 
       <table class="grid main-grid">
         <colgroup><col style="width:6%"><col style="width:13%"><col style="width:18%"><col style="width:30%"><col style="width:8%"><col style="width:25%"></colgroup>
@@ -1885,7 +1886,7 @@ function renderEditor() {
       </table>
 
       <table class="grid extra-grid">
-        <tr><th class="sec extra-head">${isCustom(c) ? '[ 기본주택 포함 사항 · 서비스 · 기타 내용 ]' : '[ 서비스 · 기타 내용 ]'}</th></tr>
+        <tr><th class="sec extra-head">[ 서비스 · 기타 내용 ]</th></tr>
         <tr>
           <td class="extra-cell">
             <textarea class="f extra ${editorLocked ? 'locked' : ''} ${fieldDiff('extraNotes', c.extraNotes || '').changed ? 'diff-new' : ''}" data-path="extraNotes" rows="2" placeholder="추가 계약 내용을 입력하세요. (특약·서비스 등)" ${editorLocked ? 'readonly' : ''}>${esc(c.extraNotes || '')}</textarea>

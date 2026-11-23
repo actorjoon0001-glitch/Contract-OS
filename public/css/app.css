@@ -671,3 +671,8 @@ input.f.pct-input:not([readonly]):focus { border-color: var(--brand); background
 .account-chip .acc-name { font-size: 13px; font-weight: 700; color: #33404f; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-chip .acc-admin { font-size: 11px; font-weight: 700; color: #6b3fa0; background: #ede1fb; padding: 2px 7px; border-radius: 20px; white-space: nowrap; }
 .account-chip .acc-logout { color: #666; }
+
+/* 고객 맞춤형: 기본주택 포함 사항(제목 아래 고정 표시) */
+.base-spec-grid { margin-top: 0; }
+.base-spec-grid .sec { letter-spacing: 2px; }
+td.base-spec { white-space: pre-wrap; text-align: left; font-size: 12.5px; line-height: 1.55; padding: 6px 12px; }
