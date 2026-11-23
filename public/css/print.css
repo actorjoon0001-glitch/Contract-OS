@@ -70,6 +70,8 @@
 
   /* 페이지 잘림 방지 */
   table, tr, td, th { page-break-inside: avoid; }
+  /* 계약금액·주문내용 표는 남은 공간이 부족하면 행 단위로 다음 페이지로 넘김(첫 장이 비지 않도록) */
+  table.main-grid { page-break-inside: auto; }
 
   /* 목록 인쇄 (필터된 계약 목록) */
   .list-print { display: block !important; }
