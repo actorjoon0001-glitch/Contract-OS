@@ -1856,7 +1856,7 @@ function renderEditor() {
       <div id="drawing-grid" class="ic-grid"></div>
     </div>
 
-    <div id="contract" class="contract">
+    <div id="contract" class="contract${isCustom(c) ? ' tpl-custom' : ''}">
       <header class="c-head">
         <div class="c-logo"><img class="c-logo-img" src="${SUPPLIER.logoImage}" alt="세움 로고" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block';" /><span class="logo" style="display:none">SEUM</span><div>㈜세움디자인하우징</div></div>
         <h1>계 약 서${isCustom(c) ? '<span class="c-sub">〈 고객 맞춤형 주택 〉</span><span class="c-sub2">(13~19평 기본 평당 290만원 · 20평 이상 평당 280만원)</span>' : ''}</h1>
