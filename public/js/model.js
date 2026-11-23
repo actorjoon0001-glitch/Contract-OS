@@ -100,7 +100,7 @@ export function defaultItems() {
     { no: '1', name: '<인허가> 건축설계', unit: '정액', unitPrice: 450, area: '', amount: '', note: '' },
     { no: '2', name: '약식 기초공사(평당)', unit: '평당', priceRule: 'foundation', priceLabel: '13평↓ 140 / 13평↑ 110', unitPrice: '', area: '', amount: '', note: '약식기초 200T+300T 합 500T · 동결심도기초 평당 160만원(700T+400T 합 1100T)' },
     { no: '3', name: '건물건축비(평당)', unit: '평당', priceRule: 'building', priceEditable: true, unitPrice: '', area: '', amount: '', note: '24평↓ 400 / 24평↑ 370 (단가가 다른 경우 평당 단가를 직접 입력)' },
-    { no: '4', name: '현장 시공비(평당)', unit: '평당', unitPrice: 80, area: '', amount: '', note: '현장시공시 처마 가능함' },
+    { no: '4', name: '현장 시공비(평당)', unit: '평당', unitPrice: 80, area: '', amount: '', note: '현장시공시 처마 (최대 400mm까지 가능)' },
     { no: '5', name: '이동 설치비', unit: '거리', unitPrice: '', area: '', amount: '', moveCategory: '', tier: '', truckQty: 0, lowbedQty: 0, note: '트럭+크레인(25톤기준) 또는 지게차 + 주춧돌 포함 (현장상황에 따른 추가금 있음)' },
     { no: '6', name: '포치(평당)', unit: '평당', unitPrice: 230, area: '', amount: '', note: '아연각관+합성데크판 사용(방부목X) · 포치시공 범위(기둥·지붕·바닥·하부3면 사이딩마감)' },
     { no: '', name: '데크(평당)', unit: '평당', unitPrice: 85, area: '', amount: '', note: '합성데크판 사용(방부목X)' },
