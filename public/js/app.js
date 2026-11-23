@@ -2069,6 +2069,18 @@ function leftCell(row) {
   return `<td class="lbl empty"></td><td colspan="2" class="empty"></td>`;
 }
 
+// 고객 맞춤형 '습식 보일러': 가스 / 기름 중 선택 (화면은 선택칸, 인쇄·PDF는 선택값 글자)
+const FUEL_LABEL = { gas: '가스', oil: '기름' };
+function isFuelItem(item) { return item.opt === 'floor' && item.priceRule === 'heating'; }
+function fuelPrintLabel(item) { return `(${FUEL_LABEL[item.fuel] || '가스·기름'})`; }
+function fuelControl(i, item) {
+  const dis = editorLocked ? 'disabled' : '';
+  const lc = editorLocked ? 'locked' : '';
+  const opts = Object.entries(FUEL_LABEL).map(([k, v]) => `<option value="${k}" ${item.fuel === k ? 'selected' : ''}>${v}</option>`).join('');
+  return ` <select class="f fuel-sel no-print ${lc}" data-fuel="${i}" title="보일러 연료 선택" ${dis}><option value="">가스/기름 선택</option>${opts}</select>`
+    + `<span class="print-only fuel-print" data-fuel-print="${i}"> ${esc(fuelPrintLabel(item))}</span>`;
+}
+
 function rightCell(item, i) {
   if (!item) return `<td colspan="3" class="empty"></td>`;
   // 단가: priceEditable 항목은 직접 입력칸(체류형 쉼터 등 단가가 다른 경우), 그 외엔 고정 라벨
@@ -2081,7 +2093,7 @@ function rightCell(item, i) {
   }
   return `
     <td class="item-name">
-      <span class="item-no">${item.opt ? '·' : `${item.no}.`}</span> ${esc(item.name)}
+      <span class="item-no">${item.opt ? '·' : `${item.no}.`}</span> ${isFuelItem(item) ? esc(item.name.replace(/\s*\(가스·기름\)$/, '')) + fuelControl(i, item) : esc(item.name)}
       ${priceHtml}
       ${item.unit === '평당' || item.unit === '수량'
         ? `<span class="area-input">${field(`items.${i}.area`, item.area, 'area', 'right')}<span class="unit2">${esc(item.qtyUnit || '평')}</span></span>`
@@ -3132,6 +3144,16 @@ function bindEditor() {
         inp.classList.toggle('note-hl', /협의\s*후\s*진행|현장\s*답사|현장답사|정화조/.test(v));
       }
       if (path.startsWith('items.') || path.startsWith('amounts.') || path.startsWith('extraCosts.')) updateTotals();
+      markDirty();
+    });
+  });
+  // 습식 보일러: 가스 / 기름 선택
+  app.querySelectorAll('select[data-fuel]').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      const i = Number(sel.dataset.fuel);
+      current.items[i].fuel = sel.value;
+      const pr = app.querySelector(`[data-fuel-print="${i}"]`);
+      if (pr) pr.textContent = ' ' + fuelPrintLabel(current.items[i]);
       markDirty();
     });
   });

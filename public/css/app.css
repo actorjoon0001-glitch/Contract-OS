@@ -676,3 +676,6 @@ input.f.pct-input:not([readonly]):focus { border-color: var(--brand); background
 .base-spec-grid { margin-top: 0; }
 .base-spec-grid .sec { letter-spacing: 2px; }
 td.base-spec { white-space: pre-wrap; text-align: left; font-size: 12.5px; line-height: 1.55; padding: 6px 12px; }
+/* 고객 맞춤형 습식 보일러: 가스/기름 선택 */
+select.f.fuel-sel { font-size: 12px; padding: 1px 4px; margin-left: 4px; }
+.fuel-print { font-weight: 600; }
