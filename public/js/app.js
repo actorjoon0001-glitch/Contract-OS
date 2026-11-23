@@ -7,7 +7,7 @@ import {
   STAGES, stageLabel,
   MODELS, modelContract, getModel,
   SHOWROOMS, defaultTerms,
-  CUSTOM_MODEL, CUSTOM_GROUPS, isCustom, customContract, customBaseSpec,
+  CUSTOM_MODEL, CUSTOM_GROUPS, isCustom, customContract, customBaseSpec, payPlanOf,
 } from './model.js';
 import { openSignaturePad } from './sign.js';
 import { loadAuthConfig, authEnabled, currentUser, login, logout, setOnAuthLost, trySSO } from './auth.js';
@@ -1974,11 +1974,12 @@ function renderRows() {
     { label: '제품공급가', type: 'supply', key: 'productSupply' },
     { label: '부가세(Vat)', type: 'calc', key: 'vat' },
     { label: '제품 합계', type: 'calc', key: 'productTotal', strong: true },
-    { label: '계약금', type: 'pay', key: 'downPayment', desc: '계약 시 입금', pct: 10 },
-    { label: '중도금 1', type: 'pay', key: 'interim1', desc: '기초공사 완료 후 입금', pct: 30 },
-    { label: '중도금 2', type: 'pay', key: 'interim2', desc: '철골·외장·지붕 완료 후 입금', pct: 40 },
-    { label: '중도금 3', type: 'pay', key: 'interim3', desc: '내장목공 완료 시 입금', pct: 15 },
-    { label: '잔금', type: 'pay', key: 'balance', desc: '준공서류 전달 / 이동설치시 출고 전 입금', pct: 5 },
+    // 결제 조건(payPlan)별 입금 시점·비율 — 새 계약은 '시작 전 입금 · 중도금3 17% · 잔금 3%'
+    ...['downPayment', 'interim1', 'interim2', 'interim3', 'balance'].map((key) => ({
+      label: { downPayment: '계약금', interim1: '중도금 1', interim2: '중도금 2', interim3: '중도금 3', balance: '잔금' }[key],
+      type: 'pay', key, desc: payPlanOf(c).desc[key],
+      pct: key === 'balance' ? payPlanOf(c).balance : Math.round(payPlanOf(c)[key === 'downPayment' ? 'down' : key] * 100),
+    })),
     { label: '계약일자', type: 'date' },
     { label: '현장주소', type: 'site' },
   ];
@@ -3359,7 +3360,7 @@ function updateTotals() {
         updateTotals();
       };
     } else {
-      hint.innerHTML = `<span class="ok">✔ 결제 스케줄 자동 배분</span> 계약금 10% · 중도금1 30% · 중도금2 40% · 중도금3 15% (백만원 단위 내림) · 잔금 나머지 · 제품합계 ${won}`;
+      hint.innerHTML = `<span class="ok">✔ 결제 스케줄 자동 배분</span> 계약금 ${Math.round(payPlanOf(current).down * 100)}% · 중도금1 ${Math.round(payPlanOf(current).interim1 * 100)}% · 중도금2 ${Math.round(payPlanOf(current).interim2 * 100)}% · 중도금3 ${Math.round(payPlanOf(current).interim3 * 100)}% (백만원 단위 내림) · 잔금 나머지 · 제품합계 ${won}`;
     }
   } else {
     hint.innerHTML = '';
