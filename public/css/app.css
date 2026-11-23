@@ -294,6 +294,10 @@ textarea.f.term-input:not([readonly]):focus { border-color: var(--brand); backgr
 
 /* 고객 맞춤형: 추가 선택 옵션 표 */
 .c-head h1 .c-sub { display: block; font-size: 13px; letter-spacing: 3px; font-weight: 700; color: var(--brand); margin-top: 2px; }
+.c-head h1 .c-sub2 { display: block; font-size: 11.5px; letter-spacing: 0; font-weight: 600; color: #444; margin-top: 1px; }
+/* 고객 맞춤형: 제목 아래 안내 문구 띠 */
+.c-tagline { border: 2px solid var(--line); border-top-width: 1px; margin-bottom: -2px; padding: 5px 12px; text-align: center; font-size: 13px; font-weight: 700; }
+.c-tagline .c-tagline-sub { font-weight: 500; color: #555; }
 .opt-grid { margin-top: -1px; }
 .opt-grid .opt-hint { margin-left: 10px; font-weight: 400; letter-spacing: normal; }
 .opt-grid .opt-group th { background: var(--lbl-bg); text-align: left; font-weight: 800; padding: 4px 8px; }
