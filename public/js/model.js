@@ -300,7 +300,7 @@ const CUSTOM_OPTION_TABLE = [
   ['furniture', '한샘 · 에넥스 · 기타 브랜드', '정액', '', '별도 견적'],
   ['wallpaper', '합지 벽지', '평', 10.5, ''],
   ['wallpaper', '실크 벽지', '평', 13, ''],
-  ['bath', '욕실 천정 돔 시공', '개', 40, '기본은 판넬 시공'],
+  ['bath', '욕실 천정 돔 시공', '개', 40, '기본은 편백 시공'],
 ];
 
 function customOptionItems() {
@@ -329,7 +329,7 @@ const CUSTOM_BASE_SPEC = [
   '2. 벽체 : 방습지 + OSB 합판 11.5T + 경량철골(아연각파이프 두께 2.0T · 50×50, 50×100, 100×100) + 비드법 가등급 단열재 50T 4겹 + 다루끼 각재 + 합판 5T + 석고 (전기 내선 포함) ※ 외장재·벽지 선택 시 추가금 발생',
   '3. 창호 : 내부·외부 백색 이중창(방충망 포함) + 픽스창 · 유리 24mm 페어 로이 아르곤가스 충진 브론즈 유리',
   '   기본 사이즈 — 거실창 2500×2100 이중창 1조 / 침실창(1개 이내) 1500×900 이중창 1조 + 1500×900 픽스창 1조 / 주방창 1500×700 이중창 1조 / 욕실창 600×500 이중창 1조',
-  '4. 욕실 : 벽·바닥, 현관 바닥, 주방 벽 타일 / 기구 세팅(세면대·양변기·샤워기·수건장·젠다이·기타 악세사리) / 천정 판넬 시공 (돔 시공은 별도 40만원)',
+  '4. 욕실 : 벽·바닥, 현관 바닥, 주방 벽 타일 / 기구 세팅(세면대·양변기·샤워기·수건장·젠다이·기타 악세사리) / 천정 편백 시공 (돔 시공은 별도 40만원)',
 ];
 export function customBaseSpec() {
   return CUSTOM_BASE_SPEC.join('\n');
@@ -340,7 +340,7 @@ const LEGACY_CUSTOM_EXTRA_NOTES = [
   '본 계약은 고객 취향대로 선택하는 맞춤형 모듈러 주택이며, 추가 옵션은 ㈜세움디자인하우징 모델하우스를 기준으로 시공한다.',
   '',
   '[ 기본주택 포함 사항 ]',
-  ...CUSTOM_BASE_SPEC,
+  ...CUSTOM_BASE_SPEC.map((l) => l.replace('천정 편백 시공', '천정 판넬 시공')), // 예전 표기 그대로 비교
 ].join('\n');
 
 // 고객 맞춤형 새 계약 생성
@@ -463,6 +463,11 @@ const oneSig = (s) => ({ image: s?.image || '', signedAt: s?.signedAt || '', age
 
 // 이전에 저장된 계약(서명/무결성 필드 없음)도 안전하게 다루도록 기본 구조 보정
 export function normalizeContract(contract) {
+  // 고객 맞춤형: 욕실 천정 '판넬 시공' → '편백 시공' 교정(봉인 전 계약)
+  if (isCustom(contract) && !(contract.integrity && contract.integrity.hash)) {
+    if (typeof contract.baseSpec === 'string') contract.baseSpec = contract.baseSpec.replace('천정 판넬 시공', '천정 편백 시공');
+    for (const it of contract.items || []) if (it && it.opt === 'bath' && it.note === '기본은 판넬 시공') it.note = '기본은 편백 시공';
+  }
   // 고객 맞춤형: 건물건축비 비고의 옛 표기(13~20평)를 13~19평으로 교정(봉인 전 계약, 기본 문구 그대로인 경우만)
   if (isCustom(contract) && !(contract.integrity && contract.integrity.hash) && Array.isArray(contract.items)) {
     const OLD_NOTE = '고객 맞춤형 주택 · 13~20평 290 / 20평 이상 280 (단가가 다른 경우 평당 단가를 직접 입력)';
