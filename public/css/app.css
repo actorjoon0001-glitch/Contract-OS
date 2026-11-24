@@ -474,6 +474,12 @@ textarea.f.note.note-hl { color: #c0392b; font-weight: 700; }
 .f.diff-new, textarea.f.diff-new { color: #c0392b !important; font-weight: 700; background: #fff4f2; border-color: #e6b0a6 !important; border-radius: 4px; }
 .diff-old { display: inline-block; color: #9aa1a9; text-decoration: line-through; font-size: 11px; white-space: nowrap; }
 input.f.site, input.f.addr, input.f.name { width: 92%; }
+/* 주소처럼 긴 값: 칸 안에서 줄바꿈되어 전부 보이게(높이는 내용에 맞춰 자동) */
+textarea.f.wrap {
+  width: 92%; resize: none; overflow: hidden; display: block; box-sizing: border-box;
+  white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.35;
+}
+textarea.f.wrap.locked { background: transparent; border-bottom-color: transparent; color: #111; cursor: default; }
 input.f.date { width: 56px; text-align: center; }
 input.f.date.m, input.f.date.d { width: 36px; }
 /* PDF 미리보기 모달 */
