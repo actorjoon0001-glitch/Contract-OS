@@ -46,6 +46,8 @@
   }
   /* 비고 textarea: 잘리지 않고 전체 내용 출력 */
   textarea.f.note, textarea.f.term-input { overflow: visible !important; resize: none; }
+  /* 주소 칸: 인쇄 폭 기준으로 내용 높이에 맞춰 줄바꿈 출력(잘림 방지) */
+  textarea.f.wrap { field-sizing: content; height: auto !important; overflow: visible !important; }
   /* 별도 협의 필요 주의 문구는 인쇄에서도 강조색 유지 */
   textarea.f.note.note-hl { color: #c0392b !important; font-weight: 700; }
 

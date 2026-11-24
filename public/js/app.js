@@ -1923,7 +1923,7 @@ function renderEditor() {
           <td class="sign-label">　</td>
           <td class="sign-co muted small">상기 계약내용에 대하여 공급자와 계약자는 상호 합의하여 계약을 체결함.</td>
           <td class="sign-label">주소</td>
-          <td class="sign-field">${field('client.address', c.client.address, 'addr')}</td>
+          <td class="sign-field">${wrapField('client.address', c.client.address, 'addr')}</td>
         </tr>
       </table>
     </div>
@@ -2065,7 +2065,7 @@ function leftCell(row) {
   }
   if (row.type === 'site') {
     return `<td class="lbl">${row.label} <span class="req no-print">*</span></td>
-      <td colspan="2" class="sitecell">${field('siteAddress', c.siteAddress, 'site')}</td>`;
+      <td colspan="2" class="sitecell">${wrapField('siteAddress', c.siteAddress, 'site')}</td>`;
   }
   return `<td class="lbl empty"></td><td colspan="2" class="empty"></td>`;
 }
@@ -2176,6 +2176,14 @@ function field(path, value, cls = '', align = '') {
   const d = fieldDiff(path, value);
   const input = `<input class="f ${cls} ${align} ${lc} ${d.changed ? 'diff-new' : ''}" data-path="${path}" value="${esc(value)}" ${lock} />`;
   return d.changed ? `<span class="diff-wrap">${input}${d.oldHtml}</span>` : input;
+}
+// 주소처럼 길 수 있는 한 줄 값: 칸 안에서 줄바꿈되어 전부 보이는 입력칸(Enter 줄바꿈은 막음)
+function wrapField(path, value, cls = '') {
+  const lock = editorLocked ? 'readonly' : '';
+  const lc = editorLocked ? 'locked' : '';
+  const d = fieldDiff(path, value);
+  const ta = `<textarea class="f wrap ${cls} ${lc} ${d.changed ? 'diff-new' : ''}" data-path="${path}" rows="1" ${lock}>${esc(value)}</textarea>`;
+  return d.changed ? `<span class="diff-wrap">${ta}${d.oldHtml}</span>` : ta;
 }
 // 전시장 (편집기). 현직 영업사원은 명부 소속으로 자동 확정되므로 고정 표시.
 // 관리자는 드롭다운으로 재지정 가능 — 단, 명부에 있는 현직 영업사원은 저장 시 서버가 소속으로 되돌림.
@@ -3118,9 +3126,12 @@ function bindEditor() {
   updateSealBanner();
 
   app.querySelectorAll('input.f[data-path], textarea.f[data-path]').forEach((inp) => {
+    // 주소 등 줄바꿈 입력칸: Enter로 줄을 나누지 않음(값은 한 줄 유지, 표시만 칸 안에서 줄바꿈)
+    if (inp.classList.contains('wrap')) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
     inp.addEventListener('input', () => {
       const path = inp.dataset.path;
       let v = inp.value;
+      if (inp.classList.contains('wrap') && /[\r\n]/.test(v)) { v = v.replace(/[\r\n]+/g, ' '); inp.value = v; } // 붙여넣은 줄바꿈 제거
       // 금액/면적/단가 입력은 숫자(콤마 허용)
       if (inp.classList.contains('amt') || inp.classList.contains('area') || inp.classList.contains('price')) {
         v = v.replace(/[^\d.,]/g, '');
